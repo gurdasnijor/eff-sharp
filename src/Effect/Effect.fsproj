@@ -59,6 +59,9 @@
     <Compile Include="Reducer.fs" />
     <Compile Include="Differ.fs" />
     <Compile Include="NonEmptyIterable.fs" />
+    <!-- w2-ref: fiber-safe mutable state (build on Effect + MutableRef) -->
+    <Compile Include="Ref.fs" />
+    <Compile Include="SynchronizedRef.fs" />
   </ItemGroup>
 
 </Project>

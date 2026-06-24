@@ -45,6 +45,9 @@
     <Compile Include="ReducerTests.fs" />
     <Compile Include="DifferTests.fs" />
     <Compile Include="NonEmptyIterableTests.fs" />
+    <!-- w2-ref: fiber-safe mutable state -->
+    <Compile Include="RefTests.fs" />
+    <Compile Include="SynchronizedRefTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
