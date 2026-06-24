@@ -75,6 +75,12 @@
     <Compile Include="PlatformError.fs" />
     <Compile Include="PrimaryKey.fs" />
     <Compile Include="RegExp.fs" />
+    <!-- w3-stm: transactional memory (TxRef engine, then collections on top) -->
+    <Compile Include="TxRef.fs" />
+    <Compile Include="TxChunk.fs" />
+    <Compile Include="TxHashMap.fs" />
+    <Compile Include="TxHashSet.fs" />
+    <Compile Include="TxDeferred.fs" />
   </ItemGroup>
 
 </Project>
