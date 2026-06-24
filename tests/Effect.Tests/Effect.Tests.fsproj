@@ -68,6 +68,12 @@
     <Compile Include="PlatformErrorTests.fs" />
     <Compile Include="PrimaryKeyTests.fs" />
     <Compile Include="RegExpTests.fs" />
+    <!-- w4-svc: services -->
+    <Compile Include="RandomTests.fs" />
+    <Compile Include="ConsoleTests.fs" />
+    <Compile Include="CryptoTests.fs" />
+    <Compile Include="ScopedRefTests.fs" />
+    <Compile Include="RcRefTests.fs" />
     <!-- w3-stm: transactional memory -->
     <Compile Include="TxRefTests.fs" />
     <Compile Include="TxChunkTests.fs" />

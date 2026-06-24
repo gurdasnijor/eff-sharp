@@ -82,6 +82,13 @@
     <Compile Include="PlatformError.fs" />
     <Compile Include="PrimaryKey.fs" />
     <Compile Include="RegExp.fs" />
+    <!-- w4-svc: services (Random/Console over Context; Crypto over PlatformError+Clock;
+         ScopedRef/RcRef over Scope+SynchronizedRef) -->
+    <Compile Include="Random.fs" />
+    <Compile Include="Console.fs" />
+    <Compile Include="Crypto.fs" />
+    <Compile Include="ScopedRef.fs" />
+    <Compile Include="RcRef.fs" />
     <!-- w3-stm: transactional memory (TxRef engine, then collections on top) -->
     <Compile Include="TxRef.fs" />
     <Compile Include="TxChunk.fs" />
