@@ -9,3 +9,6 @@ obj/
 
 # macOS
 .DS_Store
+
+# Vendored upstream source (local reference only, not committed)
+repos/
