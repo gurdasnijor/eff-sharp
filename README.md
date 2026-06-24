@@ -70,7 +70,7 @@ but `Skip`-ped as red→green targets.
 | Slice | Scope | Status |
 |------|-------|--------|
 | 1 | Core `Effect<'A,'E,'R>`: `succeed`/`fail`/`sync`/`map`/`flatMap`/`catchAll`, `effect { }` CE | ✅ done |
-| 2 | `Cause` / `Exit` — defects vs. typed failures | planned |
+| 2 | `Cause` / `Exit` — defects vs. typed failures | ✅ done |
 | 3 | Async core — `runPromise` analogue, real I/O | planned |
 | 4 | Concurrency — fibers, `fork`, interruption | planned |
 | 5 | `Context` / `Layer` — dependency injection layers | planned |

@@ -17,7 +17,7 @@ Status legend: ✅ done · 🟡 stub (compiles, not implemented) · ⬜ planned
 | `Boolean` | ⬜ planned | — | `Boolean.test.ts` |
 | `Brand` | ⬜ planned | — | `Brand.test.ts` |
 | `Cache` | ⬜ planned | — | `Cache.test.ts` |
-| `Cause` | 🟡 stub | 2 | `Cause.test.ts` |
+| `Cause` | ✅ done | 2 | `Cause.test.ts` |
 | `Channel` | ⬜ planned | — | `Channel.test.ts` |
 | `ChannelSchema` | ⬜ planned | — | — |
 | `Chunk` | ⬜ planned | — | `Chunk.test.ts` |
@@ -41,7 +41,7 @@ Status legend: ✅ done · 🟡 stub (compiles, not implemented) · ⬜ planned
 | `Equivalence` | ⬜ planned | — | `Equivalence.test.ts` |
 | `ErrorReporter` | ⬜ planned | — | — |
 | `ExecutionPlan` | ⬜ planned | — | `ExecutionPlan.test.ts` |
-| `Exit` | 🟡 stub | 2 | `Exit.test.ts` |
+| `Exit` | ✅ done | 2 | `Exit.test.ts` |
 | `Fiber` | 🟡 stub | 4 | `Fiber.test.ts` |
 | `FiberHandle` | ⬜ planned | — | `FiberHandle.test.ts` |
 | `FiberMap` | ⬜ planned | — | `FiberMap.test.ts` |

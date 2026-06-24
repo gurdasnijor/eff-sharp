@@ -1,15 +1,28 @@
 module Effect.Tests.ExitTests
 
 open Xunit
+open Effect
 
-// Port target: repos/effect-smol/packages/effect/test/Exit.test.ts
-// Pending until slice 2 (Cause/Exit) lands. Kept as a red->green marker.
+// Ported from repos/effect-smol/packages/effect/test/Exit.test.ts
 
-[<Fact(Skip = "slice 2: Exit not yet implemented")>]
+[<Fact>]
 let ``toString renders Success and Failure variants`` () =
-    // Expected upstream behaviour:
-    //   Exit.succeed(1).toString()    === "Success(1)"
-    //   Exit.fail("error").toString() === "Failure(Cause([Fail(\"error\")]))"
-    //   Exit.die("error").toString()  === "Failure(Cause([Die(\"error\")]))"
-    //   Exit.interrupt(1).toString()  === "Failure(Cause([Interrupt(1)]))"
-    Assert.True(false)
+    Assert.Equal("Success(1)", Exit.render (Exit.succeed 1))
+    Assert.Equal("Failure(Cause([Fail(\"error\")]))", Exit.render (Exit.fail "error"))
+    Assert.Equal("Failure(Cause([Die(\"error\")]))", Exit.render (Exit.die (box "error")))
+    Assert.Equal("Failure(Cause([Interrupt(1)]))", Exit.render (Exit.interrupt (Some 1)))
+    Assert.Equal("Failure(Cause([Interrupt(undefined)]))", Exit.render (Exit.interrupt None))
+
+[<Fact>]
+let ``succeed is a success, fail is a failure`` () =
+    Assert.True(Exit.isSuccess (Exit.succeed 1))
+    Assert.False(Exit.isFailure (Exit.succeed 1))
+    Assert.True(Exit.isFailure (Exit.fail "boom"))
+    Assert.False(Exit.isSuccess (Exit.fail "boom"))
+
+[<Fact>]
+let ``match folds both branches`` () =
+    let label = Exit.matchExit (fun _ -> "failed") (sprintf "ok:%d") (Exit.succeed 7)
+    Assert.Equal("ok:7", label)
+    let label2 = Exit.matchExit (fun _ -> "failed") (sprintf "ok:%d") (Exit.fail "x")
+    Assert.Equal("failed", label2)
