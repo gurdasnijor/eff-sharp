@@ -63,6 +63,12 @@
     <Compile Include="PlatformErrorTests.fs" />
     <Compile Include="PrimaryKeyTests.fs" />
     <Compile Include="RegExpTests.fs" />
+    <!-- w3-stm: transactional memory -->
+    <Compile Include="TxRefTests.fs" />
+    <Compile Include="TxChunkTests.fs" />
+    <Compile Include="TxHashMapTests.fs" />
+    <Compile Include="TxHashSetTests.fs" />
+    <Compile Include="TxDeferredTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
