@@ -117,6 +117,8 @@
     <Compile Include="FiberHandleTests.fs" />
     <Compile Include="FiberSetTests.fs" />
     <Compile Include="FiberMapTests.fs" />
+    <!-- w5-rcmap: reference-counted map of scoped resources -->
+    <Compile Include="RcMapTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
