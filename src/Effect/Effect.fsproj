@@ -32,6 +32,8 @@
     <Compile Include="Brand.fs" />
     <Compile Include="Hash.fs" />
     <Compile Include="Equal.fs" />
+    <Compile Include="LogLevel.fs" />
+    <Compile Include="Scheduler.fs" />
     <!-- leaf2: immutable hashing collections -->
     <Compile Include="HashMap.fs" />
     <Compile Include="HashSet.fs" />
