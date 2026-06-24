@@ -106,6 +106,9 @@
     <Compile Include="SchemaTests.fs" />
     <!-- w5: counting semaphore -->
     <Compile Include="SemaphoreTests.fs" />
+    <!-- w5-caches -->
+    <Compile Include="CacheTests.fs" />
+    <Compile Include="ScopedCacheTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

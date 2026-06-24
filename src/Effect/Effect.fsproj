@@ -115,6 +115,9 @@
     <Compile Include="PartitionedSemaphore.fs" />
     <!-- w5: counting semaphore -->
     <Compile Include="Semaphore.fs" />
+    <!-- w5-caches: keyed memoization (on Deferred / MutableHashMap / Clock / Scope) -->
+    <Compile Include="Cache.fs" />
+    <Compile Include="ScopedCache.fs" />
   </ItemGroup>
 
 </Project>
