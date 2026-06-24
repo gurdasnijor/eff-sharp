@@ -74,6 +74,9 @@
     <Compile Include="FilterTests.fs" />
     <Compile Include="PullTests.fs" />
     <Compile Include="TakeTests.fs" />
+    <!-- w4-conc: concurrency hubs -->
+    <Compile Include="PubSubTests.fs" />
+    <Compile Include="PartitionedSemaphoreTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -85,6 +85,9 @@
     <Compile Include="Filter.fs" />
     <Compile Include="Pull.fs" />
     <Compile Include="Take.fs" />
+    <!-- w4-conc: concurrency hubs -->
+    <Compile Include="PubSub.fs" />
+    <Compile Include="PartitionedSemaphore.fs" />
   </ItemGroup>
 
 </Project>
