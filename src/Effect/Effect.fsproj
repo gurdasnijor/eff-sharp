@@ -91,6 +91,9 @@
     <Compile Include="BigInt.fs" />
     <Compile Include="JsonSchema.fs" />
     <Compile Include="Request.fs" />
+    <!-- w4-stmq: transactional queue + pub/sub (build on TxRef/TxChunk) -->
+    <Compile Include="TxQueue.fs" />
+    <Compile Include="TxPubSub.fs" />
   </ItemGroup>
 
 </Project>
