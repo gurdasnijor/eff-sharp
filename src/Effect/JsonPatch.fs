@@ -133,19 +133,6 @@ module JsonPatch =
         else
             failwithf "Invalid array index: \"%s\"" token
 
-    /// Insert `v` at position `i` (0..len).
-    let private listInsertAt (i: int) (v: Json) (xs: Json list) : Json list =
-        let arr = List.toArray xs
-        [ yield! arr.[0 .. i - 1]
-          yield v
-          yield! arr.[i..] ]
-
-    let private listSetAt (i: int) (v: Json) (xs: Json list) : Json list =
-        xs |> List.mapi (fun j x -> if j = i then v else x)
-
-    let private listRemoveAt (i: int) (xs: Json list) : Json list =
-        xs |> List.mapi (fun j x -> (j, x)) |> List.filter (fun (j, _) -> j <> i) |> List.map snd
-
     /// Walk to the parent of `pointer`, recording the path. Returns None if the
     /// parent path cannot be resolved.
     let private resolveParent
@@ -180,7 +167,7 @@ module JsonPatch =
         List.foldBack
             (fun entry acc ->
                 match entry with
-                | ArrEntry(xs, idx) -> JArray(listSetAt idx acc xs)
+                | ArrEntry(xs, idx) -> JArray(List.updateAt idx acc xs)
                 | ObjEntry(m, key) -> JObject(Map.add key acc m))
             stack
             newParent
@@ -197,7 +184,7 @@ module JsonPatch =
                     let idx = if lastToken = "-" then xs.Length else toIndex lastToken
                     if idx < 0 || idx > xs.Length then
                         failwithf "Array index out of bounds at \"%s\"." pointer
-                    rebuildFromStack stack (JArray(listInsertAt idx value xs))
+                    rebuildFromStack stack (JArray(List.insertAt idx value xs))
                 | JObject m -> rebuildFromStack stack (JObject(Map.add lastToken value m))
                 | _ -> failwithf "Cannot add at \"%s\" (parent not found or not a container)." pointer
 
@@ -219,8 +206,8 @@ module JsonPatch =
                     if idx < 0 || idx >= xs.Length then
                         failwithf "Array index out of bounds at \"%s\"." pointer
                     let updated =
-                        if mode = "remove" then listRemoveAt idx xs
-                        else listSetAt idx (Option.get value) xs
+                        if mode = "remove" then List.removeAt idx xs
+                        else List.updateAt idx (Option.get value) xs
                     rebuildFromStack stack (JArray updated)
                 | JObject m ->
                     if not (Map.containsKey lastToken m) then
