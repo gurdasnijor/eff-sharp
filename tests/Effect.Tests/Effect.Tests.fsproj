@@ -109,6 +109,8 @@
     <!-- w5-caches -->
     <Compile Include="CacheTests.fs" />
     <Compile Include="ScopedCacheTests.fs" />
+    <!-- w5-resource: refreshable scoped value -->
+    <Compile Include="ResourceTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

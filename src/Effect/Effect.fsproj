@@ -118,6 +118,8 @@
     <!-- w5-caches: keyed memoization (on Deferred / MutableHashMap / Clock / Scope) -->
     <Compile Include="Cache.fs" />
     <Compile Include="ScopedCache.fs" />
+    <!-- w5-resource: refreshable scoped value (ScopedRef + Schedule) -->
+    <Compile Include="Resource.fs" />
   </ItemGroup>
 
 </Project>
