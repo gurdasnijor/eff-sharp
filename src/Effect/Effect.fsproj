@@ -54,6 +54,11 @@
     <Compile Include="Duration.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Cron.fs" />
+    <!-- w2-leavesa: algebraic leaves (Combiner depends on Order above; Reducer on Combiner) -->
+    <Compile Include="Combiner.fs" />
+    <Compile Include="Reducer.fs" />
+    <Compile Include="Differ.fs" />
+    <Compile Include="NonEmptyIterable.fs" />
   </ItemGroup>
 
 </Project>
