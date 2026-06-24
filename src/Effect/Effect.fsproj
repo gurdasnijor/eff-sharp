@@ -24,7 +24,6 @@
     <Compile Include="Layer.fs" />
     <!-- Slice 6: higher-level -->
     <Compile Include="Stream.fs" />
-    <Compile Include="Schema.fs" />
     <!-- leaf5: traits -->
     <Compile Include="Equivalence.fs" />
     <Compile Include="Order.fs" />
@@ -78,6 +77,8 @@
     <!-- w2-leavesb: utility leaves (Formatter depends on Redactable) -->
     <Compile Include="Redactable.fs" />
     <Compile Include="Formatter.fs" />
+    <!-- w4-schema: type-first codec (needs JsonPatch.Json + Formatter above) -->
+    <Compile Include="Schema.fs" />
     <Compile Include="PlatformError.fs" />
     <Compile Include="PrimaryKey.fs" />
     <Compile Include="RegExp.fs" />

@@ -92,6 +92,8 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSubTests.fs" />
     <Compile Include="PartitionedSemaphoreTests.fs" />
+    <!-- w4-schema: type-first codec -->
+    <Compile Include="SchemaTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
