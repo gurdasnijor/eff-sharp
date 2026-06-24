@@ -100,6 +100,8 @@
     <Compile Include="PartitionedSemaphoreTests.fs" />
     <!-- w4-schema: type-first codec -->
     <Compile Include="SchemaTests.fs" />
+    <!-- w5-resource: refreshable scoped value -->
+    <Compile Include="ResourceTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

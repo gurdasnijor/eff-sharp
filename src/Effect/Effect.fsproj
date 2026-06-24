@@ -113,6 +113,8 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5-resource: refreshable scoped value (ScopedRef + Schedule) -->
+    <Compile Include="Resource.fs" />
   </ItemGroup>
 
 </Project>
