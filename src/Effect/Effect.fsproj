@@ -49,6 +49,11 @@
     <Compile Include="Chunk.fs" />
     <Compile Include="Trie.fs" />
     <Compile Include="Graph.fs" />
+    <!-- leaf4: numeric / time (standalone, structural equality) -->
+    <Compile Include="BigDecimal.fs" />
+    <Compile Include="Duration.fs" />
+    <Compile Include="DateTime.fs" />
+    <Compile Include="Cron.fs" />
   </ItemGroup>
 
 </Project>

@@ -36,6 +36,10 @@
     <Compile Include="ChunkTests.fs" />
     <Compile Include="TrieTests.fs" />
     <Compile Include="GraphTests.fs" />
+    <!-- leaf4: numeric / time -->
+    <Compile Include="BigDecimalTests.fs" />
+    <Compile Include="DurationTests.fs" />
+    <Compile Include="DateTimeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
