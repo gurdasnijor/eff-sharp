@@ -6,8 +6,24 @@
     <RootNamespace>Effect</RootNamespace>
   </PropertyGroup>
 
+  <!-- Compile order is dependency order. Mirrors effect-smol module names. -->
   <ItemGroup>
+    <!-- Slice 1: implemented -->
     <Compile Include="Effect.fs" />
+    <!-- Slice 2: error model -->
+    <Compile Include="Cause.fs" />
+    <Compile Include="Exit.fs" />
+    <!-- Slice 3-4: runtime / concurrency -->
+    <Compile Include="Scope.fs" />
+    <Compile Include="Fiber.fs" />
+    <Compile Include="Runtime.fs" />
+    <!-- Slice 5: dependency injection -->
+    <Compile Include="Context.fs" />
+    <Compile Include="Layer.fs" />
+    <!-- Slice 6: higher-level -->
+    <Compile Include="Schedule.fs" />
+    <Compile Include="Stream.fs" />
+    <Compile Include="Schema.fs" />
   </ItemGroup>
 
 </Project>

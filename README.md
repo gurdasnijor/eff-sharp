@@ -53,8 +53,17 @@ Requires the .NET SDK (10.x).
 
 ```bash
 dotnet build
-dotnet run --project tests/Effect.Tests
+dotnet test
 ```
+
+## Porting status
+
+The source layout mirrors effect-smol: one `src/Effect/<Module>.fs` per upstream
+`packages/effect/src/<Module>.ts`, and one `tests/Effect.Tests/<Module>Tests.fs`
+per `test/<Module>.test.ts`. [`PORTING.md`](PORTING.md) tracks all 137 upstream
+modules and their test files with per-module status (done / stub / planned).
+Not-yet-implemented modules ship as compile-safe stubs; their tests are present
+but `Skip`-ped as red→green targets.
 
 ## Roadmap
 
