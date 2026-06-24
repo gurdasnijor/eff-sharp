@@ -104,22 +104,22 @@ module Pull =
         (onDone: obj -> Effect<'B, 'E2, 'R>)
         (self: Pull<'A, 'R>)
         : Effect<'B, 'E2, 'R> =
-        Effect(fun r ->
+        Effect(fun fib r ->
             async {
                 let (Effect run) = self
-                let! exit = run r
+                let! exit = run fib r
                 match exit with
                 | Success a ->
                     let (Effect run2) = onSuccess a
-                    return! run2 r
+                    return! run2 fib r
                 | Failure cause ->
                     match filterDoneLeftover cause with
                     | Ok leftover ->
                         let (Effect run2) = onDone leftover
-                        return! run2 r
+                        return! run2 fib r
                     | Error c ->
                         let (Effect run2) = onFailure c
-                        return! run2 r
+                        return! run2 fib r
             })
 
     /// Recovers from a `Done` completion with `f`, leaving successes and
