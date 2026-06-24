@@ -100,6 +100,8 @@
     <Compile Include="PartitionedSemaphoreTests.fs" />
     <!-- w4-schema: type-first codec -->
     <Compile Include="SchemaTests.fs" />
+    <!-- w5: counting semaphore -->
+    <Compile Include="SemaphoreTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

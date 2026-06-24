@@ -113,6 +113,8 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5: counting semaphore -->
+    <Compile Include="Semaphore.fs" />
   </ItemGroup>
 
 </Project>
