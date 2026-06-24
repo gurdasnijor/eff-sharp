@@ -101,6 +101,9 @@
     <!-- w4-stmq: transactional queue + pub/sub (build on TxRef/TxChunk) -->
     <Compile Include="TxQueue.fs" />
     <Compile Include="TxPubSub.fs" />
+    <!-- w4-conc: concurrency hubs -->
+    <Compile Include="PubSub.fs" />
+    <Compile Include="PartitionedSemaphore.fs" />
   </ItemGroup>
 
 </Project>

@@ -87,6 +87,9 @@
     <!-- w4-stmq: transactional queue + pub/sub -->
     <Compile Include="TxQueueTests.fs" />
     <Compile Include="TxPubSubTests.fs" />
+    <!-- w4-conc: concurrency hubs -->
+    <Compile Include="PubSubTests.fs" />
+    <Compile Include="PartitionedSemaphoreTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
