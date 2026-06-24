@@ -34,12 +34,12 @@ module SynchronizedRef =
     /// Runs `eff` while holding the ref's single permit, releasing it afterwards
     /// (even on failure). The .NET stand-in for upstream `semaphore.withPermit`.
     let private withPermit (sem: SemaphoreSlim) (Effect run: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
-        Effect(fun r ->
+        Effect(fun fib r ->
             async {
                 do! sem.WaitAsync() |> Async.AwaitTask
 
                 try
-                    return! run r
+                    return! run fib r
                 finally
                     sem.Release() |> ignore
             })

@@ -60,7 +60,7 @@ module Clock =
     /// Sleep for `duration`, bridging to `Task.Delay`. (Clock.sleep)
     let sleep<'E> (duration: Duration) : Effect<unit, 'E, Context> =
         clockWith (fun c ->
-            Effect(fun _ ->
+            Effect(fun _ _ ->
                 async {
                     do! Async.AwaitTask(c.SleepUnsafe duration)
                     return Success()

@@ -72,11 +72,11 @@ module Deferred =
     /// Retrieve the value of the `Deferred`, suspending until it is completed.
     /// Every awaiter observes the stored completion effect. (Deferred.await)
     let await (self: Deferred<'A, 'E>) : Effect<'A, 'E, 'R> =
-        Effect(fun _ ->
+        Effect(fun fib _ ->
             async {
                 let! completion = Async.AwaitTask self.Source.Task
                 let (Effect run) = completion
-                return! run ()
+                return! run fib ()
             })
 
     // --- completion (each returns `true` iff this call completed it) ---
@@ -126,7 +126,7 @@ module Deferred =
     /// with `true` if it completed the `Deferred`, else `false`. Short-circuits
     /// without running `effect` if already completed. (Deferred.complete)
     let complete (self: Deferred<'A, 'E>) (effect: Effect<'A, 'E, 'R>) : Effect<bool, 'F, 'R> =
-        Effect(fun r ->
+        Effect(fun _ r ->
             async {
                 match isDoneUnsafe self with
                 | true -> return Success false

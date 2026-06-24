@@ -102,7 +102,7 @@ module Latch =
     /// Wait for the latch to be opened or the current waiters to be released. An
     /// open latch completes immediately. (Latch.await)
     let await (self: Latch) : Effect<unit, 'E, 'R> =
-        Effect(fun _ ->
+        Effect(fun _ _ ->
             async {
                 let task =
                     lock self.Lock (fun () ->
