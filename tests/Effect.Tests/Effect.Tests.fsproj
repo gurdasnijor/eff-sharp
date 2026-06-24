@@ -55,6 +55,12 @@
     <!-- w2-deferred: synchronization primitives -->
     <Compile Include="DeferredTests.fs" />
     <Compile Include="LatchTests.fs" />
+    <!-- w2-leavesb: utility leaves -->
+    <Compile Include="RedactableTests.fs" />
+    <Compile Include="FormatterTests.fs" />
+    <Compile Include="PlatformErrorTests.fs" />
+    <Compile Include="PrimaryKeyTests.fs" />
+    <Compile Include="RegExpTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
