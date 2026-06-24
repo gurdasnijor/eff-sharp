@@ -62,11 +62,7 @@ module Formatter =
     let private isNumericType (t: Type) = numericCodes.Contains(Type.GetTypeCode t)
 
     let private formatNumber (v: obj) : string =
-        match v with
-        | :? float as f -> f.ToString(CultureInfo.InvariantCulture)
-        | :? float32 as f -> f.ToString(CultureInfo.InvariantCulture)
-        | :? decimal as d -> d.ToString(CultureInfo.InvariantCulture)
-        | _ -> Convert.ToString(v, CultureInfo.InvariantCulture)
+        Convert.ToString(v, CultureInfo.InvariantCulture)
 
     let private isGenericDef (def: Type) (t: Type) =
         t.IsGenericType && t.GetGenericTypeDefinition() = def
