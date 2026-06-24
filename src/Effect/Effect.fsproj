@@ -113,6 +113,10 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5-fibercoll: fiber-supervision containers (on Fiber/Deferred/Scope) -->
+    <Compile Include="FiberHandle.fs" />
+    <Compile Include="FiberSet.fs" />
+    <Compile Include="FiberMap.fs" />
   </ItemGroup>
 
 </Project>
