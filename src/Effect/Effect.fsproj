@@ -113,6 +113,8 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5: async queue (Deferred/MutableList over a lock-guarded buffer) -->
+    <Compile Include="Queue.fs" />
   </ItemGroup>
 
 </Project>
