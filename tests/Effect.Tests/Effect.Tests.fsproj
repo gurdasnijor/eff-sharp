@@ -12,6 +12,7 @@
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />
+    <Compile Include="FiberTests.fs" />
     <!-- w2-di: Context / Scope / Clock vertical -->
     <Compile Include="ContextTests.fs" />
     <Compile Include="ScopeTests.fs" />

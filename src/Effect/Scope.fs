@@ -59,7 +59,7 @@ module Scope =
     /// finalizer runs even if a previous one failed (failures are swallowed).
     /// (Scope.close)
     let close (scope: Scope<'E, 'R>) (exit: Exit<obj, obj>) : Effect<unit, 'E, 'R> =
-        Effect(fun r ->
+        Effect(fun fib r ->
             async {
                 let finalizers =
                     lock scope.Gate (fun () ->
@@ -74,7 +74,7 @@ module Scope =
                     let (Effect run) = f exit
 
                     try
-                        let! _ = run r
+                        let! _ = run fib r
                         ()
                     with _ ->
                         ()
