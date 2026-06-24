@@ -113,6 +113,9 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5-caches: keyed memoization (on Deferred / MutableHashMap / Clock / Scope) -->
+    <Compile Include="Cache.fs" />
+    <Compile Include="ScopedCache.fs" />
   </ItemGroup>
 
 </Project>
