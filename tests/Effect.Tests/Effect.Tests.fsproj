@@ -11,6 +11,9 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <Compile Include="HashMapTests.fs" />
+    <Compile Include="HashSetTests.fs" />
+    <Compile Include="HashRingTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

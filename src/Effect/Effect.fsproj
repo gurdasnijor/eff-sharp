@@ -24,6 +24,10 @@
     <Compile Include="Schedule.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Schema.fs" />
+    <!-- leaf2: immutable hashing collections -->
+    <Compile Include="HashMap.fs" />
+    <Compile Include="HashSet.fs" />
+    <Compile Include="HashRing.fs" />
   </ItemGroup>
 
 </Project>
