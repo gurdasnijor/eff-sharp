@@ -63,12 +63,13 @@ let ``Scope runs finalizers even when the body fails (resource safety)`` () =
     Assert.Equal<string>("released", System.String.Join(",", log))
 
 [<Fact>]
-let ``Deferred completes and is awaited inside an effect (via makeUnsafe)`` () =
-    // Uses makeUnsafe to dodge the `Deferred.make` CE-inference limitation noted above.
-    let d = Deferred.makeUnsafe<int, string> ()
-
+let ``Deferred.make allocates, completes and awaits inside a typed effect block`` () =
+    // Regression for the P0 fix: `Deferred.make ()` is now `let!`-bindable in a
+    // typed effect{} block (its explicit type params were dropped so the effect's
+    // error/env channels generalize). The Deferred types are inferred from use.
     let prog: Effect<int, string, unit> =
         effect {
+            let! d = Deferred.make ()
             let! _ = Deferred.succeed d 99
             let! v = Deferred.await d
             return v

@@ -58,7 +58,14 @@ module Deferred =
     // --- constructors ---
 
     /// Allocate an empty `Deferred` inside an `Effect`. (Deferred.make)
-    let make<'A, 'E> () = Effect.sync (fun () -> makeUnsafe<'A, 'E> ())
+    ///
+    /// No explicit type parameters: declaring them (`make<'A,'E>`) would stop F#
+    /// from generalizing the *Effect's* own error/env channels, defaulting them
+    /// to `obj` and breaking `let! d = Deferred.make ()` inside a typed `effect`
+    /// block. Left fully polymorphic, the `Deferred`'s `'A`/`'E` and the effect
+    /// channels are all inferred from later use (e.g. `succeed`/`await`). Annotate
+    /// the binding (`let d : Deferred<int, string> = ...`) to pin them explicitly.
+    let make () = Effect.sync (fun () -> makeUnsafe ())
 
     // --- await ---
 
