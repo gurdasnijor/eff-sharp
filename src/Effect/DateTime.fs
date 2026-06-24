@@ -115,10 +115,9 @@ module DateTime =
 
     let private floorMod (a: int64) (b: int64) : int64 = a - floorDiv a b * b
 
-    let private isLeap (y: int64) : bool = (y % 4L = 0L && y % 100L <> 0L) || y % 400L = 0L
-
-    let private normLengths = [| 31L; 28L; 31L; 30L; 31L; 30L; 31L; 31L; 30L; 31L; 30L; 31L |]
-    let private leapLengths = [| 31L; 29L; 31L; 30L; 31L; 30L; 31L; 31L; 30L; 31L; 30L; 31L |]
+    /// Length of month `m0` (0-based) in `year`, via the BCL calendar
+    /// (`System.DateTime.DaysInMonth` already encodes the leap-year rule).
+    let private monthLen (year: int64) (m0: int) : int64 = int64 (System.DateTime.DaysInMonth(int year, m0 + 1))
 
     /// Day number (days since 1970-01-01) of Jan 1 of the given year.
     let private daysFromYear (y: int64) : int64 =
@@ -136,11 +135,10 @@ module DateTime =
         while daysFromYear y > dayN do
             y <- y - 1L
         let doy = dayN - daysFromYear y
-        let lengths = if isLeap y then leapLengths else normLengths
         let mutable m = 0
         let mutable rem = doy
-        while rem >= lengths.[m] do
-            rem <- rem - lengths.[m]
+        while rem >= monthLen y m do
+            rem <- rem - monthLen y m
             m <- m + 1
         y, m, int rem + 1
 
@@ -153,10 +151,9 @@ module DateTime =
     let private makeDay (year: int64) (month: int64) (date: int64) : int64 =
         let y = year + floorDiv month 12L
         let m = floorMod month 12L
-        let lengths = if isLeap y then leapLengths else normLengths
         let mutable dayNum = daysFromYear y
         for i in 0 .. int m - 1 do
-            dayNum <- dayNum + lengths.[i]
+            dayNum <- dayNum + monthLen y i
         dayNum + date - 1L
 
     let private makeTime (h: int64) (m: int64) (s: int64) (ms: int64) : int64 =
@@ -301,16 +298,15 @@ module DateTime =
     let toUtc (self: DateTime) : DateTime = self
 
     let toPartsUtc (self: DateTime) : DateTimePartsUtc =
-        let t = self.EpochMillis
-        let y, m0, d = ymdFromTime t
-        { Year = int y
-          Month = m0 + 1
-          Day = d
-          WeekDay = weekDayOf t
-          Hour = hoursOf t
-          Minute = minutesOf t
-          Second = secondsOf t
-          Millisecond = msOf t }
+        let dt = System.DateTimeOffset.FromUnixTimeMilliseconds(self.EpochMillis).UtcDateTime
+        { Year = dt.Year
+          Month = dt.Month
+          Day = dt.Day
+          WeekDay = int dt.DayOfWeek
+          Hour = dt.Hour
+          Minute = dt.Minute
+          Second = dt.Second
+          Millisecond = dt.Millisecond }
 
     let getPartUtc (part: DateTimePart) (self: DateTime) : int =
         let p = toPartsUtc self
@@ -326,9 +322,9 @@ module DateTime =
 
     /// ISO 8601 rendering, e.g. "2024-03-15T12:00:00.000Z" (matches `toJSON`).
     let formatIso (self: DateTime) : string =
-        let t = self.EpochMillis
-        let y, m0, d = ymdFromTime t
-        sprintf "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ" (int y) (m0 + 1) d (hoursOf t) (minutesOf t) (secondsOf t) (msOf t)
+        System.DateTimeOffset
+            .FromUnixTimeMilliseconds(self.EpochMillis)
+            .UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", inv)
 
     /// Alias of `formatIso` (upstream `Date.toJSON`).
     let toJSON (self: DateTime) : string = formatIso self
@@ -360,12 +356,9 @@ module DateTime =
 
     // --- comparisons ---
 
-    let equivalence (a: DateTime) (b: DateTime) : bool = a.EpochMillis = b.EpochMillis
+    let equivalence (a: DateTime) (b: DateTime) : bool = a = b
 
-    let order (self: DateTime) (that: DateTime) : int =
-        if self.EpochMillis < that.EpochMillis then -1
-        elif self.EpochMillis > that.EpochMillis then 1
-        else 0
+    let order (self: DateTime) (that: DateTime) : int = sign (compare self.EpochMillis that.EpochMillis)
 
     let min (self: DateTime) (that: DateTime) : DateTime = if order self that <= 0 then self else that
     let max (self: DateTime) (that: DateTime) : DateTime = if order self that >= 0 then self else that

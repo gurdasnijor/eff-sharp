@@ -88,10 +88,7 @@ module BigDecimal =
     // --- sign / magnitude ---
 
     /// -1, 0, or 1 according to the sign.
-    let sign (n: BigDecimal) : int =
-        if n.Value = BigInteger.Zero then 0
-        elif n.Value < BigInteger.Zero then -1
-        else 1
+    let sign (n: BigDecimal) : int = n.Value.Sign
 
     let isZero (n: BigDecimal) : bool = n.Value = BigInteger.Zero
     let isNegative (n: BigDecimal) : bool = n.Value < BigInteger.Zero
@@ -112,8 +109,7 @@ module BigDecimal =
 
     let equals (self: BigDecimal) (that: BigDecimal) : bool = equivalence self that
 
-    let private cmpBig (a: bigint) (b: bigint) : int =
-        if a < b then -1 elif a > b then 1 else 0
+    let private cmpBig (a: bigint) (b: bigint) : int = Operators.sign (compare a b)
 
     /// Total order returning -1/0/1.
     let order (self: BigDecimal) (that: BigDecimal) : int =
