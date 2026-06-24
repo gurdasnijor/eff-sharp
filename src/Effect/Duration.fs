@@ -97,8 +97,7 @@ module Duration =
         Regex(@"^(-?\d+(?:\.\d+)?)\s+(nanos?|micros?|millis?|seconds?|minutes?|hours?|days?|weeks?)$", RegexOptions.Compiled)
 
     let private roundTiesAwayFromZero (input: float) : bigint =
-        let r = if input < 0.0 then ceil (input - 0.5) else floor (input + 0.5)
-        BigInteger r
+        BigInteger(System.Math.Round(input, System.MidpointRounding.AwayFromZero))
 
     let private roundMillisToNanos (millis: float) : bigint = roundTiesAwayFromZero (millis * 1_000_000.0)
 
