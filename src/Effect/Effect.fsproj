@@ -54,6 +54,12 @@
     <Compile Include="Duration.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Cron.fs" />
+    <!-- w2-leavesb: utility leaves (Formatter depends on Redactable) -->
+    <Compile Include="Redactable.fs" />
+    <Compile Include="Formatter.fs" />
+    <Compile Include="PlatformError.fs" />
+    <Compile Include="PrimaryKey.fs" />
+    <Compile Include="RegExp.fs" />
   </ItemGroup>
 
 </Project>

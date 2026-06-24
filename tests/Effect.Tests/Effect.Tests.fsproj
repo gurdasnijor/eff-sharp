@@ -40,6 +40,12 @@
     <Compile Include="BigDecimalTests.fs" />
     <Compile Include="DurationTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <!-- w2-leavesb: utility leaves -->
+    <Compile Include="RedactableTests.fs" />
+    <Compile Include="FormatterTests.fs" />
+    <Compile Include="PlatformErrorTests.fs" />
+    <Compile Include="PrimaryKeyTests.fs" />
+    <Compile Include="RegExpTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
