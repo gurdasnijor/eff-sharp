@@ -81,6 +81,10 @@
     <Compile Include="TxHashMap.fs" />
     <Compile Include="TxHashSet.fs" />
     <Compile Include="TxDeferred.fs" />
+    <!-- w3-frontier-b: Filter -> Pull -> Take (stream substrate) -->
+    <Compile Include="Filter.fs" />
+    <Compile Include="Pull.fs" />
+    <Compile Include="Take.fs" />
   </ItemGroup>
 
 </Project>
