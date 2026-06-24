@@ -23,7 +23,6 @@
     <!-- Slice 5: dependency injection -->
     <Compile Include="Layer.fs" />
     <!-- Slice 6: higher-level -->
-    <Compile Include="Schedule.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Schema.fs" />
     <!-- leaf5: traits -->
@@ -61,6 +60,8 @@
     <Compile Include="Duration.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Cron.fs" />
+    <!-- wave4: Schedule (decision machine over Duration / Cron / DateTime) -->
+    <Compile Include="Schedule.fs" />
     <!-- w2-leavesa: algebraic leaves (Combiner depends on Order above; Reducer on Combiner) -->
     <Compile Include="Combiner.fs" />
     <Compile Include="Reducer.fs" />
