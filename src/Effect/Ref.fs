@@ -97,13 +97,7 @@ module Ref =
     let modifySome (self: Ref<'A>) (pf: 'A -> 'B * 'A option) : Effect<'B, 'E, 'R> =
         modify self (fun value ->
             let (b, option) = pf value
-
-            let next =
-                match option with
-                | None -> value
-                | Some v -> v
-
-            (b, next))
+            (b, Option.defaultValue value option))
 
     /// Updates the value with `f`. (Ref.update)
     let update (self: Ref<'A>) (f: 'A -> 'A) : Effect<unit, 'E, 'R> =
