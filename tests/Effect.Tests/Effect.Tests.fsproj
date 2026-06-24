@@ -72,6 +72,8 @@
     <Compile Include="PlatformErrorTests.fs" />
     <Compile Include="PrimaryKeyTests.fs" />
     <Compile Include="RegExpTests.fs" />
+    <!-- w5: async queue -->
+    <Compile Include="QueueTests.fs" />
     <!-- w4-svc: services -->
     <Compile Include="RandomTests.fs" />
     <Compile Include="ConsoleTests.fs" />

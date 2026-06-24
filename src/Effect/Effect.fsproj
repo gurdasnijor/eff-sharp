@@ -124,6 +124,8 @@
     <Compile Include="FiberHandle.fs" />
     <Compile Include="FiberSet.fs" />
     <Compile Include="FiberMap.fs" />
+    <!-- w5: async queue (Deferred/MutableList over a lock-guarded buffer) -->
+    <Compile Include="Queue.fs" />
   </ItemGroup>
 
 </Project>
