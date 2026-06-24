@@ -30,9 +30,6 @@ type EncodingError =
 [<RequireQualifiedAccess>]
 module Encoding =
 
-    /// Upstream brand constant (kept for parity).
-    [<Literal>]
-    let EncodingErrorTypeId = "~effect/encoding/EncodingError"
 
     let private utf8Bytes (s: string) : byte[] = System.Text.Encoding.UTF8.GetBytes s
     let private utf8String (b: byte[]) : string = System.Text.Encoding.UTF8.GetString b

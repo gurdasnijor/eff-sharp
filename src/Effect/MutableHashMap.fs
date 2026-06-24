@@ -24,9 +24,6 @@ type MutableHashMap<'K, 'V when 'K: equality> = { Backing: Dictionary<'K, 'V> }
 [<RequireQualifiedAccess>]
 module MutableHashMap =
 
-    /// Upstream brand constant (kept as a literal for parity).
-    [<Literal>]
-    let TypeId = "~effect/collections/MutableHashMap"
 
     // --- constructors ---
 

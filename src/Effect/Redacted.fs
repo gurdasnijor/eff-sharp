@@ -63,9 +63,6 @@ type Redacted<'A> internal (value: 'A, label: string option) =
 [<RequireQualifiedAccess>]
 module Redacted =
 
-    /// Upstream brand constant (kept for parity).
-    [<Literal>]
-    let TypeId = "~effect/data/Redacted"
 
     /// Wrap a sensitive value. (Redacted.make)
     let make (value: 'A) : Redacted<'A> = Redacted(value, None)

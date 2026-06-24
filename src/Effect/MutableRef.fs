@@ -15,9 +15,6 @@ type MutableRef<'T> = { mutable Current: 'T }
 [<RequireQualifiedAccess>]
 module MutableRef =
 
-    /// Upstream brand constant (kept as a literal for parity).
-    [<Literal>]
-    let TypeId = "~effect/MutableRef"
 
     // --- constructor ---
 

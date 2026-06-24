@@ -25,9 +25,6 @@ type Ref<'A> = internal { Cell: MutableRef<'A> }
 [<RequireQualifiedAccess>]
 module Ref =
 
-    /// Upstream brand constant (kept as a literal for parity).
-    [<Literal>]
-    let TypeId = "~effect/Ref"
 
     // --- constructors ---
 

@@ -40,9 +40,6 @@ type HashRing<'A when 'A :> IPrimaryKey> =
 [<RequireQualifiedAccess>]
 module HashRing =
 
-    /// Upstream brand constant (kept for parity).
-    [<Literal>]
-    let TypeId = "~effect/cluster/HashRing"
 
     /// FNV-1a 32-bit string hash, reinterpreted as a (possibly negative) int.
     /// Self-contained replacement for the upstream `Hash.string`.

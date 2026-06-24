@@ -26,9 +26,6 @@ type HashMap<'K, 'V when 'K: comparison> = private { entries: Map<'K, 'V> }
 [<RequireQualifiedAccess>]
 module HashMap =
 
-    /// Upstream brand constant (kept for parity).
-    [<Literal>]
-    let TypeId = "~effect/HashMap"
 
     // --- constructors ---
 

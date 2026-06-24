@@ -110,9 +110,6 @@ type PlatformError(reason: Reason) =
 [<RequireQualifiedAccess>]
 module PlatformError =
 
-    /// Upstream runtime brand, kept for parity. (`TypeId`)
-    [<Literal>]
-    let TypeId = "~effect/platform/PlatformError"
 
     /// Create a `PlatformError` whose reason is a `SystemError`. (`systemError`)
     let systemError (error: SystemError) : PlatformError =

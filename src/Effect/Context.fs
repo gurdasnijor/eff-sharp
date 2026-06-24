@@ -36,9 +36,6 @@ module Tag =
 [<RequireQualifiedAccess>]
 module Context =
 
-    /// Upstream brand constant (kept for parity with Context.test.ts).
-    [<Literal>]
-    let ServiceTypeId = "~effect/Context/Service"
 
     /// The empty context — no services. (Context.empty)
     let empty: Context = { Services = Map.empty }

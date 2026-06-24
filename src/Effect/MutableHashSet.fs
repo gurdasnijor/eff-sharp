@@ -15,9 +15,6 @@ type MutableHashSet<'V when 'V: equality> = { KeyMap: MutableHashMap<'V, bool> }
 [<RequireQualifiedAccess>]
 module MutableHashSet =
 
-    /// Upstream brand constant (kept as a literal for parity).
-    [<Literal>]
-    let TypeId = "~effect/collections/MutableHashSet"
 
     // --- constructors ---
 

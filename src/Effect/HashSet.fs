@@ -18,9 +18,6 @@ type HashSet<'V when 'V: comparison> = private { values: Set<'V> }
 [<RequireQualifiedAccess>]
 module HashSet =
 
-    /// Upstream brand constant (kept for parity).
-    [<Literal>]
-    let TypeId = "~effect/HashSet"
 
     // --- constructors ---
 

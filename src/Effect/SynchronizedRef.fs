@@ -28,9 +28,6 @@ type SynchronizedRef<'A> =
 [<RequireQualifiedAccess>]
 module SynchronizedRef =
 
-    /// Upstream brand constant (kept as a literal for parity).
-    [<Literal>]
-    let TypeId = "~effect/SynchronizedRef"
 
     // --- internal: effectful mutual exclusion ---
 
