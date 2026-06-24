@@ -384,15 +384,10 @@ module Graph =
             g.TryGetEdge ei |> Option.map (fun e -> if incoming then e.Source else e.Target))
 
     let private undirectedNeighbors (g: #IGraphView<'N, 'E>) (node: int) : int list =
-        let seen = HashSet<int>()
-        let result = ResizeArray<int>()
-        for ei in g.Outgoing node do
-            match g.TryGetEdge ei with
-            | Some e ->
-                let other = if e.Source = node then e.Target else e.Source
-                if seen.Add other then result.Add other
-            | None -> ()
-        List.ofSeq result
+        g.Outgoing node
+        |> List.choose (fun ei ->
+            g.TryGetEdge ei |> Option.map (fun e -> if e.Source = node then e.Target else e.Source))
+        |> List.distinct
 
     /// Neighbours of a node: outgoing targets (directed) or the other endpoint
     /// of each incident edge (undirected).

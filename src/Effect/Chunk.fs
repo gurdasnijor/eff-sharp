@@ -53,22 +53,21 @@ module Chunk =
     // --- size / emptiness ---
 
     let size (self: Chunk<'A>) : int = self.Values.Length
-    let isEmpty (self: Chunk<'A>) : bool = self.Values.Length = 0
-    let isNonEmpty (self: Chunk<'A>) : bool = self.Values.Length > 0
+    let isEmpty (self: Chunk<'A>) : bool = Array.isEmpty self.Values
+    let isNonEmpty (self: Chunk<'A>) : bool = not (Array.isEmpty self.Values)
 
     // --- indexing ---
 
     /// The element at `i`, or `None` if out of bounds.
-    let get (i: int) (self: Chunk<'A>) : 'A option =
-        if i >= 0 && i < self.Values.Length then Some self.Values.[i] else None
+    let get (i: int) (self: Chunk<'A>) : 'A option = Array.tryItem i self.Values
 
     /// The element at `i`; throws if out of bounds (upstream `getUnsafe`).
     let getUnsafe (i: int) (self: Chunk<'A>) : 'A =
         if i >= 0 && i < self.Values.Length then self.Values.[i]
         else failwithf "Index out of bounds: %d" i
 
-    let head (self: Chunk<'A>) : 'A option = get 0 self
-    let last (self: Chunk<'A>) : 'A option = get (self.Values.Length - 1) self
+    let head (self: Chunk<'A>) : 'A option = Array.tryHead self.Values
+    let last (self: Chunk<'A>) : 'A option = Array.tryLast self.Values
     let lastUnsafe (self: Chunk<'A>) : 'A = getUnsafe (self.Values.Length - 1) self
 
     /// Every element after the first, or `None` for an empty chunk.
@@ -268,12 +267,8 @@ module Chunk =
 
     // --- set-like operations (use FSharp.Core structural equality) ---
 
-    let private dedupeArray (xs: 'A[]) : 'A[] =
-        let seen = System.Collections.Generic.HashSet<'A>(HashIdentity.Structural)
-        xs |> Array.filter seen.Add
-
     /// Remove duplicates, keeping the first occurrence of each value.
-    let dedupe (self: Chunk<'A>) : Chunk<'A> = { Values = dedupeArray self.Values }
+    let dedupe (self: Chunk<'A>) : Chunk<'A> = { Values = Array.distinct self.Values }
 
     /// Remove runs of adjacent identical elements.
     let dedupeAdjacent (self: Chunk<'A>) : Chunk<'A> =
@@ -284,7 +279,7 @@ module Chunk =
 
     /// Concatenation with duplicates removed (first occurrence wins).
     let union (self: Chunk<'A>) (that: Chunk<'A>) : Chunk<'A> =
-        { Values = dedupeArray (Array.append self.Values that.Values) }
+        { Values = Array.distinct (Array.append self.Values that.Values) }
 
     /// Elements of `self` that also appear in `that`, in `self`'s order.
     let intersection (self: Chunk<'A>) (that: Chunk<'A>) : Chunk<'A> =
