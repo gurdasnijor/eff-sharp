@@ -34,6 +34,11 @@
     <Compile Include="HashMap.fs" />
     <Compile Include="HashSet.fs" />
     <Compile Include="HashRing.fs" />
+    <!-- leaf3: mutable collections -->
+    <Compile Include="MutableHashMap.fs" />
+    <Compile Include="MutableHashSet.fs" />
+    <Compile Include="MutableList.fs" />
+    <Compile Include="MutableRef.fs" />
   </ItemGroup>
 
 </Project>
