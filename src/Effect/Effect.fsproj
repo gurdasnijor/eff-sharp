@@ -24,6 +24,12 @@
     <Compile Include="Schedule.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Schema.fs" />
+    <!-- leaf5: traits -->
+    <Compile Include="Equivalence.fs" />
+    <Compile Include="Order.fs" />
+    <Compile Include="Brand.fs" />
+    <Compile Include="Hash.fs" />
+    <Compile Include="Equal.fs" />
   </ItemGroup>
 
 </Project>
