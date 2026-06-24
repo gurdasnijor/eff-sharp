@@ -74,6 +74,8 @@
     <Compile Include="FilterTests.fs" />
     <Compile Include="PullTests.fs" />
     <Compile Include="TakeTests.fs" />
+    <!-- w4-schema: type-first codec -->
+    <Compile Include="SchemaTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
