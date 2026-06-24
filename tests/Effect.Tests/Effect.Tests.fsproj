@@ -66,6 +66,7 @@
     <!-- w3-frontier-a: numeric / schema / request leaves -->
     <Compile Include="BigIntTests.fs" />
     <Compile Include="JsonSchemaTests.fs" />
+    <Compile Include="RequestTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
