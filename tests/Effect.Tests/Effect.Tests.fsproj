@@ -63,6 +63,9 @@
     <Compile Include="PlatformErrorTests.fs" />
     <Compile Include="PrimaryKeyTests.fs" />
     <Compile Include="RegExpTests.fs" />
+    <!-- w3-frontier-a: numeric / schema / request leaves -->
+    <Compile Include="BigIntTests.fs" />
+    <Compile Include="JsonSchemaTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

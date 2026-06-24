@@ -75,6 +75,9 @@
     <Compile Include="PlatformError.fs" />
     <Compile Include="PrimaryKey.fs" />
     <Compile Include="RegExp.fs" />
+    <!-- w3-frontier-a: numeric / schema / request leaves -->
+    <Compile Include="BigInt.fs" />
+    <Compile Include="JsonSchema.fs" />
   </ItemGroup>
 
 </Project>
