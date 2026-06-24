@@ -28,6 +28,15 @@ mirrored in `repos/fsharp/docs/`). Use it as the primary control-flow tool.
   destructuring, instead of porting Effect's runtime predicates.
 - No `if/else` ladders or boolean flags where a `match` is clearer.
 
+### Computation expressions are first-class here
+
+Prefer an F# computation expression over a pipe-combinator chain wherever native
+syntax (`yield`, `let!`/`and!`, `use!`, `for`, `try/finally`) expresses the intent
+— this is where the port can be *nicer* than Effect's generator-based authoring.
+If your module owns one of the CE builders (`effect`, `stream`, ...), shipping the
+builder + tests for the sugar is part of its definition of done. See
+[`docs/computation-expressions.md`](docs/computation-expressions.md).
+
 ## 3. Drop JS-runtime-only machinery
 
 TypeScript needs runtime type guards (`isX(value: unknown)`), `TypeId` brand
