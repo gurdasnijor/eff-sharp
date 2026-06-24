@@ -48,6 +48,9 @@
     <!-- w2-ref: fiber-safe mutable state -->
     <Compile Include="RefTests.fs" />
     <Compile Include="SynchronizedRefTests.fs" />
+    <!-- w2-deferred: synchronization primitives -->
+    <Compile Include="DeferredTests.fs" />
+    <Compile Include="LatchTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

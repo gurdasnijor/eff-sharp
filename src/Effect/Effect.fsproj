@@ -62,6 +62,9 @@
     <!-- w2-ref: fiber-safe mutable state (build on Effect + MutableRef) -->
     <Compile Include="Ref.fs" />
     <Compile Include="SynchronizedRef.fs" />
+    <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
+    <Compile Include="Deferred.fs" />
+    <Compile Include="Latch.fs" />
   </ItemGroup>
 
 </Project>
