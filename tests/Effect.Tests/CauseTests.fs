@@ -67,3 +67,39 @@ let ``render matches Effect's toString`` () =
     Assert.Equal("Cause([Interrupt(1)])", Cause.render (Cause.interrupt (Some 1)))
     Assert.Equal("Cause([Interrupt(undefined)])", Cause.render (Cause.interrupt None))
     Assert.Equal("Cause([])", Cause.render Cause.empty<string>)
+
+// --- map / combine (ported from Cause.test.ts "map" and "combine") ---
+
+[<Fact>]
+let ``map transforms Fail reasons and leaves Die/Interrupt untouched`` () =
+    let cause =
+        Cause.combine (Cause.fail 1) (Cause.combine (Cause.die (box "d")) (Cause.interrupt (Some 2)))
+
+    let mapped = Cause.map (fun n -> n + 10) cause
+    Assert.Equal<int list>([ 11 ], Cause.failures mapped)
+    Assert.Equal<obj list>([ box "d" ], Cause.defects mapped)
+    Assert.Equal(3, List.length mapped.Reasons)
+
+[<Fact>]
+let ``map leaves a Fail-less cause's reasons intact`` () =
+    // The mapping function must never run (no Fail reason present).
+    let mapped = Cause.map (fun (_: int) -> failwith "must not be called") (Cause.die (box "d"))
+    Assert.True(Cause.isDieReason mapped.Reasons.[0])
+
+[<Fact>]
+let ``combine concatenates reasons and is empty-absorbing`` () =
+    Assert.Equal(2, List.length (Cause.combine (Cause.fail "a") (Cause.fail "b")).Reasons)
+    let c = Cause.fail "x"
+    Assert.Equal(1, List.length (Cause.combine c Cause.empty<string>).Reasons)
+    Assert.Equal(1, List.length (Cause.combine Cause.empty<string> c).Reasons)
+
+[<Fact>]
+let ``combine de-duplicates reasons by value`` () =
+    let combined = Cause.combine (Cause.fail "dup") (Cause.fail "dup")
+    Assert.Equal(1, List.length combined.Reasons)
+
+[<Fact>]
+let ``combine preserves order: first then second`` () =
+    let combined = Cause.combine (Cause.die (box "first")) (Cause.fail "second")
+    Assert.Equal<obj list>([ box "first" ], Cause.defects combined)
+    Assert.Equal<string list>([ "second" ], Cause.failures combined)

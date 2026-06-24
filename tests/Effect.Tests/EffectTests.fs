@@ -300,3 +300,30 @@ let ``effect use! disposes even on failure`` () =
 
     Assert.Equal<Exit<int, DivError>>(Exit.fail DivByZero, exitOf () program)
     Assert.Equal<string list>([ "r" ], List.ofSeq log)
+
+// ----------------------------------------------------------------------------
+// catchAll defect semantics (upstream-faithful; also exercises retagDefects)
+// ----------------------------------------------------------------------------
+
+[<Fact>]
+let ``catchAll does not recover a defect-only cause (Die propagates unchanged)`` () =
+    let boom = System.Exception "boom"
+
+    let e: Effect<int, DivError, unit> =
+        Effect.failCause (Cause.die (box boom)) |> Effect.catchAll (fun _ -> Effect.succeed 99)
+
+    match exitOf () e with
+    | Failure cause ->
+        // The ORIGINAL defect must propagate — not a fabricated "unreachable" value.
+        match Cause.defects cause with
+        | [ :? System.Exception as ex ] -> Assert.Equal("boom", ex.Message)
+        | other -> Assert.Fail(sprintf "expected the original Die defect, got %A" other)
+    | Success v -> Assert.Fail(sprintf "expected Die to propagate, got Success %d" v)
+
+[<Fact>]
+let ``catchAll recovers the typed Fail even when a Die co-occurs (upstream-faithful)`` () =
+    // Upstream `catch` recovers whenever a Fail exists, discarding the rest of
+    // the cause (see Effect.ts catch_ -> catchCauseFilter + findError).
+    let cause = Cause.combine (Cause.fail DivByZero) (Cause.die (box "extra"))
+    let e = Effect.failCause cause |> Effect.catchAll (fun _ -> Effect.succeed 7)
+    Assert.Equal<Exit<int, DivError>>(Exit.succeed 7, exitOf () e)

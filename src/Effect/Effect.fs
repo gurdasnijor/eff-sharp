@@ -48,17 +48,14 @@ module Effect =
         | :? System.AggregateException as agg when agg.InnerExceptions.Count = 1 -> agg.InnerException
         | _ -> ex
 
-    /// Re-tag a defect/interrupt-only cause from `'E` to `'E2`. Only the
-    /// `Fail` reason carries `'E`; when none is present the cause is safely
-    /// reinterpreted at the new error type.
+    /// Re-tag a defect/interrupt-only cause from `'E` to `'E2`. Callers must have
+    /// already established the cause carries no `Fail` reason (e.g. `catchAll`'s
+    /// no-typed-error branch). Delegates to `Cause.map`; the mapping function is
+    /// unreachable by construction, so a `Fail` here is a caller bug and is
+    /// surfaced as an exception rather than silently fabricated into a defect.
     let private retagDefects (cause: Cause<'E>) : Cause<'E2> =
-        { Reasons =
-            cause.Reasons
-            |> List.map (fun reason ->
-                match reason with
-                | Reason.Die d -> Reason.Die d
-                | Reason.Interrupt id -> Reason.Interrupt id
-                | Reason.Fail _ -> Reason.Die(box "unreachable: Fail in defect-only cause")) }
+        cause
+        |> Cause.map (fun _ -> failwith "retagDefects: unexpected Fail reason in a defect-only cause")
 
     // --- constructors ---
 
@@ -146,15 +143,7 @@ module Effect =
                 return
                     match exit with
                     | Success a -> Success a
-                    | Failure cause ->
-                        Failure
-                            { Reasons =
-                                cause.Reasons
-                                |> List.map (fun reason ->
-                                    match reason with
-                                    | Reason.Fail e -> Reason.Fail(f e)
-                                    | Reason.Die d -> Reason.Die d
-                                    | Reason.Interrupt id -> Reason.Interrupt id) }
+                    | Failure cause -> Failure(Cause.map f cause)
             })
 
     /// Sequence a dependent effect. The failure cause (typed *or* defect)
@@ -236,7 +225,7 @@ module Effect =
                     | Success _ -> exit
                     | Failure fc ->
                         match exit with
-                        | Failure c -> Failure { Reasons = c.Reasons @ fc.Reasons }
+                        | Failure c -> Failure(Cause.combine c fc)
                         | Success _ -> Failure fc
             })
 
@@ -345,7 +334,7 @@ module Effect =
                         | Success _ -> useExit
                         | Failure fc ->
                             match useExit with
-                            | Failure c -> Failure { Reasons = c.Reasons @ fc.Reasons }
+                            | Failure c -> Failure(Cause.combine c fc)
                             | Success _ -> Failure fc
             })
 

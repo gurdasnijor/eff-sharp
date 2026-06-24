@@ -70,6 +70,45 @@ module Cause =
     let defects (cause: Cause<'E>) : obj list =
         cause.Reasons |> List.choose (function Reason.Die d -> Some d | _ -> None)
 
+    // --- transformations ---
+
+    /// Transform the typed errors within a cause, leaving Die/Interrupt reasons
+    /// untouched. A cause with no `Fail` reason is returned with its reasons
+    /// intact (only the phantom error type changes). (Cause.map — upstream
+    /// `causeMap`.)
+    let map (f: 'E -> 'E2) (cause: Cause<'E>) : Cause<'E2> =
+        { Reasons =
+            cause.Reasons
+            |> List.map (fun reason ->
+                match reason with
+                | Reason.Fail e -> Reason.Fail(f e)
+                | Reason.Die d -> Reason.Die d
+                | Reason.Interrupt id -> Reason.Interrupt id) }
+
+    /// Merge two causes: `first`'s reasons followed by `second`'s, de-duplicated
+    /// by value equality (upstream `Arr.union`). Combining with `empty` returns
+    /// the other cause unchanged. (Cause.combine — upstream `causeCombine`.)
+    let combine (first: Cause<'E>) (second: Cause<'E>) : Cause<'E> =
+        match first.Reasons, second.Reasons with
+        | [], _ -> second
+        | _, [] -> first
+        | a, b ->
+            // Value-equality union without imposing a static `equality`
+            // constraint on 'E, so `combine` stays usable for any error type
+            // (upstream dedups via runtime equality). Causes are tiny, so the
+            // quadratic scan is irrelevant.
+            let union =
+                (a @ b)
+                |> List.fold
+                    (fun acc reason ->
+                        if acc |> List.exists (fun seen -> Unchecked.equals seen reason) then
+                            acc
+                        else
+                            acc @ [ reason ])
+                    []
+
+            { Reasons = union }
+
     // --- rendering (matches Effect's toString) ---
 
     /// Render a value the way Effect's toString does: strings quoted, null as
