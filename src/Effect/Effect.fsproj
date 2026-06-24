@@ -86,6 +86,10 @@
     <Compile Include="TxHashMap.fs" />
     <Compile Include="TxHashSet.fs" />
     <Compile Include="TxDeferred.fs" />
+    <!-- w4-stml: STM leaves on the TxRef engine -->
+    <Compile Include="TxPriorityQueue.fs" />
+    <Compile Include="TxSemaphore.fs" />
+    <Compile Include="TxReentrantLock.fs" />
     <!-- w3-frontier-b: Filter -> Pull -> Take (stream substrate) -->
     <Compile Include="Filter.fs" />
     <Compile Include="Pull.fs" />

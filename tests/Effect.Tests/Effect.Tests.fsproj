@@ -72,6 +72,10 @@
     <Compile Include="TxHashMapTests.fs" />
     <Compile Include="TxHashSetTests.fs" />
     <Compile Include="TxDeferredTests.fs" />
+    <!-- w4-stml: STM leaves -->
+    <Compile Include="TxPriorityQueueTests.fs" />
+    <Compile Include="TxSemaphoreTests.fs" />
+    <Compile Include="TxReentrantLockTests.fs" />
     <!-- w3-frontier-b: Filter -> Pull -> Take -->
     <Compile Include="FilterTests.fs" />
     <Compile Include="PullTests.fs" />
