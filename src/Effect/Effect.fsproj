@@ -54,6 +54,9 @@
     <Compile Include="Duration.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Cron.fs" />
+    <!-- w2-ref: fiber-safe mutable state (build on Effect + MutableRef) -->
+    <Compile Include="Ref.fs" />
+    <Compile Include="SynchronizedRef.fs" />
   </ItemGroup>
 
 </Project>

@@ -40,6 +40,9 @@
     <Compile Include="BigDecimalTests.fs" />
     <Compile Include="DurationTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <!-- w2-ref: fiber-safe mutable state -->
+    <Compile Include="RefTests.fs" />
+    <Compile Include="SynchronizedRefTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
