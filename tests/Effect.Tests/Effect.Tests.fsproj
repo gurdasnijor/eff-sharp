@@ -74,6 +74,9 @@
     <Compile Include="FilterTests.fs" />
     <Compile Include="PullTests.fs" />
     <Compile Include="TakeTests.fs" />
+    <!-- w4-stmq: transactional queue + pub/sub -->
+    <Compile Include="TxQueueTests.fs" />
+    <Compile Include="TxPubSubTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
