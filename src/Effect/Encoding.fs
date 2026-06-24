@@ -129,7 +129,7 @@ module Encoding =
 
     /// Encode bytes as lowercase hexadecimal. (Encoding.encodeHex)
     let encodeHex (bytes: byte[]) : string =
-        (Convert.ToHexString bytes).ToLowerInvariant()
+        Convert.ToHexStringLower bytes
 
     /// Encode a UTF-8 string as lowercase hexadecimal.
     let encodeHexString (s: string) : string = encodeHex (utf8Bytes s)
