@@ -40,6 +40,9 @@
     <Compile Include="BigDecimalTests.fs" />
     <Compile Include="DurationTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <!-- w2-deferred: synchronization primitives -->
+    <Compile Include="DeferredTests.fs" />
+    <Compile Include="LatchTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

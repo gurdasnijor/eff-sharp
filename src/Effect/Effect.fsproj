@@ -54,6 +54,9 @@
     <Compile Include="Duration.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Cron.fs" />
+    <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
+    <Compile Include="Deferred.fs" />
+    <Compile Include="Latch.fs" />
   </ItemGroup>
 
 </Project>
