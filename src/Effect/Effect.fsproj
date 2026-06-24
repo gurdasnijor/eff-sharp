@@ -8,11 +8,11 @@
 
   <!-- Compile order is dependency order. Mirrors effect-smol module names. -->
   <ItemGroup>
-    <!-- Slice 1: implemented -->
-    <Compile Include="Effect.fs" />
-    <!-- Slice 2: error model -->
+    <!-- Slice 2: error model (compiles first — the slice-3 async core builds on it) -->
     <Compile Include="Cause.fs" />
     <Compile Include="Exit.fs" />
+    <!-- Slice 1+3: async Effect core (Reader over Async<Exit>) -->
+    <Compile Include="Effect.fs" />
     <!-- Slice 3-4: runtime / concurrency -->
     <Compile Include="Scope.fs" />
     <Compile Include="Fiber.fs" />
