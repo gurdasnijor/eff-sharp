@@ -55,10 +55,9 @@ module Context =
         ctx.Services |> Map.tryFind tag.Key |> Option.map unbox<'Service>
 
     /// Read a service, raising if absent. (Context.get / unsafeGet)
+    /// `Map.find` already raises `KeyNotFoundException` on a missing key.
     let get (tag: Tag<'Service>) (ctx: Context) : 'Service =
-        match ctx.Services |> Map.tryFind tag.Key with
-        | Some o -> unbox<'Service> o
-        | None -> raise (System.Collections.Generic.KeyNotFoundException(sprintf "Service not found: %s" tag.Key))
+        ctx.Services |> Map.find tag.Key |> unbox<'Service>
 
     /// Alias of `get`, mirroring upstream's `unsafeGet`. (Context.unsafeGet)
     let unsafeGet (tag: Tag<'Service>) (ctx: Context) : 'Service = get tag ctx
