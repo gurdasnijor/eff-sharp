@@ -12,6 +12,7 @@
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />
+    <Compile Include="LayerTests.fs" />
     <Compile Include="FiberTests.fs" />
     <Compile Include="Kernel2Tests.fs" />
     <Compile Include="Kernel2bTests.fs" />
