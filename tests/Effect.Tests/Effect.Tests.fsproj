@@ -45,6 +45,7 @@
     <Compile Include="BigDecimalTests.fs" />
     <Compile Include="DurationTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <Compile Include="CronTests.fs" />
     <!-- w2-leavesa: algebraic leaves -->
     <Compile Include="CombinerTests.fs" />
     <Compile Include="ReducerTests.fs" />
