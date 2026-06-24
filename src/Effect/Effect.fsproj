@@ -45,6 +45,10 @@
     <Compile Include="Encoding.fs" />
     <Compile Include="JsonPointer.fs" />
     <Compile Include="JsonPatch.fs" />
+    <!-- leaf1: native sequence / collection ports -->
+    <Compile Include="Chunk.fs" />
+    <Compile Include="Trie.fs" />
+    <Compile Include="Graph.fs" />
   </ItemGroup>
 
 </Project>

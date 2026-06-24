@@ -32,6 +32,10 @@
     <Compile Include="EncodingTests.fs" />
     <Compile Include="JsonPointerTests.fs" />
     <Compile Include="JsonPatchTests.fs" />
+    <!-- leaf1: native sequence / collection ports -->
+    <Compile Include="ChunkTests.fs" />
+    <Compile Include="TrieTests.fs" />
+    <Compile Include="GraphTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
