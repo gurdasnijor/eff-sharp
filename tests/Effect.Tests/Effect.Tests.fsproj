@@ -11,6 +11,12 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <!-- leaf5: traits -->
+    <Compile Include="EquivalenceTests.fs" />
+    <Compile Include="OrderTests.fs" />
+    <Compile Include="BrandTests.fs" />
+    <Compile Include="HashTests.fs" />
+    <Compile Include="EqualTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
