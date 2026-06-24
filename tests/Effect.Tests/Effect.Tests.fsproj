@@ -11,6 +11,9 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <Compile Include="BigDecimalTests.fs" />
+    <Compile Include="DurationTests.fs" />
+    <Compile Include="DateTimeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

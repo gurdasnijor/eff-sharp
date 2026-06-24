@@ -24,6 +24,11 @@
     <Compile Include="Schedule.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Schema.fs" />
+    <!-- leaf4: numeric / time (standalone, structural equality) -->
+    <Compile Include="BigDecimal.fs" />
+    <Compile Include="Duration.fs" />
+    <Compile Include="DateTime.fs" />
+    <Compile Include="Cron.fs" />
   </ItemGroup>
 
 </Project>
