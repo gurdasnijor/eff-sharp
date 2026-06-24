@@ -11,6 +11,12 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <!-- leaf6: encoding / data -->
+    <Compile Include="DataTests.fs" />
+    <Compile Include="RedactedTests.fs" />
+    <Compile Include="EncodingTests.fs" />
+    <Compile Include="JsonPointerTests.fs" />
+    <Compile Include="JsonPatchTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
