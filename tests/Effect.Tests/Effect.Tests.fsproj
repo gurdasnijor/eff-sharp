@@ -63,6 +63,10 @@
     <Compile Include="PlatformErrorTests.fs" />
     <Compile Include="PrimaryKeyTests.fs" />
     <Compile Include="RegExpTests.fs" />
+    <!-- w3-frontier-b: Filter -> Pull -> Take -->
+    <Compile Include="FilterTests.fs" />
+    <Compile Include="PullTests.fs" />
+    <Compile Include="TakeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
