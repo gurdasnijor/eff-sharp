@@ -91,9 +91,7 @@ module HashMap =
 
     /// Insert/replace/remove a key from `f` applied to its current value. (HashMap.modifyAt)
     let modifyAt (self: HashMap<'K, 'V>) (key: 'K) (f: 'V option -> 'V option) : HashMap<'K, 'V> =
-        match f (Map.tryFind key self.entries) with
-        | Some v -> { entries = Map.add key v self.entries }
-        | None -> { entries = Map.remove key self.entries }
+        { entries = Map.change key f self.entries }
 
     /// Update an existing key in place; a no-op when absent. (HashMap.modify)
     let modify (self: HashMap<'K, 'V>) (key: 'K) (f: 'V -> 'V) : HashMap<'K, 'V> =
@@ -173,13 +171,13 @@ module HashMap =
     // --- iteration / conversion ---
 
     /// The keys, ascending by key. (HashMap.keys)
-    let keys (self: HashMap<'K, 'V>) : seq<'K> = self.entries |> Map.toSeq |> Seq.map fst
+    let keys (self: HashMap<'K, 'V>) : seq<'K> = Map.keys self.entries
 
     /// The values, ordered by key. (HashMap.values)
-    let values (self: HashMap<'K, 'V>) : seq<'V> = self.entries |> Map.toSeq |> Seq.map snd
+    let values (self: HashMap<'K, 'V>) : seq<'V> = Map.values self.entries
 
     /// The values as a list. (HashMap.toValues)
-    let toValues (self: HashMap<'K, 'V>) : 'V list = self.entries |> Map.toList |> List.map snd
+    let toValues (self: HashMap<'K, 'V>) : 'V list = Map.values self.entries |> List.ofSeq
 
     /// The entries, ordered by key. (HashMap.entries)
     let entries (self: HashMap<'K, 'V>) : seq<'K * 'V> = self.entries |> Map.toSeq
