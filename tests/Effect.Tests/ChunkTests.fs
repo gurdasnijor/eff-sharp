@@ -293,10 +293,17 @@ let ``dedupeAdjacent`` () =
 
 [<Fact>]
 let ``flatMap`` () =
-    Assert.Equal(Chunk.make [ 1; 2 ], Chunk.flatMap (Chunk.make [ 1 ]) (fun n -> Chunk.make [ n; n + 1 ]))
+    Assert.Equal(Chunk.make [ 1; 2 ], Chunk.flatMap (Chunk.make [ 1 ]) (fun n _ -> Chunk.make [ n; n + 1 ]))
     Assert.Equal(
         Chunk.make [ 1; 2; 2; 3; 3; 4 ],
-        Chunk.flatMap (Chunk.make [ 1; 2; 3 ]) (fun n -> Chunk.make [ n; n + 1 ]))
+        Chunk.flatMap (Chunk.make [ 1; 2; 3 ]) (fun n _ -> Chunk.make [ n; n + 1 ]))
+
+[<Fact>]
+let ``flatMap passes the element index`` () =
+    // parity with map/forEach: f gets (a, index)
+    Assert.Equal(
+        Chunk.make [ 0; 10; 1; 11; 2; 12 ],
+        Chunk.flatMap (Chunk.make [ 0; 1; 2 ]) (fun n i -> Chunk.make [ i; n + 10 ]))
 
 [<Fact>]
 let ``union`` () =
@@ -424,3 +431,92 @@ let ``difference`` () =
     Assert.Equal(Chunk.empty, Chunk.difference Chunk.empty curr)
     Assert.Equal(curr, Chunk.difference curr Chunk.empty)
     Assert.Equal(Chunk.empty, Chunk.difference curr curr)
+
+// --- wave-3 gap-fill combinators ---
+// No dedicated upstream test cases exist for these; the assertions are ported
+// from the `console.log` examples in the upstream Chunk.ts doc comments.
+
+[<Fact>]
+let ``headUnsafe`` () =
+    Assert.Equal(1, Chunk.headUnsafe (Chunk.make [ 1; 2; 3 ]))
+    Assert.Throws<System.Exception>(fun () -> Chunk.headUnsafe (Chunk.empty: Chunk<int>) |> ignore)
+    |> ignore
+
+[<Fact>]
+let ``takeRight`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.Equal(Chunk.make [ 4; 5 ], Chunk.takeRight 2 chunk)
+    Assert.Equal(chunk, Chunk.takeRight 10 chunk)
+    Assert.Equal(Chunk.empty, Chunk.takeRight 0 chunk)
+    Assert.Equal(Chunk.empty, Chunk.takeRight -1 chunk)
+
+[<Fact>]
+let ``sort`` () =
+    Assert.Equal(Chunk.make [ 1; 2; 3; 4; 5 ], Chunk.sort (Chunk.make [ 3; 1; 4; 5; 2 ]) compare)
+    Assert.Equal(Chunk.empty, Chunk.sort (Chunk.empty: Chunk<int>) compare)
+
+[<Fact>]
+let ``contains`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.True(Chunk.contains chunk 3)
+    Assert.False(Chunk.contains chunk 10)
+    Assert.False(Chunk.contains (Chunk.empty: Chunk<int>) 1)
+
+[<Fact>]
+let ``containsWith`` () =
+    let chunk = Chunk.make [ {| id = 1; name = "Alice" |}; {| id = 2; name = "Bob" |} ]
+    let byId (a: {| id: int; name: string |}) (b: {| id: int; name: string |}) = a.id = b.id
+    Assert.True(Chunk.containsWith byId chunk {| id = 1; name = "Different" |})
+    Assert.False(Chunk.containsWith byId chunk {| id = 3; name = "Charlie" |})
+
+[<Fact>]
+let ``findFirst`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.Equal(Some 4, Chunk.findFirst chunk (fun n -> n > 3))
+    Assert.Equal(None, Chunk.findFirst chunk (fun n -> n > 10))
+
+[<Fact>]
+let ``findFirstIndex`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.Equal(Some 3, Chunk.findFirstIndex chunk (fun n -> n > 3))
+    Assert.Equal(Some 1, Chunk.findFirstIndex chunk (fun n -> n % 2 = 0))
+    Assert.Equal(None, Chunk.findFirstIndex chunk (fun n -> n > 10))
+
+[<Fact>]
+let ``findLast`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.Equal(Some 3, Chunk.findLast chunk (fun n -> n < 4))
+    Assert.Equal(Some 4, Chunk.findLast chunk (fun n -> n % 2 = 0))
+    Assert.Equal(None, Chunk.findLast chunk (fun n -> n > 10))
+
+[<Fact>]
+let ``findLastIndex`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.Equal(Some 2, Chunk.findLastIndex chunk (fun n -> n < 4))
+    Assert.Equal(Some 3, Chunk.findLastIndex chunk (fun n -> n % 2 = 0))
+    Assert.Equal(None, Chunk.findLastIndex chunk (fun n -> n > 10))
+
+[<Fact>]
+let ``every`` () =
+    let chunk = Chunk.make [ 1; 2; 3; 4; 5 ]
+    Assert.True(Chunk.every chunk (fun n -> n > 0))
+    Assert.False(Chunk.every chunk (fun n -> n > 3))
+    Assert.True(Chunk.every (Chunk.empty: Chunk<int>) (fun n -> n > 0)) // vacuously true
+
+[<Fact>]
+let ``reduce`` () =
+    Assert.Equal(15, Chunk.reduce (Chunk.make [ 1; 2; 3; 4; 5 ]) 0 (fun acc n _ -> acc + n))
+    // index-aware, left to right
+    Assert.Equal("0:a 1:b 2:c ", Chunk.reduce (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w))
+
+[<Fact>]
+let ``reduceRight`` () =
+    Assert.Equal(10, Chunk.reduceRight (Chunk.make [ 1; 2; 3; 4 ]) 0 (fun acc n _ -> acc + n))
+    // right to left, with original index
+    Assert.Equal("2:c 1:b 0:a ", Chunk.reduceRight (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w))
+
+[<Fact>]
+let ``join`` () =
+    Assert.Equal("apple, banana, cherry", Chunk.join (Chunk.make [ "apple"; "banana"; "cherry" ]) ", ")
+    Assert.Equal("", Chunk.join (Chunk.empty: Chunk<string>) ", ")
+    Assert.Equal("hello", Chunk.join (Chunk.make [ "hello" ]) ", ")
