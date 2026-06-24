@@ -119,6 +119,16 @@ module Deferred =
     let failSync (self: Deferred<'A, 'E>) (evaluate: unit -> 'E) : Effect<bool, 'F, 'R> =
         Effect.sync (fun () -> doneUnsafe self (Effect.fail (evaluate ())))
 
+    /// Lazily compute a full failure cause when this effect runs, then complete
+    /// with it. (Deferred.failCauseSync)
+    let failCauseSync (self: Deferred<'A, 'E>) (evaluate: unit -> Cause<'E>) : Effect<bool, 'F, 'R> =
+        Effect.sync (fun () -> doneUnsafe self (Effect.failCause (evaluate ())))
+
+    /// Lazily compute an unexpected defect when this effect runs, then complete
+    /// with it. (Deferred.dieSync)
+    let dieSync (self: Deferred<'A, 'E>) (evaluate: unit -> obj) : Effect<bool, 'F, 'R> =
+        Effect.sync (fun () -> doneUnsafe self (ofExit (Exit.die (evaluate ()))))
+
     // --- completion from a running effect ---
 
     /// Run `effect`, then attempt to complete `self` with its (memoized) result —

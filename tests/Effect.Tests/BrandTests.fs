@@ -32,7 +32,7 @@ let ``validates custom predicates created with make`` () =
     let int' = Brand.make isInteger
 
     Assert.Equal(1.0, int'.Construct 1.0)
-    Assert.Throws<System.Exception>(fun () -> int'.Construct 1.1 |> ignore) |> ignore
+    Assert.Throws<BrandException>(fun () -> int'.Construct 1.1 |> ignore) |> ignore
     Assert.Equal(-1.0, int'.Construct -1.0)
 
     Assert.True(int'.Is 1.0)
@@ -59,3 +59,11 @@ let ``BrandError formats as BrandError(message)`` () =
     match int'.Result 1.1 with
     | Error e -> Assert.Equal("BrandError(Expected 1.1 to be an integer)", string e)
     | Ok _ -> Assert.Fail("expected failure")
+
+[<Fact>]
+let ``Construct throws a BrandException carrying the structured BrandError`` () =
+    let int' = Brand.make isInteger
+    let ex = Assert.Throws<BrandException>(fun () -> int'.Construct 1.1 |> ignore)
+    // The structured error is recoverable (not lost to a bare System.Exception).
+    Assert.Equal("Expected 1.1 to be an integer", ex.Data0.Message)
+    Assert.Equal("BrandError(Expected 1.1 to be an integer)", ex.Message)

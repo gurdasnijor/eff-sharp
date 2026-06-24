@@ -108,6 +108,52 @@ let ``completeWith - should memoize the provided effect`` () =
     Assert.Equal<Exit<int, string>>(Exit.fail "boom", Effect.runSync () (Deferred.await deferred))
     Assert.Equal<Exit<int, string>>(Exit.fail "boom2", Effect.runSync () (Deferred.await deferred))
 
+[<Fact>]
+let ``failCauseSync - should propagate the lazily computed cause`` () =
+    let deferred = Deferred.makeUnsafe<int, string> ()
+    Assert.True(runBool (Deferred.failCauseSync deferred (fun () -> Cause.fail "boom")))
+    Assert.False(runBool (Deferred.failCauseSync deferred (fun () -> Cause.fail "boom2")))
+    Assert.Equal<Exit<int, string>>(Exit.fail "boom", Effect.runSync () (Deferred.await deferred))
+
+[<Fact>]
+let ``failCauseSync - does not evaluate the thunk until the effect runs`` () =
+    let evaluated = ref false
+    let deferred = Deferred.makeUnsafe<int, string> ()
+
+    let completion =
+        Deferred.failCauseSync deferred (fun () ->
+            evaluated.Value <- true
+            Cause.fail "boom")
+
+    Assert.False(evaluated.Value) // lazy: building the effect must not run the thunk
+    Assert.True(runBool completion)
+    Assert.True(evaluated.Value)
+
+// ----------------------------------------------------------------------------
+// defects
+// ----------------------------------------------------------------------------
+
+[<Fact>]
+let ``dieSync - should propagate the lazily computed defect`` () =
+    let deferred = Deferred.makeUnsafe<int, string> ()
+    Assert.True(runBool (Deferred.dieSync deferred (fun () -> box "boom")))
+    Assert.False(runBool (Deferred.dieSync deferred (fun () -> box "boom2")))
+    Assert.Equal<Exit<int, string>>(Exit.die (box "boom"), Effect.runSync () (Deferred.await deferred))
+
+[<Fact>]
+let ``dieSync - does not evaluate the thunk until the effect runs`` () =
+    let evaluated = ref false
+    let deferred = Deferred.makeUnsafe<int, string> ()
+
+    let completion =
+        Deferred.dieSync deferred (fun () ->
+            evaluated.Value <- true
+            box "boom")
+
+    Assert.False(evaluated.Value)
+    Assert.True(runBool completion)
+    Assert.True(evaluated.Value)
+
 // ----------------------------------------------------------------------------
 // interruption
 // ----------------------------------------------------------------------------

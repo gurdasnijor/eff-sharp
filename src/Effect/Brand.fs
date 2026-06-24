@@ -18,9 +18,20 @@ namespace Effect
 ///     `true | string` filter output.
 ///   * `check`/`all` (built on the unported `Schema`/`SchemaAST` modules) are
 ///     skipped; `make` covers predicate-based validation.
+///   * Upstream's throwing constructor raises the `BrandError` value itself
+///     (`Result.getOrThrow`). .NET can only throw `exn` subtypes, so the
+///     throwing `Construct` raises `BrandException`, which carries the
+///     structured `BrandError` (recoverable via `BrandException e` /
+///     `.Data0`) — faithful to the refinement error rather than a bare
+///     `System.Exception`.
 type BrandError =
     { Message: string }
     override this.ToString() = sprintf "BrandError(%s)" this.Message
+
+/// Raised by `Constructor.Construct` when validation fails. Carries the
+/// structured `BrandError` so callers can pattern-match and recover it.
+exception BrandException of BrandError with
+    override this.Message = string this.Data0
 
 /// A constructor for a branded/refined value.
 type Constructor<'A> =
@@ -54,7 +65,7 @@ module Brand =
             fun input ->
                 match result input with
                 | Ok value -> value
-                | Error e -> failwith (string e)
+                | Error e -> raise (BrandException e)
           Option =
             fun input ->
                 match result input with
