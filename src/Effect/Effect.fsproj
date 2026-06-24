@@ -24,6 +24,11 @@
     <Compile Include="Schedule.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Schema.fs" />
+    <!-- leaf3: mutable collections -->
+    <Compile Include="MutableHashMap.fs" />
+    <Compile Include="MutableHashSet.fs" />
+    <Compile Include="MutableList.fs" />
+    <Compile Include="MutableRef.fs" />
   </ItemGroup>
 
 </Project>

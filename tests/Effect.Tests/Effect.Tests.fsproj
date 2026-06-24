@@ -11,6 +11,10 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <Compile Include="MutableHashMapTests.fs" />
+    <Compile Include="MutableHashSetTests.fs" />
+    <Compile Include="MutableListTests.fs" />
+    <Compile Include="MutableRefTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
