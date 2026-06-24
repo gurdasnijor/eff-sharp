@@ -20,6 +20,8 @@
     <Compile Include="ContextTests.fs" />
     <Compile Include="ScopeTests.fs" />
     <Compile Include="ClockTests.fs" />
+    <!-- w5-runtime: Runtime bundle + run* family -->
+    <Compile Include="RuntimeTests.fs" />
     <!-- leaf5: traits -->
     <Compile Include="EquivalenceTests.fs" />
     <Compile Include="OrderTests.fs" />
