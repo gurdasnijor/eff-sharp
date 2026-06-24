@@ -175,3 +175,128 @@ let ``runAsync re-raises an exception defect`` () =
         Assert.ThrowsAny<System.Exception>(fun () -> Effect.runAsync () e |> Async.RunSynchronously |> ignore)
 
     Assert.Equal("kaboom", ex.Message)
+
+// ----------------------------------------------------------------------------
+// effect { } extended builder: for / while / try-finally / use! (w2-di)
+// ----------------------------------------------------------------------------
+
+[<Fact>]
+let ``effect for-loop sequences the body over a collection`` () =
+    let total = ref 0
+
+    let program: Effect<int, DivError, unit> =
+        effect {
+            for x in [ 1; 2; 3; 4 ] do
+                do! Effect.sync (fun () -> total.Value <- total.Value + x)
+
+            return total.Value
+        }
+
+    Assert.Equal<Exit<int, DivError>>(Exit.succeed 10, exitOf () program)
+
+[<Fact>]
+let ``effect for-loop short-circuits on failure`` () =
+    let seen = System.Collections.Generic.List<int>()
+
+    let program: Effect<unit, DivError, unit> =
+        effect {
+            for x in [ 1; 2; 3 ] do
+                do! (if x = 2 then Effect.fail DivByZero else Effect.sync (fun () -> seen.Add x))
+        }
+
+    Assert.Equal<Exit<unit, DivError>>(Exit.fail DivByZero, exitOf () program)
+    Assert.Equal<int list>([ 1 ], List.ofSeq seen)
+
+[<Fact>]
+let ``effect while-loop repeats until the guard is false`` () =
+    let i = ref 0
+    let acc = ref 0
+
+    let program: Effect<int, DivError, unit> =
+        effect {
+            while i.Value < 5 do
+                do!
+                    Effect.sync (fun () ->
+                        acc.Value <- acc.Value + i.Value
+                        i.Value <- i.Value + 1)
+
+            return acc.Value
+        }
+
+    Assert.Equal<Exit<int, DivError>>(Exit.succeed 10, exitOf () program)
+
+[<Fact>]
+let ``effect try-finally runs the finalizer on success`` () =
+    let ran = ref false
+
+    let program: Effect<int, DivError, unit> =
+        effect {
+            try
+                return 42
+            finally
+                ran.Value <- true
+        }
+
+    Assert.Equal<Exit<int, DivError>>(Exit.succeed 42, exitOf () program)
+    Assert.True(ran.Value)
+
+[<Fact>]
+let ``effect try-finally runs the finalizer on failure`` () =
+    let ran = ref false
+
+    let program: Effect<int, DivError, unit> =
+        effect {
+            try
+                return! Effect.fail DivByZero
+            finally
+                ran.Value <- true
+        }
+
+    Assert.Equal<Exit<int, DivError>>(Exit.fail DivByZero, exitOf () program)
+    Assert.True(ran.Value)
+
+/// A disposable that records its disposal into a shared log, for `use!` tests.
+type private Tracked(name: string, log: System.Collections.Generic.List<string>) =
+    member _.Name = name
+    interface System.IDisposable with
+        member _.Dispose() = log.Add name
+
+[<Fact>]
+let ``effect use! disposes the resource on success`` () =
+    let log = System.Collections.Generic.List<string>()
+
+    let program: Effect<string, DivError, unit> =
+        effect {
+            use! r = Effect.succeed (new Tracked("r", log))
+            return r.Name
+        }
+
+    Assert.Equal<Exit<string, DivError>>(Exit.succeed "r", exitOf () program)
+    Assert.Equal<string list>([ "r" ], List.ofSeq log)
+
+[<Fact>]
+let ``effect use! disposes in LIFO order`` () =
+    let log = System.Collections.Generic.List<string>()
+
+    let program: Effect<unit, DivError, unit> =
+        effect {
+            use! a = Effect.succeed (new Tracked("a", log))
+            use! b = Effect.succeed (new Tracked("b", log))
+            do! Effect.sync (fun () -> log.Add(a.Name + b.Name))
+        }
+
+    exitOf () program |> ignore
+    Assert.Equal<string list>([ "ab"; "b"; "a" ], List.ofSeq log)
+
+[<Fact>]
+let ``effect use! disposes even on failure`` () =
+    let log = System.Collections.Generic.List<string>()
+
+    let program: Effect<int, DivError, unit> =
+        effect {
+            use! _r = Effect.succeed (new Tracked("r", log))
+            return! Effect.fail DivByZero
+        }
+
+    Assert.Equal<Exit<int, DivError>>(Exit.fail DivByZero, exitOf () program)
+    Assert.Equal<string list>([ "r" ], List.ofSeq log)
