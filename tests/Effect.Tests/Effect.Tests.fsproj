@@ -17,6 +17,10 @@
     <Compile Include="BrandTests.fs" />
     <Compile Include="HashTests.fs" />
     <Compile Include="EqualTests.fs" />
+    <!-- leaf2: immutable hashing collections -->
+    <Compile Include="HashMapTests.fs" />
+    <Compile Include="HashSetTests.fs" />
+    <Compile Include="HashRingTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

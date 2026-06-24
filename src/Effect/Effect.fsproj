@@ -30,6 +30,10 @@
     <Compile Include="Brand.fs" />
     <Compile Include="Hash.fs" />
     <Compile Include="Equal.fs" />
+    <!-- leaf2: immutable hashing collections -->
+    <Compile Include="HashMap.fs" />
+    <Compile Include="HashSet.fs" />
+    <Compile Include="HashRing.fs" />
   </ItemGroup>
 
 </Project>
