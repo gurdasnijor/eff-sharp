@@ -11,6 +11,10 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
+    <!-- w2-di: Context / Scope / Clock vertical -->
+    <Compile Include="ContextTests.fs" />
+    <Compile Include="ScopeTests.fs" />
+    <Compile Include="ClockTests.fs" />
     <!-- leaf5: traits -->
     <Compile Include="EquivalenceTests.fs" />
     <Compile Include="OrderTests.fs" />

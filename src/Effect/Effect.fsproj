@@ -11,14 +11,16 @@
     <!-- Slice 2: error model (compiles first — the slice-3 async core builds on it) -->
     <Compile Include="Cause.fs" />
     <Compile Include="Exit.fs" />
+    <!-- w2-di: Context is a plain typed map (no Effect dep), so it precedes the core
+         and the async core wires `Effect.service` / `Effect.provideService` on top. -->
+    <Compile Include="Context.fs" />
     <!-- Slice 1+3: async Effect core (Reader over Async<Exit>) -->
     <Compile Include="Effect.fs" />
-    <!-- Slice 3-4: runtime / concurrency -->
+    <!-- Slice 3-4 / w2-di: runtime / concurrency / scoping -->
     <Compile Include="Scope.fs" />
     <Compile Include="Fiber.fs" />
     <Compile Include="Runtime.fs" />
     <!-- Slice 5: dependency injection -->
-    <Compile Include="Context.fs" />
     <Compile Include="Layer.fs" />
     <!-- Slice 6: higher-level -->
     <Compile Include="Schedule.fs" />
@@ -65,6 +67,8 @@
     <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
     <Compile Include="Deferred.fs" />
     <Compile Include="Latch.fs" />
+    <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->
+    <Compile Include="Clock.fs" />
   </ItemGroup>
 
 </Project>

@@ -195,6 +195,189 @@ module Effect =
     let zipWith (f: 'A -> 'B -> 'C) (b: Effect<'B, 'E, 'R>) (a: Effect<'A, 'E, 'R>) : Effect<'C, 'E, 'R> =
         a |> flatMap (fun av -> b |> map (fun bv -> f av bv))
 
+    // --- CE / resource support (slices 3-4: powers `effect { }`'s for/while/try/use!) ---
+
+    /// Defer construction of an effect until it is run. Lets the `effect { }`
+    /// builder's `Delay` keep statement bodies cold. (Effect.suspend)
+    let suspend (f: unit -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let (Effect run) = f ()
+                return! run r
+            })
+
+    /// Run `finalizer` after `eff` completes, regardless of success, typed
+    /// failure or defect (and even if `eff` raises). The finalizer cannot change
+    /// a success value; if the finalizer itself fails its cause is appended.
+    /// `try/finally` in `effect { }` lowers to this. (Effect.ensuring)
+    let ensuring (finalizer: Effect<unit, 'E, 'R>) (Effect run) : Effect<'A, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let! exit =
+                    async {
+                        try
+                            return! run r
+                        with ex ->
+                            return Exit.die (box (unwrap ex))
+                    }
+
+                let (Effect runFin) = finalizer
+
+                let! finExit =
+                    async {
+                        try
+                            return! runFin r
+                        with ex ->
+                            return Exit.die (box (unwrap ex))
+                    }
+
+                return
+                    match finExit with
+                    | Success _ -> exit
+                    | Failure fc ->
+                        match exit with
+                        | Failure c -> Failure { Reasons = c.Reasons @ fc.Reasons }
+                        | Success _ -> Failure fc
+            })
+
+    /// Sequence `f` over a collection, collecting the successes. The first
+    /// failure (typed or defect) short-circuits. `for` in `effect { }` lowers to
+    /// this. (Effect.forEach)
+    let forEach (items: seq<'T>) (f: 'T -> Effect<'B, 'E, 'R>) : Effect<'B list, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let results = System.Collections.Generic.List<'B>()
+                use en = items.GetEnumerator()
+                let mutable failure = None
+
+                while failure.IsNone && en.MoveNext() do
+                    let (Effect run) = f en.Current
+                    let! exit = run r
+
+                    match exit with
+                    | Success b -> results.Add b
+                    | Failure c -> failure <- Some c
+
+                return
+                    match failure with
+                    | Some c -> Failure c
+                    | None -> Success(List.ofSeq results)
+            })
+
+    /// Repeat `body` while `guard` holds. The first failure short-circuits.
+    /// `while` in `effect { }` lowers to this. (Effect.whileLoop)
+    let whileLoop (guard: unit -> bool) (body: Effect<unit, 'E, 'R>) : Effect<unit, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let mutable result = Success()
+                let mutable go = true
+
+                while go && guard () do
+                    let (Effect run) = body
+                    let! exit = run r
+
+                    match exit with
+                    | Success() -> ()
+                    | Failure c ->
+                        result <- Failure c
+                        go <- false
+
+                return result
+            })
+
+    /// Catch a defect that is a .NET exception, routing it to `handler`. Typed
+    /// failures and non-exception defects propagate unchanged. `try/with` in
+    /// `effect { }` lowers to this (F#'s `with` binds an `exn`). (Effect.catchAllDefect)
+    let catchDefect (handler: exn -> Effect<'A, 'E, 'R>) (Effect run) : Effect<'A, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let! exit = run r
+
+                match exit with
+                | Success a -> return Success a
+                | Failure cause ->
+                    match cause.Reasons |> List.tryPick (function
+                                                         | Reason.Die(:? exn as ex) -> Some ex
+                                                         | _ -> None) with
+                    | Some ex ->
+                        let (Effect run2) = handler ex
+                        return! run2 r
+                    | None -> return Failure cause
+            })
+
+    /// Bracket: acquire a resource, use it, then *always* release it with the
+    /// `Exit` of the use step available. Release runs on success, typed failure
+    /// or defect; if acquire fails, `use`/`release` never run. (Effect.acquireUseRelease)
+    let acquireUseRelease
+        (acquire: Effect<'A, 'E, 'R>)
+        (useResource: 'A -> Effect<'B, 'E, 'R>)
+        (release: 'A -> Exit<'B, 'E> -> Effect<unit, 'E, 'R>)
+        : Effect<'B, 'E, 'R> =
+        Effect(fun r ->
+            async {
+                let (Effect runAcq) = acquire
+                let! acqExit = runAcq r
+
+                match acqExit with
+                | Failure c -> return Failure c
+                | Success a ->
+                    let! useExit =
+                        async {
+                            try
+                                let (Effect runUse) = useResource a
+                                return! runUse r
+                            with ex ->
+                                return Exit.die (box (unwrap ex))
+                        }
+
+                    let (Effect runRel) = release a useExit
+
+                    let! relExit =
+                        async {
+                            try
+                                return! runRel r
+                            with ex ->
+                                return Exit.die (box (unwrap ex))
+                        }
+
+                    return
+                        match relExit with
+                        | Success _ -> useExit
+                        | Failure fc ->
+                            match useExit with
+                            | Failure c -> Failure { Reasons = c.Reasons @ fc.Reasons }
+                            | Success _ -> Failure fc
+            })
+
+    // --- Context-based dependency injection (slice: w2-di) ---
+
+    /// Read a service from the ambient `Context` (the effect's environment).
+    /// A missing service surfaces as a **defect** (Die). `Effect.environment`
+    /// already exposes the raw `'R`; this is the typed, `Tag`-keyed accessor.
+    /// (Effect.service / Context.Tag-as-Effect.)
+    let service (tag: Tag<'Service>) : Effect<'Service, 'E, Context> =
+        Effect(fun ctx ->
+            async {
+                match Context.tryGet tag ctx with
+                | Some s -> return Success s
+                | None ->
+                    return
+                        Exit.die (
+                            box (System.Collections.Generic.KeyNotFoundException(sprintf "Service not found: %s" tag.Key))
+                        )
+            })
+
+    /// Provide an entire `Context`, discharging an effect's `Context`
+    /// requirement. (Effect.provide)
+    let provideContext (ctx: Context) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
+        let (Effect run) = eff
+        Effect(fun _ -> run ctx)
+
+    /// Provide a single service, discharging an effect's `Context` requirement
+    /// with a one-service context. (Effect.provideService)
+    let provideService (tag: Tag<'Service>) (service: 'Service) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
+        provideContext (Context.make tag service) eff
+
     // --- runners ---
 
     /// Run an effect against its environment, returning its `Exit`. Never throws
@@ -239,6 +422,41 @@ type EffectBuilder() =
     member _.Bind(eff: Effect<'A, 'E, 'R>, f: 'A -> Effect<'B, 'E, 'R>) : Effect<'B, 'E, 'R> = Effect.flatMap f eff
 
     member _.Zero() : Effect<unit, 'E, 'R> = Effect.succeed ()
+
+    /// Keep statement bodies cold until the effect is run.
+    member _.Delay(f: unit -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> = Effect.suspend f
+
+    /// Sequence two statements: run `a` (a `unit` statement) then `b`.
+    member _.Combine(a: Effect<unit, 'E, 'R>, b: Effect<'B, 'E, 'R>) : Effect<'B, 'E, 'R> = Effect.zipRight b a
+
+    /// `for x in xs do ...` — sequence the body over the collection.
+    member _.For(items: seq<'T>, f: 'T -> Effect<unit, 'E, 'R>) : Effect<unit, 'E, 'R> =
+        Effect.forEach items f |> Effect.map ignore
+
+    /// `while guard do ...` — repeat the body while the guard holds.
+    member _.While(guard: unit -> bool, body: Effect<unit, 'E, 'R>) : Effect<unit, 'E, 'R> = Effect.whileLoop guard body
+
+    /// `try body with ex -> handler` — recover from an exception defect.
+    member _.TryWith(body: Effect<'A, 'E, 'R>, handler: exn -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
+        Effect.catchDefect handler body
+
+    /// `try body finally compensation` — run the (synchronous) compensation
+    /// after the body, success or failure. Effectful finalizers should use
+    /// `Effect.acquireUseRelease` / `Scope.acquireRelease` directly (F#'s CE
+    /// `finally` block is a non-monadic `unit -> unit`).
+    member _.TryFinally(body: Effect<'A, 'E, 'R>, compensation: unit -> unit) : Effect<'A, 'E, 'R> =
+        Effect.ensuring (Effect.sync compensation) body
+
+    /// `use! r = acquire` — bind a disposable resource and `Dispose` it when the
+    /// surrounding scope closes (success, failure or defect), lowered to
+    /// `ensuring`. Resources with *effectful* finalizers use
+    /// `Effect.acquireUseRelease` / `Scope.acquireRelease` instead.
+    member _.Using(resource: 'T when 'T :> System.IDisposable, body: 'T -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
+        Effect.ensuring
+            (Effect.sync (fun () ->
+                if not (obj.ReferenceEquals(resource, null)) then
+                    resource.Dispose()))
+            (body resource)
 
 [<AutoOpen>]
 module EffectBuilderModule =
