@@ -113,6 +113,8 @@
     <!-- w4-conc: concurrency hubs -->
     <Compile Include="PubSub.fs" />
     <Compile Include="PartitionedSemaphore.fs" />
+    <!-- w5-rcmap: reference-counted map of scoped resources (on Deferred/MutableHashMap/Clock/Scope/Fiber) -->
+    <Compile Include="RcMap.fs" />
   </ItemGroup>
 
 </Project>
