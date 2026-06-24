@@ -67,6 +67,10 @@ module Chunk =
         else failwithf "Index out of bounds: %d" i
 
     let head (self: Chunk<'A>) : 'A option = Array.tryHead self.Values
+
+    /// The first element; throws if the chunk is empty (upstream `headUnsafe`).
+    let headUnsafe (self: Chunk<'A>) : 'A = getUnsafe 0 self
+
     let last (self: Chunk<'A>) : 'A option = Array.tryLast self.Values
     let lastUnsafe (self: Chunk<'A>) : 'A = getUnsafe (self.Values.Length - 1) self
 
@@ -102,6 +106,10 @@ module Chunk =
 
     let dropRight (n: int) (self: Chunk<'A>) : Chunk<'A> =
         take (self.Values.Length - max 0 n) self
+
+    /// The last `n` elements (upstream `takeRight`); `n <= 0` gives the empty
+    /// chunk, `n >= size` gives the whole chunk.
+    let takeRight (n: int) (self: Chunk<'A>) : Chunk<'A> = drop (self.Values.Length - n) self
 
     let takeWhile (predicate: 'A -> bool) (self: Chunk<'A>) : Chunk<'A> =
         { Values = Array.takeWhile predicate self.Values }
@@ -161,8 +169,10 @@ module Chunk =
             out.[i] <- b)
         state, { Values = out }
 
-    let flatMap (self: Chunk<'A>) (f: 'A -> Chunk<'B>) : Chunk<'B> =
-        { Values = self.Values |> Array.collect (fun a -> (f a).Values) }
+    /// Map each element to a chunk and concatenate. `f` gets `(a, index)`
+    /// (parity with `map`/`forEach`).
+    let flatMap (self: Chunk<'A>) (f: 'A -> int -> Chunk<'B>) : Chunk<'B> =
+        { Values = self.Values |> Array.mapi (fun i a -> (f a i).Values) |> Array.concat }
 
     let flatten (self: Chunk<Chunk<'A>>) : Chunk<'A> =
         { Values = self.Values |> Array.collect (fun c -> c.Values) }
@@ -255,10 +265,62 @@ module Chunk =
 
     let some (self: Chunk<'A>) (predicate: 'A -> bool) : bool = Array.exists predicate self.Values
 
+    /// Whether `predicate` holds for every element (vacuously `true` when empty).
+    let every (self: Chunk<'A>) (predicate: 'A -> bool) : bool = Array.forall predicate self.Values
+
     let forEach (self: Chunk<'A>) (f: 'A -> int -> unit) : unit =
         self.Values |> Array.iteri (fun i a -> f a i)
 
+    /// Whether the chunk contains `a` (FSharp.Core structural equality).
+    let contains (self: Chunk<'A>) (a: 'A) : bool = Array.contains a self.Values
+
+    /// Whether the chunk contains an element equivalent to `a` under
+    /// `isEquivalent`.
+    let containsWith (isEquivalent: 'A -> 'A -> bool) (self: Chunk<'A>) (a: 'A) : bool =
+        self.Values |> Array.exists (isEquivalent a)
+
+    /// The first element satisfying `predicate`, or `None`.
+    let findFirst (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option =
+        Array.tryFind predicate self.Values
+
+    /// The index of the first element satisfying `predicate`, or `None`.
+    let findFirstIndex (self: Chunk<'A>) (predicate: 'A -> bool) : int option =
+        Array.tryFindIndex predicate self.Values
+
+    /// The last element satisfying `predicate`, or `None`.
+    let findLast (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option =
+        Array.tryFindBack predicate self.Values
+
+    /// The index of the last element satisfying `predicate`, or `None`.
+    let findLastIndex (self: Chunk<'A>) (predicate: 'A -> bool) : int option =
+        Array.tryFindIndexBack predicate self.Values
+
+    // --- folding ---
+
+    /// Left-to-right fold; `f` gets `(acc, element, index)`.
+    let reduce (self: Chunk<'A>) (b: 'B) (f: 'B -> 'A -> int -> 'B) : 'B =
+        let mutable acc = b
+        for i in 0 .. self.Values.Length - 1 do
+            acc <- f acc self.Values.[i] i
+        acc
+
+    /// Right-to-left fold; `f` gets `(acc, element, index)` where `index` is the
+    /// element's original position.
+    let reduceRight (self: Chunk<'A>) (b: 'B) (f: 'B -> 'A -> int -> 'B) : 'B =
+        let mutable acc = b
+        for i in self.Values.Length - 1 .. -1 .. 0 do
+            acc <- f acc self.Values.[i] i
+        acc
+
+    /// Join a chunk of strings with `sep` between elements.
+    let join (self: Chunk<string>) (sep: string) : string = String.concat sep self.Values
+
     // --- ordering ---
+
+    /// Sort the chunk with `order` (a three-way comparison such as `compare`,
+    /// upstream's `Order`). Stable.
+    let sort (self: Chunk<'A>) (order: 'A -> 'A -> int) : Chunk<'A> =
+        { Values = Array.sortWith order self.Values }
 
     /// Sort by the key projected with `f`, ordering keys with `order`
     /// (a three-way comparison such as `compare`). Stable.
