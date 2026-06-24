@@ -26,6 +26,12 @@
     <Compile Include="MutableHashSetTests.fs" />
     <Compile Include="MutableListTests.fs" />
     <Compile Include="MutableRefTests.fs" />
+    <!-- leaf6: encoding / data -->
+    <Compile Include="DataTests.fs" />
+    <Compile Include="RedactedTests.fs" />
+    <Compile Include="EncodingTests.fs" />
+    <Compile Include="JsonPointerTests.fs" />
+    <Compile Include="JsonPatchTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

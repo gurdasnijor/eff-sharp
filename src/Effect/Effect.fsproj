@@ -39,6 +39,12 @@
     <Compile Include="MutableHashSet.fs" />
     <Compile Include="MutableList.fs" />
     <Compile Include="MutableRef.fs" />
+    <!-- leaf6: encoding / data -->
+    <Compile Include="Data.fs" />
+    <Compile Include="Redacted.fs" />
+    <Compile Include="Encoding.fs" />
+    <Compile Include="JsonPointer.fs" />
+    <Compile Include="JsonPatch.fs" />
   </ItemGroup>
 
 </Project>
