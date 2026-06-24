@@ -111,6 +111,10 @@
     <Compile Include="ScopedCacheTests.fs" />
     <!-- w5-resource: refreshable scoped value -->
     <Compile Include="ResourceTests.fs" />
+    <!-- w5-fibercoll: fiber-supervision containers -->
+    <Compile Include="FiberHandleTests.fs" />
+    <Compile Include="FiberSetTests.fs" />
+    <Compile Include="FiberMapTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

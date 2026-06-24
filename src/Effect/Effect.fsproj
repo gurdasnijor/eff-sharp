@@ -120,6 +120,10 @@
     <Compile Include="ScopedCache.fs" />
     <!-- w5-resource: refreshable scoped value (ScopedRef + Schedule) -->
     <Compile Include="Resource.fs" />
+    <!-- w5-fibercoll: fiber-supervision containers (on Fiber/Deferred/Scope) -->
+    <Compile Include="FiberHandle.fs" />
+    <Compile Include="FiberSet.fs" />
+    <Compile Include="FiberMap.fs" />
   </ItemGroup>
 
 </Project>
