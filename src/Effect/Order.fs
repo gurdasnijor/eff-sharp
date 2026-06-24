@@ -25,23 +25,17 @@ module Order =
         fun self that -> if self = that then 0 else compare self that
 
     /// Lexicographic string order.
-    let String: Order<string> = make (fun self that -> if self < that then -1 else 1)
+    let String: Order<string> = fun self that -> sign (compare self that)
 
     /// Numeric order. `NaN` is treated as equal to itself and less than any
-    /// other number.
-    let Number: Order<float> =
-        make (fun self that ->
-            if System.Double.IsNaN self && System.Double.IsNaN that then 0
-            elif System.Double.IsNaN self then -1
-            elif System.Double.IsNaN that then 1
-            elif self < that then -1
-            else 1)
+    /// other number — exactly F#'s structural `compare` on floats (§8.1.3).
+    let Number: Order<float> = fun self that -> sign (compare self that)
 
     /// Boolean order where `false < true`.
-    let Boolean: Order<bool> = make (fun self that -> if self < that then -1 else 1)
+    let Boolean: Order<bool> = fun self that -> sign (compare self that)
 
     /// Arbitrary-precision integer order.
-    let BigInt: Order<bigint> = make (fun self that -> if self < that then -1 else 1)
+    let BigInt: Order<bigint> = fun self that -> sign (compare self that)
 
     /// Reverses an order.
     let flip (o: Order<'a>) : Order<'a> = fun self that -> o that self
@@ -70,7 +64,7 @@ module Order =
         fun b1 b2 -> self (f b1) (f b2)
 
     /// Order for `DateTime`, chronological (full tick resolution).
-    let Date: Order<System.DateTime> = make (fun a b -> if a < b then -1 else 1)
+    let Date: Order<System.DateTime> = fun a b -> sign (compare a b)
 
     /// Order for a 2-tuple, compared position-by-position.
     let tuple2 (oA: Order<'a>) (oB: Order<'b>) : Order<'a * 'b> =
