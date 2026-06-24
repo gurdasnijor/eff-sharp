@@ -47,6 +47,8 @@
     <Compile Include="DurationTests.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="CronTests.fs" />
+    <!-- wave4: Schedule -->
+    <Compile Include="ScheduleTests.fs" />
     <!-- w2-leavesa: algebraic leaves -->
     <Compile Include="CombinerTests.fs" />
     <Compile Include="ReducerTests.fs" />
