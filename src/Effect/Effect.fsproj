@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
   </ItemGroup>
 
   <!-- Compile order = dependency order. The list is the single source of truth in

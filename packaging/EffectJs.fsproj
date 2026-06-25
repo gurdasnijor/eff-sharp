@@ -12,6 +12,7 @@
   <ItemGroup>
     <!-- the #if FABLE_COMPILER interop in Formatter/Path/Terminal needs Fable.Core -->
     <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
   </ItemGroup>
 
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />

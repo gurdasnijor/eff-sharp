@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
   </ItemGroup>
 
   <!-- the Fable-ready core -->
