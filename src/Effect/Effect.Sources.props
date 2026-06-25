@@ -177,6 +177,7 @@
     <Compile Include="$(EffectSrcDir)HttpApiSecurity.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiClient.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiBuilder.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiTest.fs" />
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="$(EffectSrcDir)SubscriptionRef.fs" />
     <Compile Include="$(EffectSrcDir)TxSubscriptionRef.fs" />
