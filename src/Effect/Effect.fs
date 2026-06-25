@@ -216,6 +216,18 @@ module Effect =
 
     // --- fibers & interruption (slice: wave3 kernel) ---
 
+    /// Run `eff` and capture its full `Exit` (success / typed failure / defect /
+    /// interruption) as a *success* — the resulting effect never fails. The dual of
+    /// `failCause`/`done`; lets a caller inspect an outcome without short-circuiting
+    /// (e.g. a retry loop polling `exit (HttpClient.get url)` for readiness).
+    /// (Effect.exit)
+    let exit (Effect run) : Effect<Exit<'A, 'E>, 'F, 'R> =
+        Effect(fun fib r ->
+            async {
+                let! ex = run fib r
+                return Success ex
+            })
+
     /// Run `eff` on a fresh fiber concurrently; returns a `Fiber` handle to
     /// await/join/interrupt. The parent is not affected by the child's outcome.
     /// (Effect.fork)

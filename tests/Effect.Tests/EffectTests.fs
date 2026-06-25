@@ -337,3 +337,18 @@ let ``catchAll recovers the typed Fail even when a Die co-occurs (upstream-faith
     let cause = Cause.combine (Cause.fail DivByZero) (Cause.die (box "extra"))
     let e = Effect.failCause cause |> Effect.catchAll (fun _ -> Effect.succeed 7)
     Assert.Equal<Exit<int, DivError>>(Exit.succeed 7, exitOf () e)
+
+[<Fact>]
+let ``exit captures success and failure as an Exit without short-circuiting`` () =
+    // Success: the outer effect succeeds carrying the inner Success.
+    match Effect.runSync () (Effect.exit (Effect.succeed 42)) with
+    | Success inner -> Assert.Equal<Exit<int, string>>(Exit.succeed 42, inner)
+    | Failure c -> failwithf "exit should not fail: %s" (Cause.render c)
+
+    // Failure: exit NEVER fails the outer — it captures the inner Failure.
+    match Effect.runSync () (Effect.exit (Effect.fail "boom")) with
+    | Success inner ->
+        match inner with
+        | Failure c -> Assert.Contains("boom", Cause.render c)
+        | Success _ -> failwith "expected the inner Exit to be a Failure"
+    | Failure c -> failwithf "exit should not fail the outer: %s" (Cause.render c)

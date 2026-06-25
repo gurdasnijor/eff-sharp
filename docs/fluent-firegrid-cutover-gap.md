@@ -55,9 +55,41 @@ cleanliness, not cutover-blocking.
 Fable-compile the touched package (Node smoke test for Node-only paths) · CI gates merge.
 
 ## Acceptance
-Feature-complete = a `cutover` branch of fluent-firegrid's **verification** and
-**fluent-acp-process** packages compiles + runs as idiomatic eff-sharp (Fable→Node).
+Feature-complete = a **POC cutover branch of fluent-firegrid, opened as a PR there**,
+rewriting a package in idiomatic eff-sharp F# (Fable→Node, best practices).
 effect-s2/observability follow as Phase D.
+
+## POC execution plan (read the actual source — done 2026-06-25)
+
+Two candidate POC modules, with their EXACT remaining eff-sharp gaps (so the POC
+isn't blocked by rediscovery):
+
+**`fluent-acp-process`** (4 src files, spawn an ACP harness → expose `acp.Stream`):
+- Pure: `resolve-agent.ts` (Match on agent key) → trivial F# `match`.
+- Hard: `process-owner.ts` bridges eff-sharp `Stream`↔WHATWG web streams and calls
+  the external `@agentclientprotocol/sdk` `ndJsonStream(writable, readable)`. Gaps:
+  `Stream.fromQueue`, `Queue.offerUnsafe`, `Effect.forkScoped`,
+  **`Stream.toReadableStream`** (Effect Stream → WHATWG `ReadableStream`, Fable
+  interop) + a Fable binding for `@agentclientprotocol/sdk`. Heavy JS interop.
+
+**`verification/ProcessHost.ts`** (283 lines, spawn hosts + HTTP readiness + kill/
+restart + tracing): uses ChildProcess ✓, HttpClient ✓, Ref ✓, Option ✓, Scope ✓,
+`Effect.sleep` ✓, `Effect.exit` ✓ (added). Gaps: `Effect.forkScoped`,
+`Effect.withSpan`/`Effect.fn` (tracing — eff-sharp has `Tracer`, needs the combinators),
+`ChildProcess` `KillOptions` (`killSignal`/`forceKillAfter`), plus `cli` for the full
+`CliApp.ts` entry.
+
+**Recommended minimal POC** (proves the toolchain + platform stack without the
+web-stream/SDK or tracing tail): port `resolve-agent` + a `spawn-and-capture` slice —
+resolve an agent command, spawn it via `ChildProcessSpawner`/`NodeRuntime`, capture
+stdout via `Stream.runCollect`, assert output — Fable-compiled, run on Node, opened as
+a PR on fluent-firegrid (new package, e.g. `packages/fluent-acp-process-fs/`).
+Integration steps: F# project referencing eff-sharp (project ref or built lib) →
+`dotnet fable` → Node smoke test → PR.
+
+**Combinators still to add for a fuller POC** (priority order): `Effect.forkScoped`
+(Scope.fs, after Effect), `Stream.fromQueue` (on `repeatEffectOption` + `Queue.take`),
+`Queue.offerUnsafe`, `Effect.withSpan`/`Effect.fn` (Tracer), `ChildProcess` `KillOptions`.
 
 ## Note on parallel work
 A parallel effort is grinding the core Fable-cleanup (merged Clock #20, Formatter,
