@@ -11,6 +11,9 @@ describe "NodeRuntime" (fun () ->
             toBe (Context.contains FileSystem.tag ctx) true
             toBe (Context.contains ChildProcessSpawner.tag ctx) true
             toBe (Context.contains HttpClient.tag ctx) true
+            toBe (Context.contains Path.tag ctx) true
+            toBe (Context.contains Crypto.tag ctx) true
+            toBe (Context.contains NodeHttpPlatform.tag ctx) true
             toBe (Context.contains Clock.tag ctx) true
             toBe (Context.contains Console.tag ctx) true))
 

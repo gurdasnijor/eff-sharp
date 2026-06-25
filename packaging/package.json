@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./dist/src/Effect/Effect.ts",
-    "./*": "./dist/src/Effect/*.ts"
+    "./*": "./dist/src/Effect/*.ts",
+    "./platform-node/*": "./dist/src/Effect.Platform.Node/*.ts",
+    "./Effect.Platform.Node/*": "./dist/src/Effect.Platform.Node/*.ts"
   },
   "files": [
     "dist"
