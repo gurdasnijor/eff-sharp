@@ -1,12 +1,15 @@
 namespace Effect
 
+open Fable.Core
+
 /// Port of repos/effect-smol/packages/effect/src/Redactable.ts.
 ///
 /// `Redactable` is a protocol for values that present an alternative,
 /// sanitized representation of themselves (e.g. masking secrets in logs).
 /// Upstream the protocol is a single symbol-keyed method; in F# it lowers
-/// directly onto an interface, `IRedactable`, with `isRedactable` becoming a
-/// native type test (CONVENTIONS §2, §3).
+/// directly onto an interface, `IRedactable`. The unknown-value guard remains
+/// structural under Fable because interfaces do not exist at runtime in emitted
+/// JavaScript (CONVENTIONS §2, §3).
 ///
 /// Omissions / divergences (noted per CONVENTIONS §3, §4):
 ///   - The redaction method upstream receives the current fiber's
@@ -26,13 +29,23 @@ module Redactable =
     [<Literal>]
     let symbolRedactable = "~effect/Redactable"
 
+    [<Emit("!!($0 && typeof $0.Redact === 'function')")>]
+    let private hasRedact (_u: obj) : bool = nativeOnly
+
+    [<Emit("$0.Redact()")>]
+    let private unsafeRedact (_u: obj) : obj = nativeOnly
+
     /// True when `u` implements the redaction protocol. Lowers the upstream
-    /// `hasProperty(u, symbolRedactable)` guard onto a native type test.
+    /// `hasProperty(u, symbolRedactable)` guard onto a runtime protocol check.
     /// (`isRedactable`)
     let isRedactable (u: obj) : bool =
+#if FABLE_COMPILER
+        hasRedact u
+#else
         match u with
         | :? IRedactable -> true
         | _ -> false
+#endif
 
     /// Read the redacted representation from a known `IRedactable`.
     /// (`getRedacted`)
@@ -41,6 +54,10 @@ module Redactable =
     /// Redact `u` if it implements `IRedactable`, otherwise return it unchanged.
     /// Redaction is not recursive. (`redact`)
     let redact (u: obj) : obj =
+#if FABLE_COMPILER
+        if hasRedact u then unsafeRedact u else u
+#else
         match u with
         | :? IRedactable as r -> r.Redact()
         | _ -> u
+#endif
