@@ -9,6 +9,7 @@
        (Effect.test.ts -> EffectTests.fs). See PORTING.md for full coverage. -->
   <ItemGroup>
     <Compile Include="EffectTests.fs" />
+    <Compile Include="NodePlatformTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />
@@ -147,6 +148,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Effect/Effect.fsproj" />
+    <ProjectReference Include="../../src/Effect.Platform.Node/Effect.Platform.Node.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Effect.Platform.Node — the F# mirror of effect-smol's `platform-node`
+       (+ `platform-node-shared`, folded in until a Bun target needs the split).
+       Provides Node implementations of the platform-agnostic service abstractions
+       defined in the core `Effect` package (ChildProcessSpawner, FileSystem, …).
+
+       Dual-backed, as the rest of the port: `#if FABLE_COMPILER` binds Node APIs
+       (the runtime target), `#if !FABLE_COMPILER` uses the BCL (the xUnit surface).
+       TargetFramework is inherited from the repo-root Directory.Build.props. -->
+
+  <PropertyGroup>
+    <AssemblyName>EffSharp.Platform.Node</AssemblyName>
+    <RootNamespace>Effect.Platform.Node</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="NodePlatform.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Effect/Effect.fsproj" />
+  </ItemGroup>
+
+</Project>
