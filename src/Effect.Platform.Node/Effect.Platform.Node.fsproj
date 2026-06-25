@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
   </ItemGroup>
 
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />

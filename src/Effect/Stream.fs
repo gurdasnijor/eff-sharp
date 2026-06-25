@@ -1,5 +1,9 @@
 namespace Effect
 
+#if FABLE_COMPILER
+open Fable.Core
+#endif
+
 /// Slice: wave-5. `Stream` — a pull-of-many effectful values (port of Stream.ts).
 ///
 /// Representation: a **sink/push fold** — a stream is "run me with a per-element
@@ -21,6 +25,29 @@ type Stream<'A, 'E, 'R> =
 module Stream =
 
     exception private StreamStop
+
+#if FABLE_COMPILER
+    [<Emit("$0[Symbol.asyncIterator]()")>]
+    let private asyncIterator (_iterable: JS.AsyncIterable<'A>) : obj = jsNative
+
+    [<Emit("$0.next()")>]
+    let private asyncIteratorNext (_iterator: obj) : JS.Promise<obj> = jsNative
+
+    [<Emit("!!$0.done")>]
+    let private iteratorResultDone (_result: obj) : bool = jsNative
+
+    [<Emit("$0.value")>]
+    let private iteratorResultValue (_result: obj) : 'A = jsNative
+
+    [<Emit("$0.getReader()")>]
+    let private readableGetReader (_readable: obj) : obj = jsNative
+
+    [<Emit("$0.read()")>]
+    let private readableReaderRead (_reader: obj) : JS.Promise<obj> = jsNative
+
+    [<Emit("if ($0.releaseLock) { $0.releaseLock(); }")>]
+    let private readableReleaseLock (_reader: obj) : unit = jsNative
+#endif
 
     // --- constructors ---
 
@@ -61,6 +88,67 @@ module Stream =
                         | None -> Effect.succeed ())
 
                 loop () }
+
+    /// Lazily unwrap an effect that produces a stream. (Stream.unwrap)
+    let unwrap (effect: Effect<Stream<'A, 'E, 'R>, 'E, 'R>) : Stream<'A, 'E, 'R> =
+        { Run = fun emit -> effect |> Effect.flatMap (fun stream -> stream.Run emit) }
+
+#if FABLE_COMPILER
+    /// Bridge a JavaScript `AsyncIterable` into eff-sharp `Stream`.
+    let fromAsyncIterableJS (iterable: JS.AsyncIterable<'A>) (onError: exn -> 'E) : Stream<'A, 'E, 'R> =
+        { Run =
+            fun emit ->
+                Effect(fun fib env ->
+                    let iterator = asyncIterator iterable
+
+                    let pull =
+                        Effect.tryPromiseJS
+                            (fun () -> asyncIteratorNext iterator)
+                            onError
+                        |> Effect.map (fun result ->
+                            if iteratorResultDone result then
+                                None
+                            else
+                                Some(iteratorResultValue result))
+
+                    let stream = repeatEffectOption pull
+                    let (Effect run) = stream.Run emit
+                    run fib env) }
+
+    /// Bridge a WHATWG `ReadableStream` into eff-sharp `Stream`.
+    let fromReadableStreamJS (readable: obj) (onError: exn -> 'E) : Stream<'A, 'E, 'R> =
+        { Run =
+            fun emit ->
+                Effect(fun fib env ->
+                    async {
+                        let reader = readableGetReader readable
+
+                        try
+                            let pull =
+                                Effect.tryPromiseJS
+                                    (fun () -> readableReaderRead reader)
+                                    onError
+                                |> Effect.map (fun result ->
+                                    if iteratorResultDone result then
+                                        None
+                                    else
+                                        Some(iteratorResultValue result))
+
+                            let stream = repeatEffectOption pull
+                            let (Effect run) = stream.Run emit
+                            return! run fib env
+                        finally
+                            readableReleaseLock reader
+                    }) }
+#else
+    /// JavaScript AsyncIterable interop is only executable under Fable/JS.
+    let fromAsyncIterableJS (_iterable: Fable.Core.JS.AsyncIterable<'A>) (_onError: exn -> 'E) : Stream<'A, 'E, 'R> =
+        fromEffect (Effect.sync (fun () -> failwith "Stream.fromAsyncIterableJS is only available on the Fable/JS target"))
+
+    /// JavaScript ReadableStream interop is only executable under Fable/JS.
+    let fromReadableStreamJS (_readable: obj) (_onError: exn -> 'E) : Stream<'A, 'E, 'R> =
+        fromEffect (Effect.sync (fun () -> failwith "Stream.fromReadableStreamJS is only available on the Fable/JS target"))
+#endif
 
     // --- combinators ---
 

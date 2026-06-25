@@ -2,6 +2,10 @@ namespace Effect
 
 open System.Threading.Tasks
 
+#if FABLE_COMPILER
+open Fable.Core
+#endif
+
 /// Per-fiber runtime state threaded through every effect. Interruption is
 /// **cooperative**: `Interrupted` is a
 /// flag set by `interrupt`, checked at yield points (`flatMap` boundaries,
@@ -128,6 +132,35 @@ module Effect =
                 with ex ->
                     return Exit.die (box (unwrap ex))
             })
+
+    /// Lift a native JavaScript Promise into an Effect. This is the direct bridge
+    /// for Fable npm interop (`Promise<'A>` → `Effect<'A, _, _>`).
+    let promiseJS (promise: Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ ->
+            async {
+                let! a = Async.AwaitPromise promise
+                return Success a
+            })
+
+    /// Lazily create and await a native JavaScript Promise.
+    let promiseJSWith (f: unit -> Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ ->
+            async {
+                let! a = Async.AwaitPromise(f ())
+                return Success a
+            })
+
+    /// Lazily create and await a native JavaScript Promise, mapping rejection
+    /// into the typed error channel instead of a defect.
+    let tryPromiseJS (f: unit -> Fable.Core.JS.Promise<'A>) (onError: exn -> 'E) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ ->
+            async {
+                try
+                    let! a = Async.AwaitPromise(f ())
+                    return Success a
+                with ex ->
+                    return Exit.fail (onError (unwrap ex))
+            })
 #else
     let promise (f: unit -> Task<'A>) : Effect<'A, 'E, 'R> =
         Effect(fun _ _ ->
@@ -145,6 +178,18 @@ module Effect =
                 with ex ->
                     return Exit.die (box (unwrap ex))
             })
+
+    /// JavaScript Promise interop is only executable under Fable/JS.
+    let promiseJS (_promise: Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
+        Effect.sync (fun () -> failwith "Effect.promiseJS is only available on the Fable/JS target")
+
+    /// JavaScript Promise interop is only executable under Fable/JS.
+    let promiseJSWith (_f: unit -> Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
+        Effect.sync (fun () -> failwith "Effect.promiseJSWith is only available on the Fable/JS target")
+
+    /// JavaScript Promise interop is only executable under Fable/JS.
+    let tryPromiseJS (_f: unit -> Fable.Core.JS.Promise<'A>) (_onError: exn -> 'E) : Effect<'A, 'E, 'R> =
+        Effect.sync (fun () -> failwith "Effect.tryPromiseJS is only available on the Fable/JS target")
 #endif
 
     let environment<'R, 'E> : Effect<'R, 'E, 'R> =
