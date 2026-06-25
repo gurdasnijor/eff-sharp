@@ -10,6 +10,7 @@
     <Compile Include="../../src/Effect/Exit.fs" />
     <Compile Include="../../src/Effect/Context.fs" />
     <Compile Include="../../src/Effect/Effect.fs" />
+    <Compile Include="../../src/Effect/Cell.fs" />
     <Compile Include="../../src/Effect/Scope.fs" />
     <Compile Include="../../src/Effect/Fiber.fs" />
     <Compile Include="../../src/Effect/Runtime.fs" />
@@ -53,7 +54,6 @@
     <Compile Include="../../src/Effect/NonEmptyIterable.fs" />
     <Compile Include="../../src/Effect/Ref.fs" />
     <Compile Include="../../src/Effect/SynchronizedRef.fs" />
-    <Compile Include="../../src/Effect/Cell.fs" />
     <Compile Include="../../src/Effect/Deferred.fs" />
     <Compile Include="../../src/Effect/Latch.fs" />
     <Compile Include="../../src/Effect/Clock.fs" />

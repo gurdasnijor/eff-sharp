@@ -16,6 +16,8 @@
     <Compile Include="Context.fs" />
     <!-- Slice 1+3: async Effect core (Reader over Async<Exit>) -->
     <Compile Include="Effect.fs" />
+    <!-- Cell: Fable-portable completion primitive (TaskCompletionSource replacement) -->
+    <Compile Include="Cell.fs" />
     <!-- Slice 3-4 / w2-di: runtime / concurrency / scoping -->
     <Compile Include="Scope.fs" />
     <Compile Include="Fiber.fs" />
@@ -74,7 +76,6 @@
     <Compile Include="Ref.fs" />
     <Compile Include="SynchronizedRef.fs" />
     <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
-    <Compile Include="Cell.fs" />
     <Compile Include="Deferred.fs" />
     <Compile Include="Latch.fs" />
     <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->

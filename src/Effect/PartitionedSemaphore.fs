@@ -1,7 +1,6 @@
 namespace Effect
 
 open System.Collections.Generic
-open System.Threading.Tasks
 
 /// Wave 4: `PartitionedSemaphore` — a shared permit pool whose waiters are grouped
 /// by partition key.
@@ -14,10 +13,12 @@ open System.Threading.Tasks
 /// Representation — mutable counters (`Total` available, `Waiting` reserved by
 /// blocked waiters) plus a `Dictionary` of partition key → FIFO waiter list,
 /// guarded by a lock. A blocked `take` reserves the permits it still needs and
-/// suspends on a `TaskCompletionSource`, resumed once `release` has routed enough
-/// permits to it (same suspension pattern as the merged `Latch`/`Deferred`).
-/// `MutableHashMap` keys the partitions upstream; here a plain `Dictionary` with
-/// structural-equality keys serves the same role.
+/// suspends on a `Cell` (the Fable-portable completion primitive), resumed once
+/// `release` has routed enough permits to it (same suspension pattern as the
+/// merged `Latch`/`Deferred`). `MutableHashMap` keys the partitions upstream; here
+/// a plain `Dictionary` with structural-equality keys serves the same role, and
+/// each partition's FIFO waiter list is a `Queue` — waiters are only ever served
+/// from the front, so a queue is faithful and Fable-portable (`LinkedList` is not).
 ///
 /// Omissions vs upstream (noted per CONVENTIONS): the non-finite ("unbounded")
 /// permit case (JS `Infinity`) is dropped — F# `int` has no infinity; the
@@ -27,7 +28,7 @@ open System.Threading.Tasks
 
 type internal Waiter =
     { mutable Permits: int
-      Tcs: TaskCompletionSource<unit> }
+      Gate: Cell<unit> }
 
 /// A partitioned permit pool. Mutable state is guarded by `Lock`.
 type PartitionedSemaphore<'K when 'K: equality> =
@@ -36,15 +37,14 @@ type PartitionedSemaphore<'K when 'K: equality> =
           Capacity: int
           mutable Total: int
           mutable Waiting: int
-          Partitions: Dictionary<'K, LinkedList<Waiter>>
+          Partitions: Dictionary<'K, Queue<Waiter>>
           KeyOrder: List<'K>
           mutable Rr: int }
 
 [<RequireQualifiedAccess>]
 module PartitionedSemaphore =
 
-    let private newGate () =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let private newGate () : Cell<unit> = Cell.make ()
 
     // --- construction ---
 
@@ -57,7 +57,7 @@ module PartitionedSemaphore =
           Capacity = maxPermits
           Total = maxPermits
           Waiting = 0
-          Partitions = Dictionary<'K, LinkedList<Waiter>>(HashIdentity.Structural)
+          Partitions = Dictionary<'K, Queue<Waiter>>(HashIdentity.Structural)
           KeyOrder = List<'K>()
           Rr = 0 }
 
@@ -72,10 +72,13 @@ module PartitionedSemaphore =
 
     // --- internal core (callers hold the lock) ---
 
-    let private removeWaiterUnsafe (self: PartitionedSemaphore<'K>) (key: 'K) (waiter: Waiter) =
+    /// Drop the front (currently-served) waiter of a partition, removing the
+    /// partition entirely once empty. Waiters are only ever removed from the front
+    /// (a fully-served head, or the front of a routing cycle), so dequeue is exact.
+    let private dropFrontWaiterUnsafe (self: PartitionedSemaphore<'K>) (key: 'K) =
         match self.Partitions.TryGetValue key with
         | true, set ->
-            set.Remove waiter |> ignore
+            set.Dequeue() |> ignore
 
             if set.Count = 0 then
                 self.Partitions.Remove key |> ignore
@@ -100,13 +103,13 @@ module PartitionedSemaphore =
 
                 let key = self.KeyOrder.[self.Rr]
                 let set = self.Partitions.[key]
-                let waiter = set.First.Value
+                let waiter = set.Peek()
                 waiter.Permits <- waiter.Permits - 1
                 self.Waiting <- self.Waiting - 1
 
                 if waiter.Permits = 0 then
-                    removeWaiterUnsafe self key waiter
-                    waiter.Tcs.TrySetResult() |> ignore
+                    dropFrontWaiterUnsafe self key
+                    Cell.trySet waiter.Gate () |> ignore
 
                 self.Rr <- self.Rr + 1
                 remaining <- remaining - 1
@@ -158,19 +161,19 @@ module PartitionedSemaphore =
                                     match self.Partitions.TryGetValue key with
                                     | true, s -> s
                                     | _ ->
-                                        let s = LinkedList<Waiter>()
+                                        let s = Queue<Waiter>()
                                         self.Partitions.[key] <- s
                                         self.KeyOrder.Add key
                                         s
 
-                                let waiter = { Permits = needed; Tcs = newGate () }
-                                set.AddLast waiter |> ignore
-                                Choice2Of2(Some waiter.Tcs))
+                                let waiter = { Permits = needed; Gate = newGate () }
+                                set.Enqueue waiter
+                                Choice2Of2(Some waiter.Gate))
 
                     match action with
-                    | Choice1Of2 forever -> do! Async.AwaitTask forever.Task
+                    | Choice1Of2 forever -> do! Cell.await forever
                     | Choice2Of2 None -> ()
-                    | Choice2Of2(Some tcs) -> do! Async.AwaitTask tcs.Task
+                    | Choice2Of2(Some gate) -> do! Cell.await gate
 
                     return Success()
                 })
