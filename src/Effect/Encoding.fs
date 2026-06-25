@@ -127,7 +127,13 @@ module Encoding =
     // ----------------------------------------------------------------------
 
     /// Encode bytes as lowercase hexadecimal. (Encoding.encodeHex)
+#if FABLE_COMPILER
+    // Fable shim: System.Convert.ToHexStringLower is unsupported. (severity: trivial)
+    let encodeHex (bytes: byte[]) : string =
+        bytes |> Array.map (fun b -> sprintf "%02x" (int b)) |> String.concat ""
+#else
     let encodeHex (bytes: byte[]) : string = Convert.ToHexStringLower bytes
+#endif
 
     /// Encode a UTF-8 string as lowercase hexadecimal.
     let encodeHexString (s: string) : string = encodeHex (utf8Bytes s)
@@ -140,7 +146,19 @@ module Encoding =
             Error(decodeError "Hex" str (sprintf "Length must be a multiple of 2, but is %d" bytes.Length))
         else
             try
+#if FABLE_COMPILER
+                // Fable shim: System.Convert.FromHexString is unsupported. Parse each
+                // byte from two hex nibbles with only Fable-safe ops. (severity: trivial)
+                let nibble (c: char) : int =
+                    if c >= '0' && c <= '9' then int c - int '0'
+                    elif c >= 'a' && c <= 'f' then int c - int 'a' + 10
+                    elif c >= 'A' && c <= 'F' then int c - int 'A' + 10
+                    else failwith "invalid hex digit"
+
+                Ok(Array.init (str.Length / 2) (fun i -> byte (nibble str.[i * 2] * 16 + nibble str.[i * 2 + 1])))
+#else
                 Ok(Convert.FromHexString str)
+#endif
             with _ ->
                 Error(decodeError "Hex" str "Invalid input")
 

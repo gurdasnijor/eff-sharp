@@ -98,8 +98,29 @@ module ManagedRuntime =
 
     /// Run an effect synchronously to its value, raising on failure. (ManagedRuntime.runSync)
     let runSync (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : 'A =
+#if FABLE_COMPILER
+        // Fable shim: Async.RunSynchronously is unsupported on JS. Reuse the
+        // non-blocking Effect.runSync driver and unwrap the Exit. (refactor)
+        match Effect.runSync () (provide self effect) with
+        | Success a -> a
+        | Failure cause ->
+            match cause.Reasons with
+            | [ Reason.Die(:? exn as ex) ] -> raise ex
+            | _ -> raise (EffectFailureException(box cause, Cause.render cause))
+#else
         Effect.runAsync () (provide self effect) |> Async.RunSynchronously
+#endif
 
+#if FABLE_COMPILER
+    /// Run an effect to its value, rejecting on failure. On JS the returned Async is
+    /// bridged to a Promise with Async.StartAsPromise. (ManagedRuntime.runPromise)
+    let runPromise (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : Async<'A> =
+        Effect.runAsync () (provide self effect)
+
+    /// Run an effect to its full `Exit`. (ManagedRuntime.runPromiseExit)
+    let runPromiseExit (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : Async<Exit<'A, 'E>> =
+        Effect.runExit () (provide self effect)
+#else
     /// Run an effect as a `Task` of its value, rejecting on failure. (ManagedRuntime.runPromise)
     let runPromise (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : Task<'A> =
         Effect.runAsync () (provide self effect) |> Async.StartAsTask
@@ -107,6 +128,7 @@ module ManagedRuntime =
     /// Run an effect as a `Task` of its full `Exit`. (ManagedRuntime.runPromiseExit)
     let runPromiseExit (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : Task<Exit<'A, 'E>> =
         Effect.runExit () (provide self effect) |> Async.StartAsTask
+#endif
 
     /// Fork an effect against the runtime; the fiber is interrupted on `dispose`.
     /// (ManagedRuntime.runFork)
@@ -135,6 +157,12 @@ module ManagedRuntime =
 
             Scope.close self.Scope (Success(box ())))
 
+#if FABLE_COMPILER
+    /// Release the runtime's layer resources. On JS the returned Async is bridged to
+    /// a Promise with Async.StartAsPromise. (ManagedRuntime.dispose)
+    let dispose (self: ManagedRuntime<'E>) : Async<unit> = Effect.runAsync () (disposeEffect self)
+#else
     /// Release the runtime's layer resources as a `Task`. (ManagedRuntime.dispose)
     let dispose (self: ManagedRuntime<'E>) : Task<unit> =
         Effect.runAsync () (disposeEffect self) |> Async.StartAsTask
+#endif

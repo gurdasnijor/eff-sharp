@@ -60,8 +60,29 @@ module Runtime =
     /// defect that is itself an exception is re-raised; otherwise an
     /// `EffectFailureException`). (Runtime.runSync)
     let runSync (self: Runtime) (effect: Effect<'A, 'E, Context>) : 'A =
+#if FABLE_COMPILER
+        // Fable shim: Async.RunSynchronously is unsupported on JS. Reuse the
+        // non-blocking Effect.runSync driver and unwrap the Exit. (refactor)
+        match Effect.runSync self.Context effect with
+        | Success a -> a
+        | Failure cause ->
+            match cause.Reasons with
+            | [ Reason.Die(:? exn as ex) ] -> raise ex
+            | _ -> raise (EffectFailureException(box cause, Cause.render cause))
+#else
         Effect.runAsync self.Context effect |> Async.RunSynchronously
+#endif
 
+#if FABLE_COMPILER
+    /// Run an effect to its success value, rejecting on failure. On JS the returned
+    /// Async is bridged to a Promise with Async.StartAsPromise. (Runtime.runPromise)
+    let runPromise (self: Runtime) (effect: Effect<'A, 'E, Context>) : Async<'A> = Effect.runAsync self.Context effect
+
+    /// Run an effect to its full `Exit` (never rejects for a typed error).
+    /// (Runtime.runPromiseExit)
+    let runPromiseExit (self: Runtime) (effect: Effect<'A, 'E, Context>) : Async<Exit<'A, 'E>> =
+        Effect.runExit self.Context effect
+#else
     /// Run an effect as a .NET `Task` of its success value, rejecting on failure.
     /// (Runtime.runPromise)
     let runPromise (self: Runtime) (effect: Effect<'A, 'E, Context>) : Task<'A> =
@@ -71,6 +92,7 @@ module Runtime =
     /// typed error). (Runtime.runPromiseExit)
     let runPromiseExit (self: Runtime) (effect: Effect<'A, 'E, Context>) : Task<Exit<'A, 'E>> =
         Effect.runExit self.Context effect |> Async.StartAsTask
+#endif
 
     /// Start an effect on a fresh fiber and return its handle immediately. The
     /// fiber runs concurrently against the runtime's context. (Runtime.runFork)

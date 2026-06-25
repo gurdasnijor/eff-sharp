@@ -36,7 +36,13 @@ module Fiber =
     /// (Fiber.pollUnsafe, lifted into an effect.)
     let poll (self: Fiber<'A, 'E>) : Effect<Exit<'A, 'E> option, 'E2, 'R> =
         Effect.sync (fun () ->
+#if FABLE_COMPILER
+            // Fable shim: no backing Task to peek; read the completion cell. (refactor)
+            self.Result.Value
+#else
             if self.Task.IsCompleted then
                 Some self.Task.Result
             else
-                None)
+                None
+#endif
+        )

@@ -54,11 +54,18 @@ module Console =
 
     /// The live, best-effort console over `System.Console`.
     let live: Console =
-        let toOut (args: obj[]) =
-            System.Console.Out.WriteLine(render args)
+#if FABLE_COMPILER
+        // Fable shim: System.Console.Out/Error TextWriters are unsupported. Route to
+        // the JS console (Node: stdout/stderr) via printfn/eprintfn. (severity: refactor)
+        let writeOut (s: string) = printfn "%s" s
+        let writeErr (s: string) = eprintfn "%s" s
+#else
+        let writeOut (s: string) = System.Console.Out.WriteLine s
+        let writeErr (s: string) = System.Console.Error.WriteLine s
+#endif
 
-        let toErr (args: obj[]) =
-            System.Console.Error.WriteLine(render args)
+        let toOut (args: obj[]) = writeOut (render args)
+        let toErr (args: obj[]) = writeErr (render args)
 
         { Assert =
             fun condition args ->
@@ -68,15 +75,15 @@ module Console =
           Count = fun _ -> ()
           CountReset = fun _ -> ()
           Debug = toOut
-          Dir = fun item _ -> System.Console.Out.WriteLine(string item)
+          Dir = fun item _ -> writeOut (string item)
           Dirxml = toOut
           Error = toErr
-          Group = fun label -> label |> Option.iter System.Console.Out.WriteLine
-          GroupCollapsed = fun label -> label |> Option.iter System.Console.Out.WriteLine
+          Group = fun label -> label |> Option.iter writeOut
+          GroupCollapsed = fun label -> label |> Option.iter writeOut
           GroupEnd = fun () -> ()
           Info = toOut
           Log = toOut
-          Table = fun item _ -> System.Console.Out.WriteLine(string item)
+          Table = fun item _ -> writeOut (string item)
           Time = fun _ -> ()
           TimeEnd = fun _ -> ()
           TimeLog = fun _ _ -> ()

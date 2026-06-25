@@ -31,6 +31,18 @@ module Pull =
 
     /// Whether a boxed error value is a `Done<_>` completion marker (any
     /// leftover type), via reflection — the house-style runtime narrowing.
+#if FABLE_COMPILER
+    // Fable shim: runtime generics are erased, so reflection (typedefof / GetProperty)
+    // cannot identify a `Done<_>`. A direct type test / downcast works precisely
+    // because erasure makes every `Done<_>` the same runtime type. (severity: refactor)
+    let isDone (error: obj) : bool =
+        match error with
+        | null -> false
+        | :? Done<obj> -> true
+        | _ -> false
+
+    let private leftoverOf (doneMarker: obj) : obj = (doneMarker :?> Done<obj>).Leftover
+#else
     let isDone (error: obj) : bool =
         match error with
         | null -> false
@@ -40,6 +52,7 @@ module Pull =
 
     let private leftoverOf (doneMarker: obj) : obj =
         doneMarker.GetType().GetProperty("Leftover").GetValue(doneMarker)
+#endif
 
     /// Whether a `Reason` is a `Fail` whose error is a `Done` signal.
     let isDoneFailure (reason: Reason<obj>) : bool =
