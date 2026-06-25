@@ -20,6 +20,7 @@
     <Compile Include="NodeStream.fs" />
     <Compile Include="NodeSink.fs" />
     <Compile Include="NodeChildProcessSpawner.fs" />
+    <Compile Include="NodeHttpClient.fs" />
     <Compile Include="NodeRuntime.fs" />
   </ItemGroup>
 
