@@ -4,8 +4,9 @@
 
 Runs `dotnet fantomas --check` against just the `.fs`/`.fsi` files you're
 committing (~0.7s in practice) — a fast pre-check so you catch formatting before
-pushing. CI then runs the authoritative whole-tree `fantomas --check` (see
-[`tools/ci/check.sh`](../ci/check.sh)); the tree is fully Fantomas-formatted.
+pushing. The `quality` job in [`tools/ci/check.sh`](../ci/check.sh) then enforces
+it in CI: changed files vs the PR base on pull requests, the whole tree on push
+to `main`. The tree is fully Fantomas-formatted.
 
 ### Install (opt-in, one command from the repo root)
 
