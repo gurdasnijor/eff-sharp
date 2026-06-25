@@ -78,6 +78,8 @@
     <Compile Include="Latch.fs" />
     <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->
     <Compile Include="Clock.fs" />
+    <!-- fix/testclock: controllable Clock for deterministic time-based tests -->
+    <Compile Include="TestClock.fs" />
     <!-- w2-leavesb: utility leaves (Formatter depends on Redactable) -->
     <Compile Include="Redactable.fs" />
     <Compile Include="Formatter.fs" />
