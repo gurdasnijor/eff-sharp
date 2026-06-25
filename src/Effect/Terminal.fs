@@ -1,26 +1,3 @@
-#if FABLE_COMPILER
-namespace Fable.Core
-
-open System
-
-/// Fable-only stand-ins for `Fable.Core.EmitAttribute`/`ImportAttribute`, letting the
-/// platform layer use Fable's `[<Emit>]`/`[<Import>]` JS interop WITHOUT taking a
-/// `Fable.Core` NuGet dependency — which keeps the JS shims confined to the two
-/// platform files (`Terminal.fs`, `Path.fs`) per the porting brief, with zero change
-/// to the .NET build or project files. Fable resolves emit/import by the attribute's
-/// full name, so these local declarations are honored. The whole block compiles only
-/// under Fable and is invisible to the .NET path. It lives here in `Terminal.fs`
-/// (which precedes `Path.fs` in the assembly's compile order) and is reused by
-/// `Path.fs`. (severity: refactor — JS platform layer)
-type internal EmitAttribute(macro: string) =
-    inherit Attribute()
-
-/// Generates a top-level ESM `import { selector } from path` (ESM-safe; works under
-/// Node's default module mode where `require` is undefined).
-type internal ImportAttribute(selector: string, path: string) =
-    inherit Attribute()
-#endif
-
 namespace Effect
 
 /// `Terminal` — the command-line interface service.
@@ -34,16 +11,15 @@ namespace Effect
 ///
 /// **Adaptation to this port (NOT a transliteration).** As with `Console`, the
 /// service record stores *unsafe* primitives and the accessors wrap them into
-/// effects; the env is `Context`, and accessors fall back to the `live`
-/// (`System.Console`-backed) terminal when none is provided.
+/// effects; the env is `Context`, and accessors fall back to the Node-backed
+/// `live` terminal when none is provided.
 ///
 /// Deferred (interactive parts, per the brief): `readInput` — the low-level key
 /// event stream (`Queue.Dequeue<UserInput, Cause.Done>`) needs raw-TTY mode and
-/// host keypress events that are not portable through .NET's `System.Console`.
-/// The `UserInput`/`Key` shapes are still defined here for parity so a platform
-/// adapter can supply `readInput` later. The HKT/`Schema.ErrorClass`/`TypeId`
-/// machinery and the `isQuitError`-over-`unknown` guard are simplified per
-/// CONVENTIONS.
+/// host keypress events. The `UserInput`/`Key` shapes are still defined here for
+/// parity so a platform adapter can supply `readInput` later. The
+/// HKT/`Schema.ErrorClass`/`TypeId` machinery and the `isQuitError`-over-`unknown`
+/// guard are simplified per CONVENTIONS.
 /// Keyboard key metadata for a terminal input event. (Terminal.Key)
 type Key =
     { Name: string
@@ -95,13 +71,9 @@ module Terminal =
         | :? QuitError -> true
         | _ -> false
 
-    // The live terminal's primitives. On .NET they are `System.Console`-backed; on
-    // the Fable/JS target none of `System.Console`'s `TextWriter`/`TextReader`,
-    // `WindowWidth`/`WindowHeight` are supported, so we back the *same* primitives
-    // with Node's `process` stdio. Both paths keep identical semantics: dimensions
-    // fall back to 80×25 when stdout is redirected / not a TTY, and `readLine`
-    // returns `None` at end-of-input. (severity: refactor — JS platform layer)
-#if FABLE_COMPILER
+    // The live terminal's primitives are backed by Node's `process` stdio.
+    // Dimensions fall back to 80×25 when stdout is redirected / not a TTY, and
+    // `readLine` returns `None` at end-of-input.
     // `process.stdout.columns`/`.rows` are `undefined` when stdout is not a TTY
     // (piped/redirected); fall back to 80×25, matching the .NET redirected case.
     [<Fable.Core.Emit("(typeof process.stdout.columns === 'number' ? process.stdout.columns : 80)")>]
@@ -154,36 +126,9 @@ module Terminal =
         match readLineRaw fsReadSync with
         | null -> None
         | s -> Some s
-#else
-    let private columnsUnsafe () : int =
-        try
-            if System.Console.IsOutputRedirected then
-                80
-            else
-                System.Console.WindowWidth
-        with _ ->
-            80
-
-    let private rowsUnsafe () : int =
-        try
-            if System.Console.IsOutputRedirected then
-                25
-            else
-                System.Console.WindowHeight
-        with _ ->
-            25
-
-    let private displayUnsafe (text: string) : unit = System.Console.Out.Write(text: string)
-
-    let private readLineUnsafe () : string option =
-        match System.Console.In.ReadLine() with
-        | null -> None
-        | s -> Some s
-#endif
-
-    /// The live terminal, backed by `System.Console` on .NET and by Node `process`
-    /// stdio under Fable. Dimensions fall back to 80×25 when the console is
-    /// redirected / unavailable; `readLine` returns `None` at end-of-input.
+    /// The live terminal, backed by Node `process` stdio. Dimensions fall back to
+    /// 80×25 when the console is redirected / unavailable; `readLine` returns
+    /// `None` at end-of-input.
     let live: Terminal =
         { ColumnsUnsafe = columnsUnsafe
           RowsUnsafe = rowsUnsafe
@@ -193,7 +138,7 @@ module Terminal =
     /// A `Context` carrying the live terminal. (Terminal layer context)
     let liveContext: Context = Context.make tag live
 
-    /// The default `System.Console`-backed `Terminal` layer. (NodeTerminal.layer)
+    /// The default Node-backed `Terminal` layer. (NodeTerminal.layer)
     let layer<'E, 'RIn> : Layer<'E, 'RIn> = Layer.succeed tag live
 
     /// Build an effect from the active `Terminal` service, falling back to `live`

@@ -19,7 +19,7 @@ namespace Effect
 ///     `R`.
 ///   * The `live` console is best-effort: log/info/debug → stdout,
 ///     warn/error/trace → stderr, group prints its label; count/time/table/dir
-///     are no-ops (no host console counters/timers in .NET).
+///     are no-ops.
 /// The console service. Mirrors upstream's `Console` interface (variadic args
 /// are `obj[]`).
 type Console =
@@ -52,17 +52,10 @@ module Console =
     let private render (args: obj[]) : string =
         args |> Array.map string |> String.concat " "
 
-    /// The live, best-effort console over `System.Console`.
+    /// The live, best-effort console over Node stdout/stderr.
     let live: Console =
-#if FABLE_COMPILER
-        // Fable shim: System.Console.Out/Error TextWriters are unsupported. Route to
-        // the JS console (Node: stdout/stderr) via printfn/eprintfn. (severity: refactor)
         let writeOut (s: string) = printfn "%s" s
         let writeErr (s: string) = eprintfn "%s" s
-#else
-        let writeOut (s: string) = System.Console.Out.WriteLine s
-        let writeErr (s: string) = System.Console.Error.WriteLine s
-#endif
 
         let toOut (args: obj[]) = writeOut (render args)
         let toErr (args: obj[]) = writeErr (render args)

@@ -6,10 +6,9 @@ namespace Effect
 /// platform-agnostic service: the `FileSystem` interface, its data types, the
 /// `Tag`, and the accessor functions. The concrete platform implementations live
 /// in the platform package, exactly as upstream splits `FileSystem.ts` (core)
-/// from `platform-node-shared/NodeFileSystem.ts`:
-///   * `Effect.Platform.Node`'s `NodeFileSystem` — dual-backed, `System.IO` on
-///     .NET (the non-Fable BCL fallback) and Node's `node:fs` under Fable, provided via
-///     `NodeFileSystem.layer` / `NodeFileSystem.liveContext`.
+/// from `platform-node-shared/NodeFileSystem.ts`; `Effect.Platform.Node` provides
+/// `NodeFileSystem.layer` / `NodeFileSystem.liveContext` backed by Node's
+/// `node:fs`.
 ///
 /// All operations return an `Effect` whose error channel is the existing
 /// `PlatformError`. Unlike the earlier draft, this core module carries **no**

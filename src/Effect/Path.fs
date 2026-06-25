@@ -14,9 +14,8 @@ namespace Effect
 ///   * The default `layer` is the **POSIX** implementation (separator `/`),
 ///     exactly as upstream's `Path.layer` — *not* `System.IO.Path`, whose output
 ///     is platform-dependent (backslashes on Windows) and would diverge from
-///     upstream's POSIX semantics. `resolve`/`relative` fall back to
-///     `System.IO.Directory.GetCurrentDirectory()` for the current directory
-///     (the analogue of `process.cwd()`), used only for relative inputs.
+///     upstream's POSIX semantics. `resolve`/`relative` fall back to Node
+///     `process.cwd()` for relative inputs.
 ///   * `fromFileUrl`/`toFileUrl` (URL ↔ path, with `decodeURIComponent`/
 ///     percent-encoding) are deferred — they are outside the brief's core
 ///     surface and need faithful WHATWG-URL handling; noted here, the `BadArgument`
@@ -142,20 +141,12 @@ module Path =
 
         res
 
-#if FABLE_COMPILER
-    // Fable shim: `System.IO.Directory.GetCurrentDirectory` is unsupported. Node's
-    // `process.cwd()` is the direct analogue — and exactly the current-directory
-    // source upstream's POSIX `Path` uses. The `Fable.Core.Emit` attribute is the
-    // Fable-only shim declared in `Terminal.fs` (compiled earlier in this assembly);
-    // Fable resolves it by full name. (severity: refactor — JS platform layer)
+    // Node's `process.cwd()` is the current-directory source upstream's POSIX
+    // `Path` uses.
     [<Fable.Core.Emit("process.cwd()")>]
     let private cwd () : string = failwith "Fable emit only"
 
     let private currentDir () : string = cwd ()
-#else
-    let private currentDir () : string =
-        System.IO.Directory.GetCurrentDirectory()
-#endif
 
     // Faithful port of Node's `path.posix.resolve`.
     let private resolveImpl (segments: string list) : string =

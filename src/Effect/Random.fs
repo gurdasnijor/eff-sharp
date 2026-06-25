@@ -18,10 +18,10 @@ open System.Text
 ///   * Upstream ships a bit-exact ISAAC CSPRNG for `withSeed`. The tests only
 ///     assert *determinism* (same seed → same sequence) and *distinctness*
 ///     (different seeds → different sequences), never exact ISAAC outputs (those
-///     come from mock services). We therefore seed a .NET `System.Random` —
-///     deterministic per seed — hashing string seeds with FNV-1a over their
-///     UTF-8 bytes so distinct strings yield distinct seeds. Noted as a
-///     deliberate substitution.
+///     come from mock services). We therefore seed `System.Random`, which Fable
+///     maps to a JS-compatible implementation, hashing string seeds with FNV-1a
+///     over their UTF-8 bytes so distinct strings yield distinct seeds. Noted as
+///     a deliberate substitution.
 ///   * `number` is `float` throughout (JS numbers); ints are integer-valued
 ///     floats, matching upstream.
 ///   * `Cause.NoSuchElementError` is not in the ported `Cause`; a local
@@ -56,15 +56,9 @@ module Random =
         { NextDoubleUnsafe = nextDouble
           NextIntUnsafe = fun () -> floor (nextDouble () * (maxSafe - minSafe + 1.0)) + minSafe }
 
-    /// The default, non-deterministic generator (thread-safe `System.Random.Shared`).
-#if FABLE_COMPILER
-    // Fable shim: System.Random.Shared (static) is unsupported; a single process-wide
-    // Random instance is equivalent on single-threaded JS. (severity: trivial)
+    /// The default, non-deterministic generator.
     let private sharedRandom = System.Random()
     let defaultRandom: Random = ofDouble (fun () -> sharedRandom.NextDouble())
-#else
-    let defaultRandom: Random = ofDouble (fun () -> System.Random.Shared.NextDouble())
-#endif
 
     /// Stable 32-bit FNV-1a hash of a string's UTF-8 bytes, used to derive a
     /// numeric seed from a string seed.

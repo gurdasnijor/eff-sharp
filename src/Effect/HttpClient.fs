@@ -9,8 +9,8 @@ namespace Effect
 /// retry loop (`Effect.exit`) to poll a service for readiness. The full request/
 /// response/streaming/`HttpApi` surface is deferred (effect-s2, Phase D).
 ///
-/// Concrete implementations live in the platform package (`NodeHttpClient`):
-/// `System.Net.Http` on .NET, `fetch` under Fable.
+/// Concrete implementations live in the platform package (`NodeHttpClient`),
+/// backed by Node `fetch`.
 /// A response: HTTP status code + the body read as text. (HttpClientResponse,
 /// minimal form.)
 type HttpResponse = { Status: int; Body: string }
