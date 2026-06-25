@@ -98,11 +98,21 @@ module JsonSchema =
         else
             let sb = StringBuilder()
 
+#if FABLE_COMPILER
+            // Fable lacks Rune / EnumerateRunes; iterate UTF-16 chars — sufficient
+            // for key sanitization (non-BMP code points fall through to '_').
+            for c in s do
+                if isValidKeyChar (int c) then
+                    sb.Append(c) |> ignore
+                else
+                    sb.Append('_') |> ignore
+#else
             for r in s.EnumerateRunes() do
                 if isValidKeyChar r.Value then
                     sb.Append(r.ToString()) |> ignore
                 else
                     sb.Append('_') |> ignore
+#endif
 
             sb.ToString()
 
