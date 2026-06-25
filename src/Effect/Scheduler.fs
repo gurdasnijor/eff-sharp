@@ -46,7 +46,9 @@ module Scheduler =
                 for i in 1 .. queue.Count - 1 do
                     let struct (pi, _) = queue.[i]
                     let struct (pm, _) = queue.[mi]
-                    if pi < pm then mi <- i
+
+                    if pi < pm then
+                        mi <- i
 
                 let struct (_, task) = queue.[mi]
                 queue.RemoveAt mi
