@@ -35,7 +35,7 @@ let ``a test clock can be injected via the Context`` () =
     // DI lets tests swap the clock for a controlled one.
     let testClock: Clock =
         { CurrentTimeMillisUnsafe = fun () -> 123L
-          SleepUnsafe = fun _ -> System.Threading.Tasks.Task.CompletedTask }
+          SleepUnsafe = fun _ -> async { return () } }
 
     let program: Effect<int64, string, Context> = Clock.currentTimeMillis
     let exit = Effect.runSync (Context.make Clock.tag testClock) program
