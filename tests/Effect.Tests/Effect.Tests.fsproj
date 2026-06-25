@@ -77,6 +77,8 @@
     <!-- w4-svc: services -->
     <Compile Include="RandomTests.fs" />
     <Compile Include="ConsoleTests.fs" />
+    <!-- w6-terminal: CLI terminal service -->
+    <Compile Include="TerminalTests.fs" />
     <Compile Include="CryptoTests.fs" />
     <Compile Include="ScopedRefTests.fs" />
     <Compile Include="RcRefTests.fs" />

@@ -86,6 +86,8 @@
          ScopedRef/RcRef over Scope+SynchronizedRef) -->
     <Compile Include="Random.fs" />
     <Compile Include="Console.fs" />
+    <!-- w6-terminal: CLI terminal service over Context + PlatformError (+ Layer) -->
+    <Compile Include="Terminal.fs" />
     <Compile Include="Crypto.fs" />
     <Compile Include="ScopedRef.fs" />
     <Compile Include="RcRef.fs" />
