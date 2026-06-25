@@ -39,6 +39,40 @@ open Microsoft.FSharp.Reflection
 [<RequireQualifiedAccess>]
 module Formatter =
 
+#if FABLE_COMPILER
+    // --- Fable / JS target -------------------------------------------------
+    // The .NET implementation below renders via runtime reflection
+    // (System.Type / PropertyInfo / FSharpReflection), which Fable erases at
+    // compile time — that is the entire source of this module's Fable errors.
+    // On JS we don't need it: Fable already renders F# values structurally
+    // (records / unions / collections) via `%A`, and produces JSON via the
+    // native `JSON.stringify`. Diagnostics fidelity differs slightly from the
+    // .NET pretty-printer, but is faithful enough for logs, and redaction is
+    // preserved by routing every node through `Redactable.redact`.
+    open Fable.Core
+
+    let formatPropertyKey (name: string) : string = JS.JSON.stringify name
+
+    let formatPath (path: string list) : string =
+        path |> List.map (fun k -> "[" + formatPropertyKey k + "]") |> String.concat ""
+
+    let formatDate (date: DateTime) : string =
+        date.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture)
+
+    let format (input: obj) : string = sprintf "%A" input
+    let formatWith (_space: int) (input: obj) : string = sprintf "%A" input
+    let formatIgnoreToString (input: obj) : string = sprintf "%A" input
+
+    // Redact each node as `JSON.stringify` walks the tree (preserves the .NET
+    // path's redaction behavior on the JS target).
+    let private redactReplacer (_key: string) (value: obj) : obj = Redactable.redact value
+
+    let formatJson (input: obj) : string =
+        JS.JSON.stringify (Redactable.redact input, redactReplacer)
+
+    let formatJsonWith (space: int) (input: obj) : string =
+        JS.JSON.stringify (Redactable.redact input, redactReplacer, space)
+#else
     [<Literal>]
     let private CIRCULAR = "[Circular]"
 
@@ -309,3 +343,4 @@ module Formatter =
 
     /// `formatJson` with an indentation width. (`formatJson` + `space`)
     let formatJsonWith (space: int) (input: obj) : string = formatJsonCore space input
+#endif
