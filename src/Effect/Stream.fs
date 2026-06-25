@@ -27,12 +27,6 @@ module Stream =
     exception private StreamStop
 
 #if FABLE_COMPILER
-    [<Emit("$0[Symbol.asyncIterator]()")>]
-    let private asyncIterator (_iterable: JS.AsyncIterable<'A>) : obj = jsNative
-
-    [<Emit("$0.next()")>]
-    let private asyncIteratorNext (_iterator: obj) : JS.Promise<obj> = jsNative
-
     [<Emit("!!$0.done")>]
     let private iteratorResultDone (_result: obj) : bool = jsNative
 
@@ -99,21 +93,41 @@ module Stream =
         { Run =
             fun emit ->
                 Effect(fun fib env ->
-                    let iterator = asyncIterator iterable
+                    async {
+                        let mutable failure: Cause<'E> option = None
+                        let mutable chain: JS.Promise<unit> = Promise.lift ()
 
-                    let pull =
-                        Effect.tryPromiseJS
-                            (fun () -> asyncIteratorNext iterator)
-                            onError
-                        |> Effect.map (fun result ->
-                            if iteratorResultDone result then
-                                None
-                            else
-                                Some(iteratorResultValue result))
+                        try
+                            do!
+                                AsyncIterable.iter
+                                    (fun _ value ->
+                                        chain <-
+                                            chain
+                                            |> Promise.bind (fun () ->
+                                                match failure with
+                                                | Some _ -> Promise.lift ()
+                                                | None ->
+                                                    let (Effect run) = emit value
 
-                    let stream = repeatEffectOption pull
-                    let (Effect run) = stream.Run emit
-                    run fib env) }
+                                                    async {
+                                                        let! exit = run fib env
+
+                                                        match exit with
+                                                        | Success() -> ()
+                                                        | Failure cause -> failure <- Some cause
+                                                    }
+                                                    |> Async.StartAsPromise))
+                                    iterable
+                                |> Async.AwaitPromise
+
+                            do! Async.AwaitPromise chain
+
+                            match failure with
+                            | Some cause -> return Failure cause
+                            | None -> return Success()
+                        with ex ->
+                            return Exit.fail (onError ex)
+                    }) }
 
     /// Bridge a WHATWG `ReadableStream` into eff-sharp `Stream`.
     let fromReadableStreamJS (readable: obj) (onError: exn -> 'E) : Stream<'A, 'E, 'R> =
