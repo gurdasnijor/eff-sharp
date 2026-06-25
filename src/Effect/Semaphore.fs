@@ -1,7 +1,6 @@
 namespace Effect
 
 open System.Collections.Generic
-open System.Threading.Tasks
 
 /// Wave 5: `Semaphore` — an asynchronous counting semaphore.
 ///
@@ -27,13 +26,13 @@ open System.Threading.Tasks
 ///   * `available` is added as a small convenience (free permit count); upstream
 ///     exposes the same value only through `release`/`take` return values.
 ///   * Interrupting a `take` that is *already suspended in the waiter queue* is a
-///     no-op in this cooperative runtime (an `Async.AwaitTask` carries no
+///     no-op in this cooperative runtime (a `Cell.await` carries no
 ///     cancellation); `withPermits` interruption is fully honored because the
 ///     guarded effect, not the acquire, is what suspends.
+///   * Suspension uses `Cell` (the Fable-portable completion primitive) in place
+///     of `TaskCompletionSource`; .NET semantics are unchanged.
 
-type internal SemaphoreWaiter =
-    { N: int
-      Tcs: TaskCompletionSource<unit> }
+type internal SemaphoreWaiter = { N: int; Gate: Cell<unit> }
 
 /// A counting semaphore. Mutable state is guarded by `Lock`.
 type Semaphore =
@@ -46,8 +45,7 @@ type Semaphore =
 [<RequireQualifiedAccess>]
 module Semaphore =
 
-    let private newGate () =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let private newGate () : Cell<unit> = Cell.make ()
 
     // --- internal core (callers hold the lock) ---
 
@@ -64,7 +62,7 @@ module Semaphore =
             if self.Permits - self.Taken >= w.N then
                 self.Taken <- self.Taken + w.N
                 self.Waiters.RemoveAt i
-                w.Tcs.TrySetResult() |> ignore
+                Cell.trySet w.Gate () |> ignore
             else
                 i <- i + 1
 
@@ -100,13 +98,13 @@ module Semaphore =
                             self.Taken <- self.Taken + permits
                             None
                         else
-                            let tcs = newGate ()
-                            self.Waiters.Add { N = permits; Tcs = tcs }
-                            Some tcs)
+                            let gate = newGate ()
+                            self.Waiters.Add { N = permits; Gate = gate }
+                            Some gate)
 
                 match waitOn with
                 | None -> ()
-                | Some tcs -> do! Async.AwaitTask tcs.Task
+                | Some gate -> do! Cell.await gate
 
                 return Success permits
             })

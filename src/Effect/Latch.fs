@@ -1,7 +1,5 @@
 namespace Effect
 
-open System.Threading.Tasks
-
 /// Wave 2: `Latch` — a reusable open/close synchronization gate.
 ///
 /// Port of repos/effect-smol/packages/effect/src/Latch.ts (and the `Latch` class
@@ -11,29 +9,29 @@ open System.Threading.Tasks
 /// latch closed (future waiters suspend again); `close` re-arms a previously open
 /// latch.
 ///
-/// Representation — a `bool` state plus a "gate" `TaskCompletionSource<unit>`
-/// that current waiters await. Opening or releasing completes the live gate
-/// (waking its waiters); closing or releasing installs a *fresh* incomplete gate
-/// so subsequent waiters suspend again. A lock guards the tiny state transitions
-/// so the primitive is safe under the threadpool the async core may run on
-/// (upstream relies on JS's single thread instead). Per the brief, `Latch` only
-/// depends on `Effect`; no wave-2 siblings are referenced.
+/// Representation — a `bool` state plus a "gate" `Cell<unit>` that current waiters
+/// await. Opening or releasing completes the live gate (waking its waiters);
+/// closing or releasing installs a *fresh* incomplete gate so subsequent waiters
+/// suspend again. A lock guards the tiny state transitions so the primitive is
+/// safe under the threadpool the async core may run on (upstream relies on JS's
+/// single thread instead). Per the brief, `Latch` only depends on `Effect` (and
+/// the `Cell` completion primitive).
 ///
 /// Omissions vs upstream: the cooperative scheduler hop (`scheduleUnsafe` /
-/// `currentDispatcher.scheduleTask`) is replaced by `TaskCompletionSource`
-/// continuations (configured to resume asynchronously), which deliver the same
-/// "waiters resume after the opener returns" behaviour without a fiber runtime.
+/// `currentDispatcher.scheduleTask`) is replaced by `Cell` continuations
+/// (configured to resume asynchronously), which deliver the same "waiters resume
+/// after the opener returns" behaviour without a fiber runtime. `Cell` replaces
+/// `TaskCompletionSource`, which Fable's runtime does not implement.
 type Latch =
     internal
         { mutable State: bool
-          mutable Gate: TaskCompletionSource<unit>
+          mutable Gate: Cell<unit>
           Lock: obj }
 
 [<RequireQualifiedAccess>]
 module Latch =
 
-    let private newGate () =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let private newGate () : Cell<unit> = Cell.make ()
 
     // --- constructors ---
 
@@ -43,7 +41,7 @@ module Latch =
         let gate = newGate ()
 
         if isOpen then
-            gate.SetResult()
+            Cell.trySet gate () |> ignore
 
         { State = isOpen
           Gate = gate
@@ -67,7 +65,7 @@ module Latch =
             | true -> false
             | false ->
                 self.State <- true
-                self.Gate.TrySetResult() |> ignore
+                Cell.trySet self.Gate () |> ignore
                 true)
 
     /// Close synchronously so future waiters suspend again. Returns `true` iff
@@ -103,7 +101,7 @@ module Latch =
                 | false ->
                     let waiting = self.Gate
                     self.Gate <- newGate ()
-                    waiting.TrySetResult() |> ignore
+                    Cell.trySet waiting () |> ignore
                     true))
 
     /// Wait for the latch to be opened or the current waiters to be released. An
@@ -111,14 +109,12 @@ module Latch =
     let await (self: Latch) : Effect<unit, 'E, 'R> =
         Effect(fun _ _ ->
             async {
-                let task =
-                    lock self.Lock (fun () ->
-                        if self.State then
-                            Task.CompletedTask
-                        else
-                            self.Gate.Task :> Task)
+                let wait = lock self.Lock (fun () -> if self.State then None else Some self.Gate)
 
-                do! Async.AwaitTask task
+                match wait with
+                | None -> ()
+                | Some gate -> do! Cell.await gate
+
                 return Success()
             })
 

@@ -1,7 +1,6 @@
 namespace Effect
 
 open System.Collections.Generic
-open System.Threading.Tasks
 
 /// Wave 4: `PubSub` — an asynchronous publish/subscribe hub.
 ///
@@ -25,8 +24,8 @@ open System.Threading.Tasks
 /// order) while mapping cleanly onto FSharp.Core/.NET. A lock guards all state so
 /// the hub is safe under the real threads the `Async` core may run fibers on
 /// (upstream relies on JS's single thread); blocked takers/publishers suspend on
-/// `TaskCompletionSource`s, woken when space/items appear — the same pattern as
-/// the merged `Latch`/`Deferred`.
+/// `Cell`s (the Fable-portable completion primitive), woken when space/items
+/// appear — the same pattern as the merged `Latch`/`Deferred`.
 ///
 /// Omissions vs upstream (noted per CONVENTIONS):
 ///   * The `replay` option (replay buffer + per-subscriber replay window) is not
@@ -50,7 +49,7 @@ type PubSub<'A> =
           Capacity: int
           Strategy: PubSubStrategy
           Subscribers: List<Subscription<'A>>
-          PublishWaiters: List<TaskCompletionSource<unit>>
+          PublishWaiters: List<Cell<unit>>
           mutable IsShutdown: bool }
 
 /// A handle on one subscriber's independent message queue. Created by `subscribe`
@@ -59,22 +58,21 @@ and Subscription<'A> =
     internal
         { Parent: PubSub<'A>
           Queue: Queue<'A>
-          Takers: List<TaskCompletionSource<unit>> }
+          Takers: List<Cell<unit>> }
 
 [<RequireQualifiedAccess>]
 module PubSub =
 
     // --- internal helpers (callers hold the lock) ---
 
-    let private newGate () =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let private newGate () : Cell<unit> = Cell.make ()
 
     /// The interrupt cause produced when a suspended taker observes shutdown.
     let private interruptedCause<'E> : Cause<'E> = Cause.interrupt None
 
-    let private wakeAll (waiters: List<TaskCompletionSource<unit>>) =
-        for tcs in waiters do
-            tcs.TrySetResult() |> ignore
+    let private wakeAll (waiters: List<Cell<unit>>) =
+        for gate in waiters do
+            Cell.trySet gate () |> ignore
 
         waiters.Clear()
 
@@ -129,7 +127,7 @@ module PubSub =
           Capacity = max 0 capacity
           Strategy = strategy
           Subscribers = List<Subscription<'A>>()
-          PublishWaiters = List<TaskCompletionSource<unit>>()
+          PublishWaiters = List<Cell<unit>>()
           IsShutdown = false }
 
     // NOTE: these constructors deliberately avoid an explicit `<'A>` type
@@ -200,7 +198,7 @@ module PubSub =
                         result <- Success b
                         go <- false
                     | Choice2Of2 tcs ->
-                        do! Async.AwaitTask tcs.Task
+                        do! Cell.await tcs
 
                         if fib.Interrupted && fib.Mask = 0 then
                             result <- Failure interruptedCause
@@ -232,7 +230,7 @@ module PubSub =
                     let sub =
                         { Parent = self
                           Queue = Queue<'A>()
-                          Takers = List<TaskCompletionSource<unit>>() }
+                          Takers = List<Cell<unit>>() }
 
                     self.Subscribers.Add sub
                     sub)))
@@ -276,7 +274,7 @@ module PubSub =
                         result <- Failure interruptedCause
                         go <- false
                     | Choice3Of3 tcs ->
-                        do! Async.AwaitTask tcs.Task
+                        do! Cell.await tcs
 
                         if fib.Interrupted && fib.Mask = 0 then
                             result <- Failure interruptedCause
@@ -319,7 +317,7 @@ module PubSub =
                         result <- Failure interruptedCause
                         go <- false
                     | Choice3Of3 tcs ->
-                        do! Async.AwaitTask tcs.Task
+                        do! Cell.await tcs
 
                         if fib.Interrupted && fib.Mask = 0 then
                             result <- Failure interruptedCause
