@@ -90,4 +90,40 @@ describe "HttpApiClient.urlBuilder" (fun () ->
                 "getUser"
                 { Params = Map.empty
                   Query = UrlParams.empty }
-            |> ignore)))
+            |> ignore))
+
+    test "executes endpoints through HttpClient" (fun () ->
+        let mutable captured: HttpClientRequest option = None
+
+        let httpClient =
+            { Request =
+                fun method url ->
+                    Effect.succeed
+                        { Status = 200
+                          Body = method + " " + url }
+              Execute =
+                fun request ->
+                    captured <- Some request
+                    Effect.succeed (HttpClientResponse.text request 200 Headers.empty "ok") }
+
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        let response =
+            client
+            |> HttpApiClient.endpoint
+                "users"
+                "getUser"
+                { HttpApiClient.emptyEndpointInput with
+                    Params = Map.ofList [ "id", "123" ]
+                    Query = UrlParams.ofList [ "page", "1" ]
+                    Headers = Headers.ofList [ "x-test", "ok" ] }
+            |> Runtime.runSync (Runtime.make (Context.make HttpClient.tag httpClient))
+
+        toBe response.Status 200
+
+        match captured with
+        | Some request ->
+            toBe request.Method "GET"
+            toBe request.Url "https://api.example.com/users/123?page=1"
+            toBe (Headers.get "x-test" request.Headers) (Some "ok")
+        | None -> failwith "expected request capture"))
