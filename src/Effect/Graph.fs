@@ -59,7 +59,7 @@ type GraphError(message: string) =
 /// Read interface shared by the immutable graph and the mutable builder, so
 /// query/algorithm functions accept either.
 type IGraphView<'N, 'E> =
-    abstract Kind: Kind
+    abstract GraphKind: Kind
     abstract NodeCount: int
     abstract EdgeCount: int
     abstract HasNode: int -> bool
@@ -103,7 +103,7 @@ type MutableGraph<'N, 'E>(kind: Kind) =
         | _ -> []
 
     interface IGraphView<'N, 'E> with
-        member _.Kind = kind
+        member _.GraphKind = kind
         member _.NodeCount = nodes.Count
         member _.EdgeCount = edges.Count
         member _.HasNode i = nodes.ContainsKey i
@@ -148,7 +148,7 @@ type Graph<'N, 'E when 'N: equality and 'E: equality> =
         hash (this.Kind, this.Nodes, this.Edges)
 
     interface IGraphView<'N, 'E> with
-        member this.Kind = this.Kind
+        member this.GraphKind = this.Kind
         member this.NodeCount = this.Nodes.Count
         member this.EdgeCount = this.Edges.Count
         member this.HasNode i = Map.containsKey i this.Nodes
@@ -423,7 +423,7 @@ module Graph =
 
     // --- queries (work on either the immutable graph or the builder) ---
 
-    let kind (g: #IGraphView<'N, 'E>) : Kind = g.Kind
+    let kind (g: #IGraphView<'N, 'E>) : Kind = g.GraphKind
     let nodeCount (g: #IGraphView<'N, 'E>) : int = g.NodeCount
     let edgeCount (g: #IGraphView<'N, 'E>) : int = g.EdgeCount
     let getNode (g: #IGraphView<'N, 'E>) (i: int) : 'N option = g.TryGetNode i
@@ -469,25 +469,25 @@ module Graph =
     /// Neighbours of a node: outgoing targets (directed) or the other endpoint
     /// of each incident edge (undirected).
     let neighbors (g: #IGraphView<'N, 'E>) (node: int) : int list =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected -> undirectedNeighbors g node
         | Directed -> directedNeighbors g node false
 
     /// Outgoing neighbours; throws for undirected graphs.
     let successors (g: #IGraphView<'N, 'E>) (node: int) : int list =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected -> raise (GraphError "Cannot get successors of undirected graph")
         | Directed -> directedNeighbors g node false
 
     /// Incoming neighbours; throws for undirected graphs.
     let predecessors (g: #IGraphView<'N, 'E>) (node: int) : int list =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected -> raise (GraphError "Cannot get predecessors of undirected graph")
         | Directed -> directedNeighbors g node true
 
     /// Directed neighbours in a given direction; throws for undirected graphs.
     let neighborsDirected (g: #IGraphView<'N, 'E>) (node: int) (direction: Direction) : int list =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected -> raise (GraphError "Cannot get directed neighbors of undirected graph")
         | Directed -> directedNeighbors g node (direction = Incoming)
 
@@ -498,7 +498,7 @@ module Graph =
             match g.TryGetEdge ei with
             | Some e ->
                 let neighbor =
-                    match g.Kind with
+                    match g.GraphKind with
                     | Undirected when e.Target = source -> e.Source
                     | _ -> e.Target
 
@@ -509,7 +509,7 @@ module Graph =
 
     /// Whether the graph contains no cycles (ignoring edge data).
     let isAcyclic (g: #IGraphView<'N, 'E>) : bool =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected ->
             let visited = HashSet<int>()
             let mutable acyclic = true
@@ -613,7 +613,7 @@ module Graph =
     /// Strongly connected components of a directed graph (Kosaraju); throws for
     /// undirected graphs.
     let stronglyConnectedComponents (g: #IGraphView<'N, 'E>) : int list list =
-        match g.Kind with
+        match g.GraphKind with
         | Undirected -> raise (GraphError "Cannot find strongly connected components of undirected graph")
         | Directed ->
             let visited = HashSet<int>()
@@ -718,7 +718,7 @@ module Graph =
                             match g.TryGetEdge ei with
                             | Some edge ->
                                 let neighbor =
-                                    match g.Kind with
+                                    match g.GraphKind with
                                     | Undirected when edge.Target = currentNode -> edge.Source
                                     | _ -> edge.Target
 
@@ -761,7 +761,7 @@ module Graph =
     /// `Graph(directed, 2, 1)` — kind, node count, edge count.
     let render (g: #IGraphView<'N, 'E>) : string =
         let kindStr =
-            match g.Kind with
+            match g.GraphKind with
             | Directed -> "directed"
             | Undirected -> "undirected"
 
