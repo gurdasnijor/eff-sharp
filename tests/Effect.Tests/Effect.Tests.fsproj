@@ -119,6 +119,9 @@
     <Compile Include="FiberMapTests.fs" />
     <!-- w5-rcmap: reference-counted map of scoped resources -->
     <Compile Include="RcMapTests.fs" />
+    <!-- w6-subref: Ref/STM-ref whose changes publish as a Stream -->
+    <Compile Include="SubscriptionRefTests.fs" />
+    <Compile Include="TxSubscriptionRefTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
