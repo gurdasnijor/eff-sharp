@@ -6,6 +6,10 @@
     <RootNamespace>Effect</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+  </ItemGroup>
+
   <!-- Compile order = dependency order. The list is the single source of truth in
        Effect.Sources.props (imported here and by the Fable mirrors), so it can't
        drift between projects. EffectSrcDir defaults to this directory. -->

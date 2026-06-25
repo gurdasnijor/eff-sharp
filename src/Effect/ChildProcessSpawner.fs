@@ -4,11 +4,10 @@ namespace Effect
 /// handle to its streams and lifecycle.
 ///
 /// Port of effect-smol's `effect/unstable/process/ChildProcessSpawner.ts` (the
-/// abstract service). The concrete implementations live in the platform package,
-/// as upstream splits the service from `platform-node-shared/NodeChildProcessSpawner`:
-///   * `Effect.Platform.Node`'s `NodeChildProcessSpawner` — dual-backed,
-///     `System.Diagnostics.Process` on .NET (the non-Fable BCL fallback) and Node's
-///     `node:child_process` under Fable, provided via `NodeChildProcessSpawner.layer`.
+/// abstract service). The concrete implementation lives in the platform package,
+/// as upstream splits the service from `platform-node-shared/NodeChildProcessSpawner`;
+/// `Effect.Platform.Node` provides `NodeChildProcessSpawner.layer` backed by
+/// Node's `node:child_process`.
 ///
 /// Consumers depend on the abstract service via `ChildProcessSpawner.tag` /
 /// `ChildProcessSpawner.spawn`; the platform `layer` is provided at the edge.
@@ -34,8 +33,7 @@ type ChildProcessHandle =
         ExitCode: Effect<int, PlatformError, Context>
         /// Whether the process is still running. (`isRunning`)
         IsRunning: Effect<bool, PlatformError, Context>
-        /// Terminate the process (whole tree on .NET; `child.kill()` on Node).
-        /// (`kill`)
+        /// Terminate the process via Node `child.kill()`. (`kill`)
         Kill: Effect<unit, PlatformError, Context>
     }
 
