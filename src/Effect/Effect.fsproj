@@ -128,6 +128,10 @@
     <Compile Include="Queue.fs" />
     <!-- w5-rcmap: reference-counted map of scoped resources (on Deferred/MutableHashMap/Clock/Scope/Fiber) -->
     <Compile Include="RcMap.fs" />
+    <!-- w6-lruntime: Layer-runtime modules (on Layer/Runtime/Schedule/RcMap) -->
+    <Compile Include="ManagedRuntime.fs" />
+    <Compile Include="ExecutionPlan.fs" />
+    <Compile Include="LayerMap.fs" />
   </ItemGroup>
 
 </Project>
