@@ -16,10 +16,18 @@
 
   <ItemGroup>
     <Compile Include="NodePlatform.fs" />
+    <Compile Include="NodeFileSystem.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Effect/Effect.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real Fable.Core: this is a JS-interop package, so [<Emit>]/[<Import>]
+         resolve from the package (no local shim needed). On .NET the attributes
+         are no-ops; under Fable they drive the node:fs binding. -->
+    <PackageReference Include="Fable.Core" Version="5.1.0" />
   </ItemGroup>
 
 </Project>
