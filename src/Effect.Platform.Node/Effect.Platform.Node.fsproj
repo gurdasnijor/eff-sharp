@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="NodePlatform.fs" />
     <Compile Include="NodeFileSystem.fs" />
+    <Compile Include="NodeChildProcessSpawner.fs" />
   </ItemGroup>
 
   <ItemGroup>

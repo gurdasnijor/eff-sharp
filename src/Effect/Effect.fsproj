@@ -144,6 +144,9 @@
     <Compile Include="Path.fs" />
     <!-- w6-filesystem: abstract FileSystem service (impl lives in Effect.Platform.Node) -->
     <Compile Include="FileSystem.fs" />
+    <!-- process: Command model + abstract ChildProcessSpawner (impl in Effect.Platform.Node) -->
+    <Compile Include="ChildProcess.fs" />
+    <Compile Include="ChildProcessSpawner.fs" />
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="SubscriptionRef.fs" />
     <Compile Include="TxSubscriptionRef.fs" />
