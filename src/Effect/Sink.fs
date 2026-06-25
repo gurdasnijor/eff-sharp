@@ -77,6 +77,17 @@ module Sink =
     let forEach (f: 'In -> Effect<unit, 'E, 'R>) : Sink<'In, unit, 'E, 'R> =
         { Build = fun () -> f, (fun () -> Effect.succeed ()) }
 
+    /// Write each input with `write`, then run `close` once the input ends —
+    /// `forEach` plus a completion finalizer. (Sink.fromWrite)
+    ///
+    /// The public constructor for bridging a `Writable` sink (a Node `Writable`,
+    /// a .NET stdin stream) without reaching the internal `Sink` representation:
+    /// `write` pushes each chunk, `close` ends the underlying writer (e.g. closes
+    /// stdin so a child process sees EOF). Platform packages build their
+    /// `Writable → Sink` adapters on it.
+    let fromWrite (write: 'In -> Effect<unit, 'E, 'R>) (close: unit -> Effect<unit, 'E, 'R>) : Sink<'In, unit, 'E, 'R> =
+        { Build = fun () -> write, close }
+
     /// Take the first input (short-circuits the producer), or `None` if empty. (Sink.head)
     let head<'In, 'E, 'R> () : Sink<'In, 'In option, 'E, 'R> =
         { Build =

@@ -59,3 +59,30 @@ let ``runForEach runs an effect per element`` () =
 let ``mapEffect threads effects through the stream`` () =
     let s = Stream.range 1 3 |> Stream.mapEffect (fun n -> Effect.succeed (n + 100))
     Assert.Equal<int list>([ 101; 102; 103 ], collect s)
+
+[<Fact>]
+let ``repeatEffectOption pulls until None`` () =
+    // A pull source backed by mutable state: emit 1,2,3 then end.
+    let program =
+        effect {
+            let! r = Ref.make [ 1; 2; 3 ]
+
+            let pull: Effect<int option, string, unit> =
+                Ref.modify r (function
+                    | [] -> None, []
+                    | x :: xs -> Some x, xs)
+
+            return! Stream.runCollect (Stream.repeatEffectOption pull)
+        }
+
+    match Effect.runSync () program with
+    | Success xs -> Assert.Equal<int list>([ 1; 2; 3 ], xs)
+    | Failure c -> failwithf "stream failed: %s" (Cause.render c)
+
+[<Fact>]
+let ``repeatEffectOption ends with the pull's error`` () =
+    let pull: Effect<int option, string, unit> = Effect.fail "boom"
+
+    match Effect.runSync () (Stream.runCollect (Stream.repeatEffectOption pull)) with
+    | Success _ -> failwith "expected failure"
+    | Failure c -> Assert.Contains("boom", Cause.render c)
