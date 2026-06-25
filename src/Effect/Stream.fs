@@ -103,6 +103,21 @@ module Stream =
         self.Run(fun a -> Effect.sync (fun () -> buffer.Add a))
         |> Effect.map (fun () -> List.ofSeq buffer)
 
+    /// Run the stream into a `Sink`, producing the sink's output. (Stream.run)
+    ///
+    /// The sink's `emit` may short-circuit by raising the internal `SinkDone`
+    /// signal (e.g. `Sink.head`, `Sink.reduceWhile` stopping); it is caught here
+    /// at the run boundary so the producer halts early, then `extract` runs.
+    let run (sink: Sink<'A, 'B, 'E, 'R>) (self: Stream<'A, 'E, 'R>) : Effect<'B, 'E, 'R> =
+        let emit, extract = sink.Build()
+
+        self.Run emit
+        |> Effect.catchDefect (fun ex ->
+            match ex with
+            | :? SinkDone -> Effect.succeed ()
+            | _ -> Effect.sync (fun () -> raise ex))
+        |> Effect.flatMap (fun () -> extract ())
+
 /// The `stream { yield ... }` computation expression (docs/computation-expressions.md).
 type StreamBuilder() =
     member _.Yield(value: 'A) : Stream<'A, 'E, 'R> = Stream.succeed value
