@@ -98,6 +98,7 @@
     <Compile Include="BigIntTests.fs" />
     <Compile Include="JsonSchemaTests.fs" />
     <Compile Include="RequestTests.fs" />
+    <Compile Include="RequestResolverTests.fs" />
     <!-- w4-stmq: transactional queue + pub/sub -->
     <Compile Include="TxQueueTests.fs" />
     <Compile Include="TxPubSubTests.fs" />
