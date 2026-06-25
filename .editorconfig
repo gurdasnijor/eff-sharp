@@ -10,10 +10,9 @@ indent_style = space
 
 # F# sources — these settings double as the Fantomas configuration.
 #
-# The whole tree was normalized with Fantomas in one dedicated commit, and the
-# CI/local gate runs `fantomas --check` over src/tests/ai-docs/benchmarks (see
-# tools/ci/check.sh), so every file is held to this profile. Values below are
-# Fantomas defaults (4-space indent, 120 cols).
+# The whole tree is Fantomas-formatted. The `quality` job in tools/ci/check.sh
+# enforces it: changed files vs the PR base on pull requests, the whole tree on
+# push to main. Values below are Fantomas defaults (4-space indent, 120 cols).
 [*.{fs,fsi,fsx}]
 indent_size = 4
 max_line_length = 120
