@@ -134,6 +134,8 @@
     <Compile Include="ManagedRuntimeTests.fs" />
     <Compile Include="ExecutionPlanTests.fs" />
     <Compile Include="LayerMapTests.fs" />
+    <!-- w6: observability metrics -->
+    <Compile Include="MetricTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

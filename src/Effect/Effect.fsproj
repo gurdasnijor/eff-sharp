@@ -145,6 +145,8 @@
     <Compile Include="LayerMap.fs" />
     <!-- w6: pooled resource manager (fixed-size core on Queue/Scope) -->
     <Compile Include="Pool.fs" />
+    <!-- w6: observability metrics -->
+    <Compile Include="Metric.fs" />
   </ItemGroup>
 
 </Project>
