@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Runnable, type-checked example gallery for eff-sharp ("ai-docs").
+       Every topic file compiles against the real library via the ProjectReference
+       below, so the examples can never drift from the API. `dotnet run` executes
+       them all. This project is deliberately NOT part of eff-sharp.slnx / the test
+       solution — it is documentation that happens to compile. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EffSharp.AiDocs</RootNamespace>
+    <!-- Examples intentionally show many shapes; keep the doc build quiet. -->
+    <WarningLevel>3</WarningLevel>
+  </PropertyGroup>
+
+  <!-- Compile order = dependency order. Demo helpers first, topics next (each is
+       self-contained), entry point last. -->
+  <ItemGroup>
+    <Compile Include="Demo.fs" />
+    <Compile Include="02_Stream.fs" />
+    <Compile Include="06_Schedule.fs" />
+    <Compile Include="07_DateTime.fs" />
+    <Compile Include="08_Observability.fs" />
+    <Compile Include="05_Batching.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../src/Effect/Effect.fsproj" />
+  </ItemGroup>
+
+</Project>
