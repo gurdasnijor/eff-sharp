@@ -147,22 +147,31 @@ module RcMap =
     /// Sleep `millis` against the map's `Clock` (the live clock in production, a
     /// `TestClock` under test), staying cooperatively interruptible so a closing
     /// map / `invalidate` can stop a parked timer. Mirrors the kernel's
-    /// `Effect.sleep` loop, but waits on the `Clock`'s task so virtual time
-    /// controls eviction.
+    /// `Effect.sleep` loop, but waits on the `Clock`'s sleep so virtual time
+    /// controls eviction. The clock sleep runs in the background and flips a flag
+    /// when it completes (Fable-clean — no `Task.IsCompleted` polling).
     and private clockSleep (clock: Clock) (millis: int64) : Effect<unit, 'E, unit> =
         Effect(fun fib _ ->
             async {
-                let task = clock.SleepUnsafe(Duration.millis (float millis))
+                let completed = ref false
+
+                Async.StartImmediate(
+                    async {
+                        do! clock.SleepUnsafe(Duration.millis (float millis))
+                        completed.Value <- true
+                    }
+                )
+
                 let mutable interrupted = false
 
-                while not task.IsCompleted && not interrupted do
+                while not completed.Value && not interrupted do
                     if fib.Interrupted && fib.Mask = 0 then
                         interrupted <- true
                     else
                         do! Async.Sleep 5
 
                 return
-                    if interrupted && not task.IsCompleted then
+                    if interrupted && not completed.Value then
                         Failure(Cause.interrupt None)
                     else
                         Success()

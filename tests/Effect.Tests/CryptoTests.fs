@@ -20,7 +20,7 @@ let private testCrypto: Crypto =
 /// A `Clock` whose wall-clock read returns a fixed value.
 let private fixedClock (millis: int64) : Clock =
     { CurrentTimeMillisUnsafe = fun () -> millis
-      SleepUnsafe = fun _ -> Task.CompletedTask }
+      SleepUnsafe = fun _ -> async { return () } }
 
 let private ctx = Context.make Crypto.tag testCrypto
 

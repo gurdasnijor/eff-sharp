@@ -1,7 +1,6 @@
 namespace Effect
 
 open System
-open System.Threading.Tasks
 
 /// `Clock` — time access as a service.
 ///
@@ -19,10 +18,12 @@ open System.Threading.Tasks
 /// (`currentTimeNanos`) is dropped — .NET wall-clock is millisecond-grained — as
 /// is the `Context.Reference` default-service plumbing (a plain `Tag` is used).
 /// The time service. `CurrentTimeMillisUnsafe` reads wall-clock millis; `SleepUnsafe`
-/// returns a `Task` that completes after the given duration.
+/// returns an `Async` that completes after the given duration. (`Async`, not `Task`:
+/// Fable maps `Async.Sleep` to `setTimeout`, and an `Async` handle is awaitable on
+/// both targets — `Task.Delay`/`AwaitTask` are not Fable-supported.)
 type Clock =
     { CurrentTimeMillisUnsafe: unit -> int64
-      SleepUnsafe: Duration -> Task }
+      SleepUnsafe: Duration -> Async<unit> }
 
 [<RequireQualifiedAccess>]
 module Clock =
@@ -38,12 +39,12 @@ module Clock =
                 let ms = Duration.toMillis d
 
                 if Double.IsNaN ms || ms <= 0.0 then
-                    Task.CompletedTask
+                    async { return () }
                 elif Double.IsInfinity ms then
                     // an "infinite" sleep never completes; approximate with the max delay.
-                    Task.Delay(TimeSpan.FromMilliseconds(float Int32.MaxValue))
+                    Async.Sleep Int32.MaxValue
                 else
-                    Task.Delay(TimeSpan.FromMilliseconds(min ms (float Int32.MaxValue))) }
+                    Async.Sleep(int (min ms (float Int32.MaxValue))) }
 
     /// A `Context` carrying the live clock. (Clock layer)
     let live: Context = Context.make tag (make ())
@@ -56,11 +57,11 @@ module Clock =
     let currentTimeMillis<'E> : Effect<int64, 'E, Context> =
         clockWith (fun c -> Effect.sync (fun () -> c.CurrentTimeMillisUnsafe()))
 
-    /// Sleep for `duration`, bridging to `Task.Delay`. (Clock.sleep)
+    /// Sleep for `duration`, awaiting the clock's async sleep. (Clock.sleep)
     let sleep<'E> (duration: Duration) : Effect<unit, 'E, Context> =
         clockWith (fun c ->
             Effect(fun _ _ ->
                 async {
-                    do! Async.AwaitTask(c.SleepUnsafe duration)
+                    do! c.SleepUnsafe duration
                     return Success()
                 }))

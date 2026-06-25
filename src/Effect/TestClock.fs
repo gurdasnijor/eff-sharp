@@ -1,7 +1,6 @@
 namespace Effect
 
 open System
-open System.Threading.Tasks
 open System.Collections.Generic
 
 /// `TestClock` — a controllable `Clock` for deterministic time-based tests.
@@ -27,9 +26,9 @@ type TestClock =
             /// Advance virtual time by `millis`, completing every sleep whose target
             /// time is now reached (in time order).
             AdjustUnsafe: int64 -> unit
-            /// A task that completes once at least `n` sleeps have *ever* been
+            /// An async that completes once at least `n` sleeps have *ever* been
             /// registered (cumulative) — the registration handshake.
-            AwaitSleepsTask: int -> Task
+            AwaitSleeps: int -> Async<unit>
         }
 
 [<RequireQualifiedAccess>]
@@ -40,7 +39,7 @@ module TestClock =
     type private Pending =
         { WakeAt: int64
           Seq: int
-          Tcs: TaskCompletionSource<unit> }
+          Gate: Cell<unit> }
 
     /// Create a fresh `TestClock` starting at virtual time `0`.
     let make () : TestClock =
@@ -49,8 +48,8 @@ module TestClock =
         let mutable seq = 0
         let mutable registered = 0
         let sleeps = List<Pending>()
-        // Waiters on the cumulative-registration count: (threshold, tcs).
-        let regWaiters = List<int * TaskCompletionSource<unit>>()
+        // Waiters on the cumulative-registration count: (threshold, gate).
+        let regWaiters = List<int * Cell<unit>>()
 
         let signalRegistered () =
             // (caller holds `gate`) collect reg-waiters whose threshold is met.
@@ -58,30 +57,28 @@ module TestClock =
             regWaiters.RemoveAll(fun (n, _) -> registered >= n) |> ignore
             due
 
-        let sleepUnsafe (d: Duration) : Task =
+        let sleepUnsafe (d: Duration) : Async<unit> =
             let ms = Duration.toMillis d
 
             if Double.IsNaN ms || ms <= 0.0 then
-                Task.CompletedTask
+                async { return () }
             else
-                let tcs, due =
+                let gateCell, due =
                     lock gate (fun () ->
                         let delta = int64 (min ms (float Int64.MaxValue))
-
-                        let tcs =
-                            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+                        let cell = Cell.make ()
 
                         sleeps.Add
                             { WakeAt = now + delta
                               Seq = seq
-                              Tcs = tcs }
+                              Gate = cell }
 
                         seq <- seq + 1
                         registered <- registered + 1
-                        tcs, signalRegistered ())
+                        cell, signalRegistered ())
 
-                due |> List.iter (fun (_, w) -> w.TrySetResult() |> ignore)
-                tcs.Task :> Task
+                due |> List.iter (fun (_, w) -> Cell.trySet w () |> ignore)
+                Cell.await gateCell
 
         let adjustUnsafe (delta: int64) =
             let due =
@@ -97,20 +94,18 @@ module TestClock =
                     sleeps.RemoveAll(fun p -> p.WakeAt <= now) |> ignore
                     ready)
 
-            // RunContinuationsAsynchronously => continuations are scheduled, not run
-            // inline, so completing here (even were a lock held) cannot re-enter.
-            due |> List.iter (fun p -> p.Tcs.TrySetResult() |> ignore)
+            // Cell.trySet resumes waiters asynchronously (never inline on this
+            // stack), so completing here cannot re-enter the lock.
+            due |> List.iter (fun p -> Cell.trySet p.Gate () |> ignore)
 
-        let awaitSleepsTask (n: int) : Task =
+        let awaitSleeps (n: int) : Async<unit> =
             lock gate (fun () ->
                 if registered >= n then
-                    Task.CompletedTask
+                    async { return () }
                 else
-                    let tcs =
-                        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
-
-                    regWaiters.Add(n, tcs)
-                    tcs.Task :> Task)
+                    let cell = Cell.make ()
+                    regWaiters.Add(n, cell)
+                    Cell.await cell)
 
         let clock: Clock =
             { CurrentTimeMillisUnsafe = fun () -> lock gate (fun () -> now)
@@ -118,7 +113,7 @@ module TestClock =
 
         { Clock = clock
           AdjustUnsafe = adjustUnsafe
-          AwaitSleepsTask = awaitSleepsTask }
+          AwaitSleeps = awaitSleeps }
 
     /// The underlying `Clock` service (to place in a `Context` under `Clock.tag`).
     let clock (self: TestClock) : Clock = self.Clock
@@ -137,6 +132,6 @@ module TestClock =
     let awaitSleeps (self: TestClock) (n: int) : Effect<unit, 'E, 'R> =
         Effect(fun _ _ ->
             async {
-                do! Async.AwaitTask(self.AwaitSleepsTask n)
+                do! self.AwaitSleeps n
                 return Success()
             })

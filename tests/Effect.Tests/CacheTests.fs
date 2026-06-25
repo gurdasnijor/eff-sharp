@@ -12,7 +12,7 @@ open Effect
 
 let private mkClock (time: int64 ref) : Clock =
     { CurrentTimeMillisUnsafe = fun () -> time.Value
-      SleepUnsafe = fun _ -> System.Threading.Tasks.Task.CompletedTask }
+      SleepUnsafe = fun _ -> async { return () } }
 
 /// Run a cache effect against the controllable clock, returning its `Exit`.
 let private run (time: int64 ref) (eff: Effect<'A, 'E, Context>) : Exit<'A, 'E> =
