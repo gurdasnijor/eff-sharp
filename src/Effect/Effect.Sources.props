@@ -91,7 +91,7 @@
     <Compile Include="$(EffectSrcDir)Latch.fs" />
     <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->
     <Compile Include="$(EffectSrcDir)Clock.fs" />
-    <!-- (TestClock moved to the Effect.Testing assembly — test infra, not core) -->
+    <!-- TestClock lives under test/support — test infra, not core. -->
     <!-- w2-leavesb: utility leaves (Formatter depends on Redactable) -->
     <Compile Include="$(EffectSrcDir)Redactable.fs" />
     <Compile Include="$(EffectSrcDir)Formatter.fs" />

@@ -7,6 +7,12 @@ Vitest on Node.
 npm test
 ```
 
+Layout:
+
+- `Harness.fsproj` compiles the Fable-ready core plus the test support files.
+- `support/` contains test-only infrastructure: `TestClock` and the `Effect.Vitest` DSL.
+- `*Spec.fs` files are the actual Vitest specs.
+
 Add one `*Spec.fs` file per module. Specs should use `Effect.Vitest`:
 
 ```fsharp

@@ -6,13 +6,6 @@
     <RootNamespace>Effect</RootNamespace>
   </PropertyGroup>
 
-  <!-- .NET-only: grant the Effect.Testing companion assembly access to the core
-       internals (Cell, the Effect ctor) that TestClock needs. Kept out of
-       Effect.Sources.props so the Fable mirrors don't compile it. -->
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-  </ItemGroup>
-
   <!-- Compile order = dependency order. The list is the single source of truth in
        Effect.Sources.props (imported here and by the Fable mirrors), so it can't
        drift between projects. EffectSrcDir defaults to this directory. -->

@@ -11,11 +11,10 @@ open System.Collections.Generic
 /// clock to (or past) its target time — so effects that sleep/evict on a timer
 /// resume exactly when the test advances time, with no wall-clock waiting.
 ///
-/// Lives in `Effect.Testing` (the F# analogue of upstream's `effect/testing`
-/// subpath), not the shipped core: it is test infrastructure, depended on only by
-/// tests and the `Effect.Vitest` test runtime. The completion machinery is built
-/// on `Cell` (the Fable-portable `TaskCompletionSource` replacement), so it
-/// compiles and runs on both .NET and Fable/JS with no `#if`.
+/// Lives under `test/support`, not the shipped core: it is test infrastructure
+/// used by the Node/Vitest harness. The completion machinery is built on `Cell`
+/// (the Fable-portable `TaskCompletionSource` replacement), so it compiles and
+/// runs on both .NET and Fable/JS with no `#if`.
 ///
 /// Adaptation vs upstream (per CONVENTIONS): upstream parks sleeps on a `Latch`
 /// and resumes them on a cooperative single-threaded scheduler via `yieldNow`.

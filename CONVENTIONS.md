@@ -98,7 +98,8 @@ effect-smol is a monorepo of packages; the F# equivalent of a package is a
 ## 7. Definition of done (per module)
 
 1. `src/Effect/<Module>.fs` implemented idiomatically.
-2. `test/<Module>Spec.fs` ports the upstream test cases using `Effect.Vitest`.
+2. `test/<Module>Spec.fs` ports the upstream test cases using `Effect.Vitest`
+   from `test/support/Vitest.fs`.
 3. `npm test` is green: Fable compiles the specs and Vitest runs them on Node.
 4. Public API doc-commented; omissions noted.
 5. Touch only your assigned modules.

@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- JS/TS-consumer view of the eff-sharp core: the same src/Effect modules,
-       MINUS the STM Tx* family (depends on TxRef, not yet Fable-ready) and the
-       .NET-only TestClock helper. Fable emits this to TypeScript (dist/).
+       MINUS the STM Tx* family (depends on TxRef, not yet Fable-ready).
+       Fable emits this to TypeScript (dist/).
        The file list is the canonical Effect.Sources.props with the two excluded
        subsets Removed, so it tracks the core automatically instead of drifting. -->
   <PropertyGroup>
@@ -18,8 +18,7 @@
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />
 
   <ItemGroup>
-    <!-- STM Tx* family (TxRef-based, not yet Fable-ready). TestClock is no longer
-         in the core list (it moved to the Effect.Testing assembly), so no Remove. -->
+    <!-- STM Tx* family (TxRef-based, not yet Fable-ready). -->
     <Compile Remove="$(EffectSrcDir)Tx*.fs" />
   </ItemGroup>
 
