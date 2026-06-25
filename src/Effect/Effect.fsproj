@@ -139,6 +139,10 @@
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="SubscriptionRef.fs" />
     <Compile Include="TxSubscriptionRef.fs" />
+    <!-- w6-lruntime: Layer-runtime modules (on Layer/Runtime/Schedule/RcMap) -->
+    <Compile Include="ManagedRuntime.fs" />
+    <Compile Include="ExecutionPlan.fs" />
+    <Compile Include="LayerMap.fs" />
   </ItemGroup>
 
 </Project>
