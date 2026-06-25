@@ -1,6 +1,7 @@
 namespace Effect
 
 open System.Collections.Generic
+open Fable.Core
 
 /// `HashRing` — a weighted consistent-hashing ring.
 ///
@@ -42,6 +43,18 @@ module HashRing =
 
     /// FNV-1a 32-bit string hash, reinterpreted as a (possibly negative) int.
     /// Self-contained replacement for the upstream `Hash.string`.
+#if FABLE_COMPILER
+    [<Emit(
+        """(() => {
+            let h = 2166136261;
+            for (let i = 0; i < $0.length; i++) {
+                h = Math.imul((h ^ $0.charCodeAt(i)) >>> 0, 16777619) >>> 0;
+            }
+            return h | 0;
+        })()"""
+    )>]
+    let private hashString (_s: string) : int = nativeOnly
+#else
     let private hashString (s: string) : int =
         let mutable h = 2166136261u
 
@@ -49,6 +62,7 @@ module HashRing =
             h <- (h ^^^ uint32 (uint16 c)) * 16777619u
 
         int h
+#endif
 
     /// Create an empty ring. `baseWeight` is the virtual-point density for a
     /// weight-1 node (default 128, clamped to >= 1). (HashRing.make)
@@ -120,12 +134,11 @@ module HashRing =
     let has (self: HashRing<'A>) (node: 'A) : bool =
         self.Nodes.ContainsKey((node :> IPrimaryKey).PrimaryKey)
 
-    /// Binary-search the ring for the entry nearest `hash`, optionally skipping
-    /// excluded node keys. Returns `(ringIndex, distance)`.
+    /// Binary-search the ring for the first entry clockwise from `hash`,
+    /// optionally skipping excluded node keys. Returns `(ringIndex, distance)`.
     let private getIndexForInput (self: HashRing<'A>) (hash: int) (exclude: HashSet<string> option) : int * int64 =
         let ring = self.Ring
         let len = ring.Length
-        let dist i = abs (int64 (fst ring.[i]) - int64 hash)
         let mutable lo = 0
         let mutable hi = len - 1
 
@@ -137,41 +150,30 @@ module HashRing =
             else
                 lo <- mid + 1
 
-        let a = if lo = len then lo - 1 else lo
+        let start = if lo = len then 0 else lo
+
+        let clockwiseDistance i =
+            let target = fst ring.[i]
+            let raw = int64 target - int64 hash
+            if raw >= 0L then raw else raw + 4_294_967_296L
 
         match exclude with
-        | None ->
-            let b = lo - 1
-
-            if b < 0 then
-                (a, dist a)
-            else
-                let distA = dist a
-                let distB = dist b
-                if distA <= distB then (a, distA) else (b, distB)
-        | Some ex when not (ex.Contains(snd ring.[a])) -> (a, dist a)
+        | None -> start, clockwiseDistance start
         | Some ex ->
-            let range = max lo (len - lo)
-            let mutable result = (a, dist a)
+            let mutable result = start
             let mutable found = false
-            let mutable i = 1
+            let mutable offset = 0
 
-            while not found && i < range do
-                let idx1 = lo - i
+            while not found && offset < len do
+                let idx = (start + offset) % len
 
-                if idx1 >= 0 && idx1 < len && not (ex.Contains(snd ring.[idx1])) then
-                    result <- (idx1, dist idx1)
+                if not (ex.Contains(snd ring.[idx])) then
+                    result <- idx
                     found <- true
-                else
-                    let idx2 = lo + i
 
-                    if idx2 >= 0 && idx2 < len && not (ex.Contains(snd ring.[idx2])) then
-                        result <- (idx2, dist idx2)
-                        found <- true
+                offset <- offset + 1
 
-                i <- i + 1
-
-            result
+            result, clockwiseDistance result
 
     /// Route a single input string to the node responsible for it, or `None`
     /// when the ring is empty. (HashRing.get)

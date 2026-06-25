@@ -28,8 +28,14 @@ module Order =
     let String: Order<string> = fun self that -> sign (compare self that)
 
     /// Numeric order. `NaN` is treated as equal to itself and less than any
-    /// other number — exactly F#'s structural `compare` on floats (§8.1.3).
-    let Number: Order<float> = fun self that -> sign (compare self that)
+    /// other number.
+    let Number: Order<float> =
+        fun self that ->
+            match System.Double.IsNaN self, System.Double.IsNaN that with
+            | true, true -> 0
+            | true, false -> -1
+            | false, true -> 1
+            | false, false -> sign (compare self that)
 
     /// Boolean order where `false < true`.
     let Boolean: Order<bool> = fun self that -> sign (compare self that)
@@ -64,7 +70,8 @@ module Order =
     /// Derives an order for `'b` by mapping inputs into `'a` first.
     let mapInput (f: 'b -> 'a) (self: Order<'a>) : Order<'b> = fun b1 b2 -> self (f b1) (f b2)
 
-    /// Order for `DateTime`, chronological (full tick resolution).
+    /// Order for `DateTime`, chronological. Under Fable this follows JavaScript
+    /// `Date` precision, so observable comparisons are millisecond-resolution.
     let Date: Order<System.DateTime> = fun a b -> sign (compare a b)
 
     /// Order for a 2-tuple, compared position-by-position.

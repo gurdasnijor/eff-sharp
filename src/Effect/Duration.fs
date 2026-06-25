@@ -116,7 +116,11 @@ module Duration =
         )
 
     let private roundTiesAwayFromZero (input: float) : bigint =
+#if FABLE_COMPILER
+        BigInteger(if input >= 0.0 then floor (input + 0.5) else ceil (input - 0.5))
+#else
         BigInteger(System.Math.Round(input, System.MidpointRounding.AwayFromZero))
+#endif
 
     let private roundMillisToNanos (millis: float) : bigint =
         roundTiesAwayFromZero (millis * 1_000_000.0)
