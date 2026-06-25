@@ -142,8 +142,20 @@ module Path =
 
         res
 
+#if FABLE_COMPILER
+    // Fable shim: `System.IO.Directory.GetCurrentDirectory` is unsupported. Node's
+    // `process.cwd()` is the direct analogue — and exactly the current-directory
+    // source upstream's POSIX `Path` uses. The `Fable.Core.Emit` attribute is the
+    // Fable-only shim declared in `Terminal.fs` (compiled earlier in this assembly);
+    // Fable resolves it by full name. (severity: refactor — JS platform layer)
+    [<Fable.Core.Emit("process.cwd()")>]
+    let private cwd () : string = failwith "Fable emit only"
+
+    let private currentDir () : string = cwd ()
+#else
     let private currentDir () : string =
         System.IO.Directory.GetCurrentDirectory()
+#endif
 
     // Faithful port of Node's `path.posix.resolve`.
     let private resolveImpl (segments: string list) : string =
