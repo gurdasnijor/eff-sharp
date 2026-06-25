@@ -1,0 +1,5 @@
+# Generated Fable JS output + .NET intermediates (regenerate via the README cmds)
+out/
+full/out/
+obj/
+bin/
