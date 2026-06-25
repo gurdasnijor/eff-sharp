@@ -10,14 +10,10 @@ indent_style = space
 
 # F# sources — these settings double as the Fantomas configuration.
 #
-# NOTE ON SCOPE: eff-sharp's F# predates Fantomas, and its hand-written style
-# (space-before-colon in some bindings, single-line `if/elif/else` and `match`
-# arms) is NOT expressible as any Fantomas configuration. Reformatting the whole
-# tree to satisfy `fantomas --check` would churn ~178 files, which is explicitly
-# out of scope. The CI/local format gate therefore checks only the .fs files a
-# change actually touches (see tools/ci/check.sh), so new/edited code is held to
-# this style without rewriting history. The values below are Fantomas defaults
-# (4-space indent, 120 cols) so freshly formatted files stay conventional.
+# The whole tree was normalized with Fantomas in one dedicated commit, and the
+# CI/local gate runs `fantomas --check` over src/tests/ai-docs/benchmarks (see
+# tools/ci/check.sh), so every file is held to this profile. Values below are
+# Fantomas defaults (4-space indent, 120 cols).
 [*.{fs,fsi,fsx}]
 indent_size = 4
 max_line_length = 120

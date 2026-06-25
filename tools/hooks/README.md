@@ -3,9 +3,9 @@
 ## `pre-commit` — Fantomas format check (fast, staged files only)
 
 Runs `dotnet fantomas --check` against just the `.fs`/`.fsi` files you're
-committing (~0.7s in practice). It does **not** touch the rest of the tree — the
-repo's historical style predates Fantomas, so only new/edited code is gated (the
-same scope CI uses; see [`tools/ci/check.sh`](../ci/check.sh)).
+committing (~0.7s in practice) — a fast pre-check so you catch formatting before
+pushing. CI then runs the authoritative whole-tree `fantomas --check` (see
+[`tools/ci/check.sh`](../ci/check.sh)); the tree is fully Fantomas-formatted.
 
 ### Install (opt-in, one command from the repo root)
 

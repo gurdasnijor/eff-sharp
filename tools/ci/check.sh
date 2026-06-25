@@ -76,37 +76,13 @@ dotnet test "$TESTS" -c "$CONFIG" --nologo \
 echo "ok — full test suite passed."
 
 # ---------------------------------------------------------------------------
-step "5/6  Format check (Fantomas) — files changed vs base only"
-# eff-sharp's hand-written F# predates Fantomas and uses constructs no Fantomas
-# config can preserve (space-before-colon, single-line if/elif/match). Whole-tree
-# `fantomas --check` would demand reformatting ~178 files, which is out of scope.
-# So we gate only the .fs files THIS change touches; the historical tree is left
-# byte-for-byte intact. Override the comparison point with CHECK_BASE=<ref>.
-fmt_base="${CHECK_BASE:-}"
-if [ -z "$fmt_base" ]; then
-  if git rev-parse --verify -q origin/main >/dev/null 2>&1; then fmt_base="origin/main"
-  elif git rev-parse --verify -q main >/dev/null 2>&1; then fmt_base="main"
-  fi
-fi
-
-changed_fs=""
-if [ -n "$fmt_base" ]; then
-  merge_base="$(git merge-base "$fmt_base" HEAD 2>/dev/null || echo "$fmt_base")"
-  changed_fs="$(git diff --name-only --diff-filter=ACMR "$merge_base" -- \
-                  '*.fs' '*.fsi' ':!repos/' || true)"
-else
-  echo "note: no base ref (origin/main / main) found; skipping format check."
-fi
-
-if [ -n "$changed_fs" ]; then
-  echo "checking formatting of:"; echo "$changed_fs" | sed 's/^/  /'
-  # shellcheck disable=SC2086
-  dotnet fantomas --check $changed_fs \
-    || fail "Fantomas: changed .fs files need formatting — run 'dotnet fantomas <files>'."
-  echo "ok — changed files are formatted."
-else
-  echo "ok — no changed .fs files to format-check."
-fi
+step "5/6  Format check (Fantomas) — whole tree"
+# The whole tree is Fantomas-formatted (see the one-time normalization commit).
+# This enforces it on every file going forward; the style profile lives in
+# .editorconfig. Fix locally with: dotnet fantomas src tests ai-docs benchmarks
+dotnet fantomas --check src tests ai-docs benchmarks \
+  || fail "Fantomas: files need formatting — run 'dotnet fantomas src tests ai-docs benchmarks'."
+echo "ok — tree is formatted."
 
 # ---------------------------------------------------------------------------
 step "6/6  Lint (FSharpLint) — first-party projects"

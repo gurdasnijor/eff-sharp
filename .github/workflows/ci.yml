@@ -48,9 +48,6 @@ jobs:
 
       - name: Run CI gate (tools/ci/check.sh)
         env:
-          # Branch CI checks out a detached merge ref; give check.sh an explicit base
-          # for its changed-files format check.
-          CHECK_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
           DOTNET_NOLOGO: 'true'
           DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
         run: bash tools/ci/check.sh
