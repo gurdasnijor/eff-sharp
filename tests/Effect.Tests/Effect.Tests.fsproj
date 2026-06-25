@@ -13,6 +13,7 @@
     <Compile Include="FileSystemTests.fs" />
     <Compile Include="NodeStreamTests.fs" />
     <Compile Include="ChildProcessSpawnerTests.fs" />
+    <Compile Include="NodeRuntimeTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />
