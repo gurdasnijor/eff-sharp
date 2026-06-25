@@ -1,0 +1,17 @@
+{
+  "name": "eff-sharp",
+  "version": "0.0.0",
+  "description": "eff-sharp — a native F# port of Effect, compiled to TypeScript via Fable for Node/TS consumers (e.g. fluent-firegrid).",
+  "type": "module",
+  "exports": {
+    ".": "./dist/src/Effect/Effect.ts",
+    "./*": "./dist/src/Effect/*.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "dotnet fable EffectJs.fsproj --lang typescript -o dist --optimize",
+    "smoke": "npx tsx consume.ts"
+  }
+}

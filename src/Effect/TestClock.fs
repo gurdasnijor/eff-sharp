@@ -1,5 +1,10 @@
 namespace Effect
 
+// TestClock is a .NET-only test helper (deterministic virtual time backed by
+// TaskCompletionSource); it has no place in the JS consumer package, so the whole
+// module is excluded from the Fable build.
+#if !FABLE_COMPILER
+
 open System
 open System.Threading.Tasks
 open System.Collections.Generic
@@ -145,3 +150,5 @@ module TestClock =
                 do! Async.AwaitTask(self.AwaitSleepsTask n)
                 return Success()
             })
+
+#endif
