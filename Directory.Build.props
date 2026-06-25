@@ -13,6 +13,17 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Deterministic>true</Deterministic>
+    <!-- Manage FSharp.Core through CPM (Directory.Packages.props) rather than the F#
+         SDK's implicit reference. That implicit ref carries an inline Version that CPM
+         cannot version-manage, so any project that also pulls Fable.Core (which floors
+         FSharp.Core at 4.7.2) gets downgraded to 4.7.2 — and `task` / Map.keys /
+         List.insertAt disappear. Disabling the implicit ref and declaring an explicit,
+         centrally-versioned one keeps every project on the SDK's modern FSharp.Core. -->
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
+  </ItemGroup>
 
 </Project>

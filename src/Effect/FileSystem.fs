@@ -8,7 +8,7 @@ namespace Effect
 /// in the platform package, exactly as upstream splits `FileSystem.ts` (core)
 /// from `platform-node-shared/NodeFileSystem.ts`:
 ///   * `Effect.Platform.Node`'s `NodeFileSystem` — dual-backed, `System.IO` on
-///     .NET (the xUnit surface) and Node's `node:fs` under Fable, provided via
+///     .NET (the non-Fable BCL fallback) and Node's `node:fs` under Fable, provided via
 ///     `NodeFileSystem.layer` / `NodeFileSystem.liveContext`.
 ///
 /// All operations return an `Effect` whose error channel is the existing

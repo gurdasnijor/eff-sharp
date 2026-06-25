@@ -7,7 +7,7 @@
        test solution (eff-sharp.slnx). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- TargetFramework inherited from the repo-root Directory.Build.props. -->
     <AssemblyName>EffSharp.AiDocs</AssemblyName>
     <RootNamespace>EffSharp.AiDocs</RootNamespace>
     <!-- Examples deliberately bind values purely to show types; don't fail on it. -->

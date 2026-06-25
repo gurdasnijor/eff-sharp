@@ -8,7 +8,7 @@ open Effect
 /// mirror of effect-smol's `platform-node`. It deliberately holds only the
 /// minimal surface that proves the package pipeline end to end:
 ///   * the project references the core `Effect` package and uses its types,
-///   * it compiles on .NET (the xUnit test surface) AND Fable-compiles to JS (the
+///   * it compiles on .NET (the non-Fable BCL fallback) AND Fable-compiles to JS (the
 ///     runtime target), and
 ///   * the dual-layer `#if FABLE_COMPILER` pattern — the spine of every real
 ///     service here (`NodeChildProcessSpawner`, `NodeStream`, `NodeFileSystem`,
@@ -22,7 +22,7 @@ open Effect
 module NodePlatform =
 
     /// The runtime this package's services bind to: `"node"` under Fable (the JS
-    /// target), `".net"` otherwise (the BCL-backed xUnit surface). A real, tiny
+    /// target), `".net"` otherwise (the BCL-backed non-Fable BCL fallback). A real, tiny
     /// value whose only job is to exercise the dual-layer split inside this project.
     let runtime<'E, 'R> : Effect<string, 'E, 'R> =
         Effect.sync (fun () ->

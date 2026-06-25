@@ -3,7 +3,10 @@
     <Project Path="src/Effect/Effect.fsproj" />
     <Project Path="src/Effect.Platform.Node/Effect.Platform.Node.fsproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Effect.Tests/Effect.Tests.fsproj" />
+  <Folder Name="/packaging/">
+    <Project Path="packaging/EffectJs.fsproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Harness.fsproj" />
   </Folder>
 </Solution>

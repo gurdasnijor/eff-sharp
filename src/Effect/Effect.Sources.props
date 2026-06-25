@@ -1,0 +1,175 @@
+<Project>
+
+  <!-- ============================================================================
+       Canonical compile ORDER for the eff-sharp core (mirrors effect-smol module
+       names). SINGLE SOURCE OF TRUTH: every project that compiles the full core
+       imports this instead of re-listing the files, so the list can never drift.
+
+       Importers point at src/Effect from their own location via $(EffectSrcDir);
+       it defaults to this file's directory (correct for the in-tree Effect.fsproj).
+       A Fable mirror elsewhere sets it before importing, e.g.
+         <EffectSrcDir>$(MSBuildThisFileDirectory)../../src/Effect/</EffectSrcDir>
+       (keep the trailing slash). Subset projects import then <Compile Remove .../>.
+
+       Compile order IS dependency order — do not reorder casually.
+       ============================================================================ -->
+
+  <PropertyGroup>
+    <EffectSrcDir Condition="'$(EffectSrcDir)' == ''">$(MSBuildThisFileDirectory)</EffectSrcDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Slice 2: error model (compiles first — the slice-3 async core builds on it) -->
+    <Compile Include="$(EffectSrcDir)Cause.fs" />
+    <Compile Include="$(EffectSrcDir)Exit.fs" />
+    <!-- w2-di: Context is a plain typed map (no Effect dep), so it precedes the core
+         and the async core wires `Effect.service` / `Effect.provideService` on top. -->
+    <Compile Include="$(EffectSrcDir)Context.fs" />
+    <!-- Slice 1+3: async Effect core (Reader over Async<Exit>) -->
+    <Compile Include="$(EffectSrcDir)Effect.fs" />
+    <!-- Cell: Fable-portable completion primitive (TaskCompletionSource replacement) -->
+    <Compile Include="$(EffectSrcDir)Cell.fs" />
+    <!-- Slice 3-4 / w2-di: runtime / concurrency / scoping -->
+    <Compile Include="$(EffectSrcDir)Scope.fs" />
+    <Compile Include="$(EffectSrcDir)Fiber.fs" />
+    <Compile Include="$(EffectSrcDir)Runtime.fs" />
+    <!-- Slice 5: dependency injection -->
+    <Compile Include="$(EffectSrcDir)Layer.fs" />
+    <!-- Slice 6: higher-level -->
+    <!-- w6-streaming: Sink folds over Effect only, so it precedes Stream (which gains Stream.run) -->
+    <Compile Include="$(EffectSrcDir)Sink.fs" />
+    <Compile Include="$(EffectSrcDir)Stream.fs" />
+    <!-- w6-streaming: minimal output-writer Channel (bridges to/from Stream) -->
+    <Compile Include="$(EffectSrcDir)Channel.fs" />
+    <!-- leaf5: traits -->
+    <Compile Include="$(EffectSrcDir)Equivalence.fs" />
+    <Compile Include="$(EffectSrcDir)Order.fs" />
+    <Compile Include="$(EffectSrcDir)Brand.fs" />
+    <Compile Include="$(EffectSrcDir)Hash.fs" />
+    <Compile Include="$(EffectSrcDir)Equal.fs" />
+    <Compile Include="$(EffectSrcDir)LogLevel.fs" />
+    <Compile Include="$(EffectSrcDir)Scheduler.fs" />
+    <Compile Include="$(EffectSrcDir)References.fs" />
+    <Compile Include="$(EffectSrcDir)Tracer.fs" />
+    <Compile Include="$(EffectSrcDir)Logger.fs" />
+    <!-- leaf2: immutable hashing collections -->
+    <Compile Include="$(EffectSrcDir)HashMap.fs" />
+    <Compile Include="$(EffectSrcDir)HashSet.fs" />
+    <Compile Include="$(EffectSrcDir)HashRing.fs" />
+    <!-- leaf3: mutable collections -->
+    <Compile Include="$(EffectSrcDir)MutableHashMap.fs" />
+    <Compile Include="$(EffectSrcDir)MutableHashSet.fs" />
+    <Compile Include="$(EffectSrcDir)MutableList.fs" />
+    <Compile Include="$(EffectSrcDir)MutableRef.fs" />
+    <!-- leaf6: encoding / data -->
+    <Compile Include="$(EffectSrcDir)Data.fs" />
+    <Compile Include="$(EffectSrcDir)Redacted.fs" />
+    <Compile Include="$(EffectSrcDir)Encoding.fs" />
+    <Compile Include="$(EffectSrcDir)JsonPointer.fs" />
+    <Compile Include="$(EffectSrcDir)JsonPatch.fs" />
+    <!-- leaf1: native sequence / collection ports -->
+    <Compile Include="$(EffectSrcDir)Chunk.fs" />
+    <Compile Include="$(EffectSrcDir)Trie.fs" />
+    <Compile Include="$(EffectSrcDir)Graph.fs" />
+    <!-- leaf4: numeric / time (standalone, structural equality) -->
+    <Compile Include="$(EffectSrcDir)BigDecimal.fs" />
+    <Compile Include="$(EffectSrcDir)Duration.fs" />
+    <Compile Include="$(EffectSrcDir)DateTime.fs" />
+    <Compile Include="$(EffectSrcDir)Cron.fs" />
+    <!-- wave4: Schedule (decision machine over Duration / Cron / DateTime) -->
+    <Compile Include="$(EffectSrcDir)Schedule.fs" />
+    <!-- w2-leavesa: algebraic leaves (Combiner depends on Order above; Reducer on Combiner) -->
+    <Compile Include="$(EffectSrcDir)Combiner.fs" />
+    <Compile Include="$(EffectSrcDir)Reducer.fs" />
+    <Compile Include="$(EffectSrcDir)Differ.fs" />
+    <Compile Include="$(EffectSrcDir)NonEmptyIterable.fs" />
+    <!-- w2-ref: fiber-safe mutable state (build on Effect + MutableRef) -->
+    <Compile Include="$(EffectSrcDir)Ref.fs" />
+    <Compile Include="$(EffectSrcDir)SynchronizedRef.fs" />
+    <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
+    <Compile Include="$(EffectSrcDir)Deferred.fs" />
+    <Compile Include="$(EffectSrcDir)Latch.fs" />
+    <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->
+    <Compile Include="$(EffectSrcDir)Clock.fs" />
+    <!-- TestClock lives under test/support — test infra, not core. -->
+    <!-- w2-leavesb: utility leaves (Formatter depends on Redactable) -->
+    <Compile Include="$(EffectSrcDir)Redactable.fs" />
+    <Compile Include="$(EffectSrcDir)Formatter.fs" />
+    <!-- w4-schema: type-first codec (needs JsonPatch.Json + Formatter above) -->
+    <Compile Include="$(EffectSrcDir)Schema.fs" />
+    <Compile Include="$(EffectSrcDir)PlatformError.fs" />
+    <Compile Include="$(EffectSrcDir)PrimaryKey.fs" />
+    <Compile Include="$(EffectSrcDir)RegExp.fs" />
+    <!-- w4-svc: services (Random/Console over Context; Crypto over PlatformError+Clock;
+         ScopedRef/RcRef over Scope+SynchronizedRef) -->
+    <Compile Include="$(EffectSrcDir)Random.fs" />
+    <Compile Include="$(EffectSrcDir)Console.fs" />
+    <!-- w6-terminal: CLI terminal service over Context + PlatformError (+ Layer) -->
+    <Compile Include="$(EffectSrcDir)Terminal.fs" />
+    <Compile Include="$(EffectSrcDir)Crypto.fs" />
+    <Compile Include="$(EffectSrcDir)ScopedRef.fs" />
+    <Compile Include="$(EffectSrcDir)RcRef.fs" />
+    <!-- w3-stm: transactional memory (TxRef engine, then collections on top) -->
+    <Compile Include="$(EffectSrcDir)TxRef.fs" />
+    <Compile Include="$(EffectSrcDir)TxChunk.fs" />
+    <Compile Include="$(EffectSrcDir)TxHashMap.fs" />
+    <Compile Include="$(EffectSrcDir)TxHashSet.fs" />
+    <Compile Include="$(EffectSrcDir)TxDeferred.fs" />
+    <!-- w4-stml: STM leaves on the TxRef engine -->
+    <Compile Include="$(EffectSrcDir)TxPriorityQueue.fs" />
+    <Compile Include="$(EffectSrcDir)TxSemaphore.fs" />
+    <Compile Include="$(EffectSrcDir)TxReentrantLock.fs" />
+    <!-- w3-frontier-b: Filter -> Pull -> Take (stream substrate) -->
+    <Compile Include="$(EffectSrcDir)Filter.fs" />
+    <Compile Include="$(EffectSrcDir)Pull.fs" />
+    <Compile Include="$(EffectSrcDir)Take.fs" />
+    <!-- w3-frontier-a: numeric / schema / request leaves -->
+    <Compile Include="$(EffectSrcDir)BigInt.fs" />
+    <Compile Include="$(EffectSrcDir)JsonSchema.fs" />
+    <Compile Include="$(EffectSrcDir)Request.fs" />
+    <!-- w6-reqresolver: batched request resolution on Request -->
+    <Compile Include="$(EffectSrcDir)RequestResolver.fs" />
+    <!-- w4-stmq: transactional queue + pub/sub (build on TxRef/TxChunk) -->
+    <Compile Include="$(EffectSrcDir)TxQueue.fs" />
+    <Compile Include="$(EffectSrcDir)TxPubSub.fs" />
+    <!-- w4-conc: concurrency hubs -->
+    <Compile Include="$(EffectSrcDir)PubSub.fs" />
+    <Compile Include="$(EffectSrcDir)PartitionedSemaphore.fs" />
+    <!-- w5: counting semaphore -->
+    <Compile Include="$(EffectSrcDir)Semaphore.fs" />
+    <!-- w5-caches: keyed memoization (on Deferred / MutableHashMap / Clock / Scope) -->
+    <Compile Include="$(EffectSrcDir)Cache.fs" />
+    <Compile Include="$(EffectSrcDir)ScopedCache.fs" />
+    <!-- w5-resource: refreshable scoped value (ScopedRef + Schedule) -->
+    <Compile Include="$(EffectSrcDir)Resource.fs" />
+    <!-- w5-fibercoll: fiber-supervision containers (on Fiber/Deferred/Scope) -->
+    <Compile Include="$(EffectSrcDir)FiberHandle.fs" />
+    <Compile Include="$(EffectSrcDir)FiberSet.fs" />
+    <Compile Include="$(EffectSrcDir)FiberMap.fs" />
+    <!-- w5: async queue (Deferred/MutableList over a lock-guarded buffer) -->
+    <Compile Include="$(EffectSrcDir)Queue.fs" />
+    <!-- w5-rcmap: reference-counted map of scoped resources (on Deferred/MutableHashMap/Clock/Scope/Fiber) -->
+    <Compile Include="$(EffectSrcDir)RcMap.fs" />
+    <!-- w6-path: file-path service + POSIX layer (on Context/Layer/PlatformError) -->
+    <Compile Include="$(EffectSrcDir)Path.fs" />
+    <!-- w6-filesystem: abstract FileSystem service (impl lives in Effect.Platform.Node) -->
+    <Compile Include="$(EffectSrcDir)FileSystem.fs" />
+    <!-- process: Command model + abstract ChildProcessSpawner (impl in Effect.Platform.Node) -->
+    <Compile Include="$(EffectSrcDir)ChildProcess.fs" />
+    <Compile Include="$(EffectSrcDir)ChildProcessSpawner.fs" />
+    <!-- http: minimal HttpClient service (impl in Effect.Platform.Node) -->
+    <Compile Include="$(EffectSrcDir)HttpClient.fs" />
+    <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
+    <Compile Include="$(EffectSrcDir)SubscriptionRef.fs" />
+    <Compile Include="$(EffectSrcDir)TxSubscriptionRef.fs" />
+    <!-- w6-lruntime: Layer-runtime modules (on Layer/Runtime/Schedule/RcMap) -->
+    <Compile Include="$(EffectSrcDir)ManagedRuntime.fs" />
+    <Compile Include="$(EffectSrcDir)ExecutionPlan.fs" />
+    <Compile Include="$(EffectSrcDir)LayerMap.fs" />
+    <!-- w6: pooled resource manager (fixed-size core on Queue/Scope) -->
+    <Compile Include="$(EffectSrcDir)Pool.fs" />
+    <!-- w6: observability metrics -->
+    <Compile Include="$(EffectSrcDir)Metric.fs" />
+  </ItemGroup>
+
+</Project>

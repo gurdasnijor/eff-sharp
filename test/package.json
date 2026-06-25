@@ -1,0 +1,13 @@
+{
+  "name": "@eff-sharp/test",
+  "private": true,
+  "type": "module",
+  "description": "F#-authored tests compiled by Fable, run on Node via Vitest.",
+  "scripts": {
+    "build": "dotnet fable Harness.fsproj -o out --noCache",
+    "test": "npm run build && vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,109 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- JS/TS-consumer view of the eff-sharp core: the same src/Effect modules,
-       MINUS the STM Tx* family (depends on TxRef, not yet Fable-ready) and the
-       .NET-only TestClock helper. Fable emits this to TypeScript (dist/). -->
+       MINUS the STM Tx* family (depends on TxRef, not yet Fable-ready).
+       Fable emits this to TypeScript (dist/).
+       The file list is the canonical Effect.Sources.props with the two excluded
+       subsets Removed, so it tracks the core automatically instead of drifting. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- TargetFramework inherited from the repo-root Directory.Build.props. -->
+    <EffectSrcDir>$(MSBuildThisFileDirectory)../src/Effect/</EffectSrcDir>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- the #if FABLE_COMPILER interop in Formatter/Path/Terminal needs Fable.Core -->
-    <PackageReference Include="Fable.Core" Version="5.1.0" />
+    <PackageReference Include="Fable.Core" />
   </ItemGroup>
 
+  <Import Project="$(EffectSrcDir)Effect.Sources.props" />
+
   <ItemGroup>
-    <Compile Include="../src/Effect/Cause.fs" />
-    <Compile Include="../src/Effect/Exit.fs" />
-    <Compile Include="../src/Effect/Context.fs" />
-    <Compile Include="../src/Effect/Effect.fs" />
-    <Compile Include="../src/Effect/Cell.fs" />
-    <Compile Include="../src/Effect/Scope.fs" />
-    <Compile Include="../src/Effect/Fiber.fs" />
-    <Compile Include="../src/Effect/Runtime.fs" />
-    <Compile Include="../src/Effect/Layer.fs" />
-    <Compile Include="../src/Effect/Sink.fs" />
-    <Compile Include="../src/Effect/Stream.fs" />
-    <Compile Include="../src/Effect/Channel.fs" />
-    <Compile Include="../src/Effect/Equivalence.fs" />
-    <Compile Include="../src/Effect/Order.fs" />
-    <Compile Include="../src/Effect/Brand.fs" />
-    <Compile Include="../src/Effect/Hash.fs" />
-    <Compile Include="../src/Effect/Equal.fs" />
-    <Compile Include="../src/Effect/LogLevel.fs" />
-    <Compile Include="../src/Effect/Scheduler.fs" />
-    <Compile Include="../src/Effect/References.fs" />
-    <Compile Include="../src/Effect/Tracer.fs" />
-    <Compile Include="../src/Effect/Logger.fs" />
-    <Compile Include="../src/Effect/HashMap.fs" />
-    <Compile Include="../src/Effect/HashSet.fs" />
-    <Compile Include="../src/Effect/HashRing.fs" />
-    <Compile Include="../src/Effect/MutableHashMap.fs" />
-    <Compile Include="../src/Effect/MutableHashSet.fs" />
-    <Compile Include="../src/Effect/MutableList.fs" />
-    <Compile Include="../src/Effect/MutableRef.fs" />
-    <Compile Include="../src/Effect/Data.fs" />
-    <Compile Include="../src/Effect/Redacted.fs" />
-    <Compile Include="../src/Effect/Encoding.fs" />
-    <Compile Include="../src/Effect/JsonPointer.fs" />
-    <Compile Include="../src/Effect/JsonPatch.fs" />
-    <Compile Include="../src/Effect/Chunk.fs" />
-    <Compile Include="../src/Effect/Trie.fs" />
-    <Compile Include="../src/Effect/Graph.fs" />
-    <Compile Include="../src/Effect/BigDecimal.fs" />
-    <Compile Include="../src/Effect/Duration.fs" />
-    <Compile Include="../src/Effect/DateTime.fs" />
-    <Compile Include="../src/Effect/Cron.fs" />
-    <Compile Include="../src/Effect/Schedule.fs" />
-    <Compile Include="../src/Effect/Combiner.fs" />
-    <Compile Include="../src/Effect/Reducer.fs" />
-    <Compile Include="../src/Effect/Differ.fs" />
-    <Compile Include="../src/Effect/NonEmptyIterable.fs" />
-    <Compile Include="../src/Effect/Ref.fs" />
-    <Compile Include="../src/Effect/SynchronizedRef.fs" />
-    <Compile Include="../src/Effect/Deferred.fs" />
-    <Compile Include="../src/Effect/Latch.fs" />
-    <Compile Include="../src/Effect/Clock.fs" />
-    <Compile Include="../src/Effect/Redactable.fs" />
-    <Compile Include="../src/Effect/Formatter.fs" />
-    <Compile Include="../src/Effect/Schema.fs" />
-    <Compile Include="../src/Effect/PlatformError.fs" />
-    <Compile Include="../src/Effect/PrimaryKey.fs" />
-    <Compile Include="../src/Effect/RegExp.fs" />
-    <Compile Include="../src/Effect/Random.fs" />
-    <Compile Include="../src/Effect/Console.fs" />
-    <Compile Include="../src/Effect/Terminal.fs" />
-    <Compile Include="../src/Effect/Crypto.fs" />
-    <Compile Include="../src/Effect/ScopedRef.fs" />
-    <Compile Include="../src/Effect/RcRef.fs" />
-    <Compile Include="../src/Effect/Filter.fs" />
-    <Compile Include="../src/Effect/Pull.fs" />
-    <Compile Include="../src/Effect/Take.fs" />
-    <Compile Include="../src/Effect/BigInt.fs" />
-    <Compile Include="../src/Effect/JsonSchema.fs" />
-    <Compile Include="../src/Effect/Request.fs" />
-    <Compile Include="../src/Effect/RequestResolver.fs" />
-    <Compile Include="../src/Effect/PubSub.fs" />
-    <Compile Include="../src/Effect/PartitionedSemaphore.fs" />
-    <Compile Include="../src/Effect/Semaphore.fs" />
-    <Compile Include="../src/Effect/Cache.fs" />
-    <Compile Include="../src/Effect/ScopedCache.fs" />
-    <Compile Include="../src/Effect/Resource.fs" />
-    <Compile Include="../src/Effect/FiberHandle.fs" />
-    <Compile Include="../src/Effect/FiberSet.fs" />
-    <Compile Include="../src/Effect/FiberMap.fs" />
-    <Compile Include="../src/Effect/Queue.fs" />
-    <Compile Include="../src/Effect/RcMap.fs" />
-    <Compile Include="../src/Effect/Path.fs" />
-    <Compile Include="../src/Effect/FileSystem.fs" />
-    <Compile Include="../src/Effect/ChildProcess.fs" />
-    <Compile Include="../src/Effect/ChildProcessSpawner.fs" />
-    <Compile Include="../src/Effect/SubscriptionRef.fs" />
-    <Compile Include="../src/Effect/ManagedRuntime.fs" />
-    <Compile Include="../src/Effect/ExecutionPlan.fs" />
-    <Compile Include="../src/Effect/LayerMap.fs" />
-    <Compile Include="../src/Effect/Pool.fs" />
-    <Compile Include="../src/Effect/Metric.fs" />
+    <!-- STM Tx* family (TxRef-based, not yet Fable-ready). -->
+    <Compile Remove="$(EffectSrcDir)Tx*.fs" />
   </ItemGroup>
 
 </Project>

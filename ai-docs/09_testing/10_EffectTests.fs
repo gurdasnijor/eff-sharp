@@ -1,9 +1,9 @@
 /// @title Testing effects
 ///
-/// Effects are values, so testing one is just: run it and inspect the `Exit`. No
-/// special harness is required — drop these patterns inside an `[<Fact>]` (xUnit)
-/// and assert with `Assert.*`. Here we use a tiny `check` helper so the docs
-/// project stays framework-free.
+/// Effects are values, so testing one is just: run it and inspect the `Exit`.
+/// In the Node runtime test suite, put these patterns behind `Effect.Vitest`
+/// assertions. Here we use a tiny `check` helper so the docs project stays
+/// framework-free.
 ///
 /// Mirrors upstream `09_testing/10_effect-tests`. The "control time with
 /// TestClock" idea becomes: model time as a *service* and inject a fixed clock —

@@ -5,8 +5,7 @@ open System.Threading
 
 /// Port of repos/effect-smol/packages/effect/src/TxRef.ts — transactional
 /// references with **version-based optimistic concurrency** (the same algorithm
-/// as Effect's `TxRef` and FSharpx's `Stm`). Validated against the proven spike
-/// at `spikes/stm/Stm.fs`.
+/// as Effect's `TxRef` and FSharpx's `Stm`).
 ///
 /// Model:
 ///   - A `TxRef<'a>` is a mutable cell `{ value; version }`.
@@ -28,9 +27,9 @@ open System.Threading
 ///     `stm { }`), not `Effect<_>`.
 ///   - v1 **thread-blocks** on `retry` (`Monitor.Wait`). Replacing this with
 ///     fiber-park is a later upgrade once the fiber runtime lands.
-///   - The **seqlock memory fix** from the spike is mandatory: a naive
-///     unsynchronized read can pair a fresh `version` with a stale `value` on a
-///     weak-memory CPU (arm64) and silently lose updates. See `TxRef` below.
+///   - The **seqlock memory fix** is mandatory: a naive unsynchronized read can
+///     pair a fresh `version` with a stale `value` on a weak-memory CPU (arm64)
+///     and silently lose updates. See `TxRef` below.
 ///   - HKT/variance plumbing and JS-runtime machinery (`TypeId`, `Proto`,
 ///     `toJSON`, `pipe`/`dual`) are dropped; ops take `self` first.
 /// Non-generic view of a `TxRef` so a heterogeneous journal can validate/commit

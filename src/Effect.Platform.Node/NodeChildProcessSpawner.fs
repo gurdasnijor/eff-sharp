@@ -6,7 +6,7 @@ open Effect
 /// `ChildProcessSpawner` service. Mirror of effect-smol's
 /// `platform-node-shared/NodeChildProcessSpawner.ts`.
 ///
-///   * `#if !FABLE_COMPILER` — `System.Diagnostics.Process` (the xUnit surface).
+///   * `#if !FABLE_COMPILER` — `System.Diagnostics.Process` (the non-Fable BCL fallback).
 ///     Streams stdout/stderr **incrementally** (chunk-by-chunk via
 ///     `Stream.repeatEffectOption` over `Stream.ReadAsync`) and supports live
 ///     `Stdin` writes (`Sink.fromWrite`) — genuine bidirectional streaming.
@@ -42,7 +42,7 @@ module NodeChildProcessSpawner =
 
 #if !FABLE_COMPILER
     // ------------------------------------------------------------------------
-    // .NET layer — System.Diagnostics.Process (the xUnit test surface).
+    // .NET layer — System.Diagnostics.Process (the non-Fable BCL fallback).
     // ------------------------------------------------------------------------
 
     /// Run an async host operation, mapping a throw into the `PlatformError`
@@ -268,7 +268,7 @@ module NodeChildProcessSpawner =
 #endif
 
     /// The platform `ChildProcessSpawner` layer: `System.Diagnostics.Process` on
-    /// .NET (the xUnit test surface), Node's `child_process` under Fable.
+    /// .NET (the non-Fable BCL fallback), Node's `child_process` under Fable.
     let layer<'E, 'RIn> : Layer<'E, 'RIn> =
         Layer.succeed ChildProcessSpawner.tag spawner
 

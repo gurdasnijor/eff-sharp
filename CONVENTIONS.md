@@ -1,7 +1,8 @@
 # Porting conventions
 
-How we port `effect` (TypeScript) to native F#. Every porting agent must follow
-this. References live in `repos/` (gitignored, local only):
+How we port `effect` (TypeScript) to F# that compiles through Fable and runs on
+Node. Every porting agent must follow this. References live in `repos/`
+(gitignored, local only):
 
 - Upstream source/spec: `repos/effect-smol/packages/effect/src/<Module>.ts`
 - Upstream tests:        `repos/effect-smol/packages/effect/test/<Module>.test.ts`
@@ -10,8 +11,8 @@ this. References live in `repos/` (gitignored, local only):
 
 ## 1. This is a *port*, not a transliteration
 
-Write idiomatic F# that a .NET F# developer would write, that happens to match
-Effect's observable behaviour. Do **not** mechanically translate JS/TS idioms.
+Write idiomatic F# that matches Effect's observable Node/JavaScript behaviour
+after Fable compilation. Do **not** mechanically translate JS/TS idioms.
 
 ## 2. Prefer native F# pattern matching; lower Effect primitives into it
 
@@ -64,8 +65,9 @@ arithmetic — use FSharp.Core. Only port the Effect-specific surface that F# la
 
 - One module per file: `src/<Package>/<Module>.fs`, `[<RequireQualifiedAccess>]
   module <Module>`.
-- One test file per module: `tests/Effect.Tests/<Module>Tests.fs`, xUnit `[<Fact>]`,
-  ported from the upstream `*.test.ts`. Cite the upstream file in a header comment.
+- One test file per module: `test/<Module>Spec.fs`, authored in F#, compiled by
+  Fable, and run by Vitest on Node. Cite the upstream `*.test.ts` file in a
+  header comment.
 - Doc-comment the public surface; note the upstream reference and any omissions.
 
 ### 6.1 Package = project (mirror effect-smol's `packages/`)
@@ -89,16 +91,15 @@ effect-smol is a monorepo of packages; the F# equivalent of a package is a
   upstream splits `effect/unstable/process/ChildProcessSpawner.ts` from
   `platform-node-shared/NodeChildProcessSpawner.ts`). Don't bake platform impls into
   core.
-- Project references encode the dependency DAG (the F# stand-in for the TS import
-  graph); the compiler enforces it acyclically. Shared MSBuild settings live in the
-  repo-root `Directory.Build.props`; `repos/Directory.Build.props` shields vendored
-  compilers from it.
+- Project references encode the dependency DAG for Fable compilation. Shared
+  MSBuild settings live in the repo-root `Directory.Build.props`;
+  `repos/Directory.Build.props` shields vendored compilers from it.
 
 ## 7. Definition of done (per module)
 
 1. `src/Effect/<Module>.fs` implemented idiomatically.
-2. `tests/Effect.Tests/<Module>Tests.fs` ports the upstream test cases as Facts.
-3. `dotnet test` is green for the new tests (add `<Compile>` entries in your
-   worktree to verify).
+2. `test/<Module>Spec.fs` ports the upstream test cases using `Effect.Vitest`
+   from `test/support/Vitest.fs`.
+3. `npm test` is green: Fable compiles the specs and Vitest runs them on Node.
 4. Public API doc-commented; omissions noted.
 5. Touch only your assigned modules.

@@ -18,3 +18,15 @@ BenchmarkDotNet.Artifacts/
 
 # Test results emitted by tools/ci/check.sh
 TestResults/
+
+# JS / Fable build output
+node_modules/
+**/node_modules/
+test/out/
+test/.fable/
+packaging/dist/
+packaging/.fable/
+fable-spike/**/out/
+fable-spike/**/.fable/
+*.fs.js
+.fake

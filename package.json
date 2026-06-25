@@ -1,0 +1,14 @@
+{
+  "name": "eff-sharp-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packaging",
+    "test"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace eff-sharp",
+    "test": "npm run test --workspace @eff-sharp/test",
+    "check": "npm run build && npm test"
+  }
+}

@@ -3,10 +3,7 @@
 ## `pre-commit` — Fantomas format check (fast, staged files only)
 
 Runs `dotnet fantomas --check` against just the `.fs`/`.fsi` files you're
-committing (~0.7s in practice) — a fast pre-check so you catch formatting before
-pushing. The `quality` job in [`tools/ci/check.sh`](../ci/check.sh) then enforces
-it in CI: changed files vs the PR base on pull requests, the whole tree on push
-to `main`. The tree is fully Fantomas-formatted.
+committing — a fast pre-check so you catch formatting before pushing.
 
 ### Install (opt-in, one command from the repo root)
 
@@ -23,5 +20,5 @@ sync for everyone who opts in. To stop using it: `git config --unset core.hooksP
 - Format and re-stage: `dotnet fantomas <files> && git add <files>`.
 - Bypass once: `git commit --no-verify`.
 
-The full gate (build, **tests**, format, lint) lives in `tools/ci/check.sh` and
-runs in GitHub Actions; this hook is only the fast formatting pre-check.
+The build/test gate lives in `tools/ci/check.sh` and runs in GitHub Actions; this
+hook is only the fast formatting pre-check.

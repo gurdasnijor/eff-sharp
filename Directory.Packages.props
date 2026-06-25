@@ -1,0 +1,27 @@
+<Project>
+
+  <!-- Central Package Management for the first-party tree: every PackageReference
+       omits its Version and the single source of truth lives here. Vendored trees
+       under repos/ are shielded by repos/Directory.Packages.props (a stop-file that
+       turns CPM off), so this never perturbs the Fable/F# sources we build against. -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The F# SDK references FSharp.Core implicitly, but under CPM that implicit
+         reference loses its SDK version — letting Fable.Core's transitive floor
+         (4.7.2) win and breaking `task` / Map.keys / List.insertAt on every project
+         that references Fable.Core. Pin it to the SDK's version so all projects use
+         modern FSharp.Core. Bump this alongside the .NET SDK in global.json. -->
+    <PackageVersion Include="FSharp.Core" Version="10.1.301" />
+
+    <!-- JS interop (Fable) -->
+    <PackageVersion Include="Fable.Core" Version="5.1.0" />
+
+    <!-- Benchmark runner -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+</Project>

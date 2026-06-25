@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- TargetFramework inherited from the repo-root Directory.Build.props. -->
     <Optimize>true</Optimize>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
@@ -11,7 +11,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageReference Include="BenchmarkDotNet" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Effect/Effect.fsproj" />
