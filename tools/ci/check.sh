@@ -32,6 +32,9 @@ echo "ok - no stubs."
 step "Install npm workspace dependencies"
 npm install --no-fund --no-audit
 
+step "Restore dotnet tools"
+dotnet tool restore
+
 step "Build TS package and run Node/Vitest specs"
 npm run check
 
