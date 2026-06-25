@@ -159,6 +159,13 @@
     <Compile Include="$(EffectSrcDir)ChildProcessSpawner.fs" />
     <!-- http: minimal HttpClient service (impl in Effect.Platform.Node) -->
     <Compile Include="$(EffectSrcDir)HttpClient.fs" />
+    <!-- unstable/httpapi: declarative API contract metadata and OpenAPI emission -->
+    <Compile Include="$(EffectSrcDir)HttpApiSchema.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiEndpoint.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiGroup.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApi.fs" />
+    <Compile Include="$(EffectSrcDir)OpenApi.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiSecurity.fs" />
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="$(EffectSrcDir)SubscriptionRef.fs" />
     <Compile Include="$(EffectSrcDir)TxSubscriptionRef.fs" />

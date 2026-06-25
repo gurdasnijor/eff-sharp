@@ -5,14 +5,26 @@
        Provides Node implementations of the platform-agnostic service abstractions
        defined in the core `Effect` package (ChildProcessSpawner, FileSystem, …).
 
-       Dual-backed, as the rest of the port: `#if FABLE_COMPILER` binds Node APIs
-       (the runtime target), `#if !FABLE_COMPILER` uses the BCL (the non-Fable BCL fallback).
+       Fable/Node-only: service implementations bind Node APIs directly.
        TargetFramework is inherited from the repo-root Directory.Build.props. -->
 
   <PropertyGroup>
     <AssemblyName>EffSharp.Platform.Node</AssemblyName>
     <RootNamespace>Effect.Platform.Node</RootNamespace>
+    <EffectSrcDir>$(MSBuildThisFileDirectory)../Effect/</EffectSrcDir>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+  </ItemGroup>
+
+  <Import Project="$(EffectSrcDir)Effect.Sources.props" />
+
+  <ItemGroup>
+    <!-- STM Tx* family is not Fable-ready. Keep the Node platform on the same
+         Fable-only core subset as packaging/test. -->
+    <Compile Remove="$(EffectSrcDir)Tx*.fs" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Include="NodePlatform.fs" />
@@ -22,17 +34,6 @@
     <Compile Include="NodeChildProcessSpawner.fs" />
     <Compile Include="NodeHttpClient.fs" />
     <Compile Include="NodeRuntime.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="../Effect/Effect.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Real Fable.Core: this is a JS-interop package, so [<Emit>]/[<Import>]
-         resolve from the package (no local shim needed). On .NET the attributes
-         are no-ops; under Fable they drive the node:fs binding. -->
-    <PackageReference Include="Fable.Core" />
   </ItemGroup>
 
 </Project>

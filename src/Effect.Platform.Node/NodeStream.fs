@@ -7,11 +7,9 @@ open Effect
 /// `Readable → Stream` adapter every Node platform module (ChildProcess stdout,
 /// Stdio, Socket) builds on.
 ///
-///   * `#if !FABLE_COMPILER` — `System.IO.Stream`, read **incrementally**
-///     (chunk-by-chunk via `Stream.repeatEffectOption` over `ReadAsync`).
-///   * `#if FABLE_COMPILER` — a Node `Readable`, **buffered v1**: collect `data`
-///     chunks, emit them once the stream `end`s. True incremental Node reads (pull
-///     via `readable.read()` + `await 'readable'`) are the documented next step.
+/// Node `Readable`, buffered v1: collect `data` chunks, emit them once the
+/// stream `end`s. True incremental Node reads (pull via `readable.read()` +
+/// `await 'readable'`) are the documented next step.
 ///
 /// Built on the public `Stream.repeatEffectOption` enabler — no internal `Stream`
 /// construction.
@@ -28,27 +26,6 @@ module NodeStream =
               PathOrDescriptor = None
               Cause = Some(box ex) }
 
-#if !FABLE_COMPILER
-    /// Incrementally emit chunks read from a .NET stream. `getStream` returns the
-    /// same underlying stream on each pull (e.g. a process's redirected pipe).
-    let fromReadable (getStream: unit -> System.IO.Stream) : Stream<byte[], PlatformError, Context> =
-        let pull: Effect<byte[] option, PlatformError, Context> =
-            Effect.promise (fun () ->
-                task {
-                    try
-                        let stream = getStream ()
-                        let buffer = Array.zeroCreate<byte> 8192
-                        let! n = stream.ReadAsync(buffer, 0, buffer.Length)
-                        return Ok(if n = 0 then None else Some(Array.sub buffer 0 n))
-                    with ex ->
-                        return Error ex
-                })
-            |> Effect.flatMap (function
-                | Ok r -> Effect.succeed r
-                | Error ex -> Effect.fail (failRead ex))
-
-        Stream.repeatEffectOption pull
-#else
     open Fable.Core
 
     /// Attach `data`/`end`/`error` listeners and resolve the captured chunk array
@@ -77,4 +54,3 @@ module NodeStream =
         |> Stream.flatMap (function
             | Some chunks -> Stream.fromIterable chunks
             | None -> Stream.empty)
-#endif
