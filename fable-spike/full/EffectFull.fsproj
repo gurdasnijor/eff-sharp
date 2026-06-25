@@ -53,6 +53,7 @@
     <Compile Include="../../src/Effect/NonEmptyIterable.fs" />
     <Compile Include="../../src/Effect/Ref.fs" />
     <Compile Include="../../src/Effect/SynchronizedRef.fs" />
+    <Compile Include="../../src/Effect/Cell.fs" />
     <Compile Include="../../src/Effect/Deferred.fs" />
     <Compile Include="../../src/Effect/Latch.fs" />
     <Compile Include="../../src/Effect/Clock.fs" />
