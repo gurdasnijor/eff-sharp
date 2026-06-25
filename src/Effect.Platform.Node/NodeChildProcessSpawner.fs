@@ -71,8 +71,9 @@ module NodeChildProcessSpawner =
             with ex ->
                 Effect.fail (failSystem SystemErrorTag.Unknown method ex.Message (Some(box ex))))
 
-    /// Read a redirected process stream incrementally, emitting each chunk.
-    /// `enabled` is `false` for non-piped streams, which yield nothing.
+    /// Read a redirected process stream, emitting each chunk (incremental on .NET).
+    /// Delegates to the shared `NodeStream` adapter; `enabled` is `false` for
+    /// non-piped streams, which yield nothing.
     let private readStream
         (enabled: bool)
         (getStream: unit -> System.IO.Stream)
@@ -80,18 +81,10 @@ module NodeChildProcessSpawner =
         if not enabled then
             Stream.empty
         else
-            let pull: Effect<byte[] option, PlatformError, Context> =
-                attempt "stdout" (fun () ->
-                    async {
-                        let stream = getStream ()
-                        let buffer = Array.zeroCreate<byte> 8192
-                        let! n = stream.AsyncRead(buffer, 0, buffer.Length)
-                        return (if n = 0 then None else Some(Array.sub buffer 0 n))
-                    })
-
-            Stream.repeatEffectOption pull
+            NodeStream.fromReadable getStream
 
     /// A sink writing byte chunks to the process's stdin, closing it on completion.
+    /// Delegates to the shared `NodeSink` adapter.
     let private writeSink
         (enabled: bool)
         (proc: System.Diagnostics.Process)
@@ -99,19 +92,7 @@ module NodeChildProcessSpawner =
         if not enabled then
             Sink.drain
         else
-            Sink.fromWrite
-                (fun (chunk: byte[]) ->
-                    attempt "stdin" (fun () ->
-                        async {
-                            do! proc.StandardInput.BaseStream.AsyncWrite(chunk, 0, chunk.Length)
-                            do! proc.StandardInput.BaseStream.FlushAsync() |> Async.AwaitTask
-                        }))
-                (fun () ->
-                    Effect.sync (fun () ->
-                        try
-                            proc.StandardInput.Close()
-                        with _ ->
-                            ()))
+            NodeSink.fromWritable (fun () -> proc.StandardInput.BaseStream)
 
     let private spawnDotnet
         (command: Command)
@@ -210,22 +191,17 @@ module NodeChildProcessSpawner =
     [<Emit("(function(){ var e = $2 ? Object.assign({}, process.env) : {}; for (var i=0;i<$0.length;i++){ if ($1[i] === null) { delete e[$0[i]]; } else { e[$0[i]] = $1[i]; } } return e; })()")>]
     let private buildEnv (keys: string[]) (values: string[]) (extendEnv: bool) : obj = jsNative
 
-    /// Attach `data`/`close`/`error` listeners immediately and resolve the
-    /// captured chunks + exit code once the process closes. Called once per spawn.
-    [<Emit("(function(p){ var out=[]; var err=[]; if(p.stdout)p.stdout.on('data',function(c){out.push(new Uint8Array(c));}); if(p.stderr)p.stderr.on('data',function(c){err.push(new Uint8Array(c));}); return new Promise(function(res){ p.on('error',function(e){res({stdout:out,stderr:err,code:-1});}); p.on('close',function(code){res({stdout:out,stderr:err,code:(code==null?-1:code)});}); }); })($0)")>]
-    let private collectOutput (child: obj) : JS.Promise<obj> = jsNative
+    /// Resolve the exit code once the process closes (or `-1` on error). Attached
+    /// ONCE at spawn — `close` fires only once, so a late listener would hang.
+    /// stdout/stderr are read separately via `NodeStream.fromReadable`.
+    [<Emit("new Promise(function(res){ $0.on('error',function(){res(-1);}); $0.on('close',function(code){res(code==null?-1:code);}); })")>]
+    let private awaitExit (child: obj) : JS.Promise<int> = jsNative
 
     [<Emit("$0.kill()")>]
     let private killChild (child: obj) : unit = jsNative
 
     [<Emit("($0.exitCode === null) && ($0.signalCode === null)")>]
     let private childRunning (child: obj) : bool = jsNative
-
-    [<Emit("{ if ($0.stdin) { $0.stdin.write(new Uint8Array($1)); } }")>]
-    let private writeStdin (child: obj) (chunk: byte[]) : unit = jsNative
-
-    [<Emit("{ if ($0.stdin) { $0.stdin.end(); } }")>]
-    let private endStdin (child: obj) : unit = jsNative
 
     /// Read a property by (possibly computed) key. Avoids the dynamic `?` operator
     /// for string-variable keys.
@@ -237,18 +213,6 @@ module NodeChildProcessSpawner =
         | Stdio.Pipe -> "pipe"
         | Stdio.Inherit -> "inherit"
         | Stdio.Ignore -> "ignore"
-
-    /// Emit the chunks captured by `collectOutput` from a resolved result object.
-    /// Buffered: await the close-promise once, then emit the captured chunk array.
-    let private emitCaptured (resultP: JS.Promise<obj>) (field: string) : Stream<byte[], PlatformError, Context> =
-        Stream.fromEffect (
-            Effect.promise (fun () ->
-                async {
-                    let! result = Async.AwaitPromise resultP
-                    return (unbox (getField result field): byte[][])
-                })
-        )
-        |> Stream.flatMap (fun chunks -> Stream.fromIterable chunks)
 
     let private spawnNode
         (command: Command)
@@ -281,24 +245,17 @@ module NodeChildProcessSpawner =
                     spawnOpts cwd (stdioString o.Stdin) (stdioString o.Stdout) (stdioString o.Stderr) env
 
                 let child = nodeSpawn sc.Command (List.toArray sc.Args) opts
-                // Attach listeners ONCE; both output streams and ExitCode share this.
-                let resultP = collectOutput child
+                // Attach the exit listener ONCE, at spawn; stdout/stderr read lazily
+                // via NodeStream (Node paused-mode buffers until consumed).
+                let exitP = awaitExit child
                 let pid: int = unbox (getField child "pid")
 
                 let handle =
                     { Pid = pid
-                      Stdout = emitCaptured resultP "stdout"
-                      Stderr = emitCaptured resultP "stderr"
-                      Stdin =
-                        Sink.fromWrite
-                            (fun (chunk: byte[]) -> Effect.sync (fun () -> writeStdin child chunk))
-                            (fun () -> Effect.sync (fun () -> endStdin child))
-                      ExitCode =
-                        Effect.promise (fun () ->
-                            async {
-                                let! result = Async.AwaitPromise resultP
-                                return (unbox (getField result "code"): int)
-                            })
+                      Stdout = NodeStream.fromReadable (fun () -> getField child "stdout")
+                      Stderr = NodeStream.fromReadable (fun () -> getField child "stderr")
+                      Stdin = NodeSink.fromWritable (fun () -> getField child "stdin")
+                      ExitCode = Effect.promise (fun () -> async { return! Async.AwaitPromise exitP })
                       IsRunning = Effect.sync (fun () -> childRunning child)
                       Kill = Effect.sync (fun () -> killChild child) }
 
