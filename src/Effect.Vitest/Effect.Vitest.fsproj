@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Effect.Vitest — Fable/Vitest test DSL for F#-authored JS runtime tests.
+       This is a reusable facade over the npm `vitest` package plus Effect-aware
+       runners. Consumers still install `vitest` in their JS test harness. -->
+  <PropertyGroup>
+    <AssemblyName>EffSharp.Vitest</AssemblyName>
+    <RootNamespace>Effect</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Vitest.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+    <ProjectReference Include="../Effect/Effect.fsproj" />
+  </ItemGroup>
+
+</Project>

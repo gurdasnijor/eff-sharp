@@ -6,7 +6,7 @@
        defined in the core `Effect` package (ChildProcessSpawner, FileSystem, …).
 
        Dual-backed, as the rest of the port: `#if FABLE_COMPILER` binds Node APIs
-       (the runtime target), `#if !FABLE_COMPILER` uses the BCL (the xUnit surface).
+       (the runtime target), `#if !FABLE_COMPILER` uses the BCL (the non-Fable BCL fallback).
        TargetFramework is inherited from the repo-root Directory.Build.props. -->
 
   <PropertyGroup>
@@ -32,7 +32,7 @@
     <!-- Real Fable.Core: this is a JS-interop package, so [<Emit>]/[<Import>]
          resolve from the package (no local shim needed). On .NET the attributes
          are no-ops; under Fable they drive the node:fs binding. -->
-    <PackageReference Include="Fable.Core" Version="5.1.0" />
+    <PackageReference Include="Fable.Core" />
   </ItemGroup>
 
 </Project>

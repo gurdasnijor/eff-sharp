@@ -3,10 +3,7 @@ namespace Effect.Benchmarks
 open BenchmarkDotNet.Attributes
 open Effect
 
-/// Cross-runtime runtime workloads, mirrored 1:1 by `js-bench/bench.mjs` (stock
-/// published Effect on Node). The four workloads and their N values are FIXED so
-/// the F#-vs-JS comparison in RESULTS.md is apples-to-apples on the *workload*
-/// (the runtimes themselves are not — see the caveat in RESULTS.md).
+/// Golden runtime workloads for eff-sharp.
 ///
 /// Programs are built once in `GlobalSetup`; each benchmark times only
 /// `Effect.runSync` over the prebuilt program, matching the JS bench which builds
@@ -14,7 +11,7 @@ open Effect
 [<MemoryDiagnoser; ShortRunJob>]
 type RuntimeBench() =
 
-    // Keep these identical to the constants in js-bench/bench.mjs.
+    // Keep these stable so benchmark history remains comparable.
     let bindN = 10000
     let mapN = 10000
     let refN = 10000

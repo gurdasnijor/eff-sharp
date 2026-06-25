@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Fable-only JS runtime test harness.
+
+       This compiles the Fable-ready core, Effect.Testing, Effect.Vitest, and the
+       F# specs to ESM, then Vitest executes the generated JS on Node. -->
+  <PropertyGroup>
+    <EffectSrcDir>$(MSBuildThisFileDirectory)../src/Effect/</EffectSrcDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+  </ItemGroup>
+
+  <!-- the Fable-ready core (everything except the STM Tx* family) -->
+  <Import Project="$(EffectSrcDir)Effect.Sources.props" />
+
+  <ItemGroup>
+    <Compile Remove="$(EffectSrcDir)Tx*.fs" />
+
+    <!-- Test infrastructure + Vitest facade. These are compiled by source here
+         to keep one Fable output tree for the Node/Vitest harness. The sibling
+         .fsproj files are packaging/compiler units, not runtime targets. -->
+    <Compile Include="$(MSBuildThisFileDirectory)../src/Effect.Testing/TestClock.fs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../src/Effect.Vitest/Vitest.fs" />
+
+    <!-- Specs self-register through Effect.Vitest. The glob keeps future ports
+         conflict-free: adding a spec does not require editing this project. -->
+    <Compile Include="*Spec.fs" />
+  </ItemGroup>
+
+</Project>

@@ -7,7 +7,7 @@ open Effect
 /// service. Mirror of effect-smol's `platform-node-shared/NodeFileSystem.ts`.
 ///
 ///   * `.NET` (`#if !FABLE_COMPILER`) — `System.IO` (`File`/`Directory`/`Path`).
-///     The xUnit test surface.
+///     The non-Fable BCL fallback.
 ///   * Node (`#if FABLE_COMPILER`) — Node's `node:fs`, bound through `Fable.Core`'s
 ///     `[<Import>]`/`[<Emit>]` (this project takes a real `Fable.Core` package
 ///     reference, being a JS-interop package by nature — no local shim needed).

@@ -3,7 +3,7 @@ namespace Effect
 open System.Threading.Tasks
 
 /// Per-fiber runtime state threaded through every effect. Interruption is
-/// **cooperative** (the hybrid chosen by the fiber spike): `Interrupted` is a
+/// **cooperative**: `Interrupted` is a
 /// flag set by `interrupt`, checked at yield points (`flatMap` boundaries,
 /// `sleep`, fork/await); `Mask` is the uninterruptible-region depth — while it is
 /// > 0 a pending interrupt is deferred and honored when the region exits. This
@@ -41,8 +41,8 @@ type Fiber<'A, 'E> =
 /// `Async<Exit>`:
 ///   `Effect of (FiberRuntime -> 'R -> Async<Exit<'A,'E>>)`
 /// `Async` gives stack-safety/scheduling; the explicit `FiberRuntime` gives
-/// faithful cooperative interruption + uninterruptible masking (see the
-/// `spikes/fiber` evidence). The three channels are unchanged: 'A success,
+/// faithful cooperative interruption + uninterruptible masking. The three
+/// channels are unchanged: 'A success,
 /// 'E typed error, 'R environment. The `FiberRuntime` is internal — it is created
 /// by the runners and never appears in the public surface.
 type Effect<'A, 'E, 'R> = internal Effect of (FiberRuntime -> 'R -> Async<Exit<'A, 'E>>)

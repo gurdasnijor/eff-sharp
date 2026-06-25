@@ -1,12 +1,10 @@
 # eff-sharp
 
-A native F# port of [Effect](https://effect.website)'s core `Effect<A, E, R>` type
-— typed errors, dependency injection, and (eventually) a fiber runtime — built
-directly on .NET, with no Fable or JS interop.
+A native F# implementation of an Effect-style runtime that is compiled with
+Fable and shipped to Node/TypeScript consumers.
 
-> **Status: early.** Slice 1 (synchronous core) is implemented and tested.
-> The internal representation is intentionally simple so later slices can swap it
-> without churning the public API.
+> **Status: early.** The active build/test target is Node/TypeScript. The .NET SDK
+> is used as the F# compiler host for Fable; .NET is not a runtime output target.
 
 ## Why a port (not bindings)
 
@@ -47,23 +45,23 @@ let program : Effect<int, DivError, Config> =
 Effect.run { Factor = 4 } program   // Ok 26
 ```
 
-## Build & test
+## Build & Test
 
-Requires the .NET SDK (10.x).
+Requires Node/npm and the .NET SDK (10.x) for Fable compilation.
 
 ```bash
-dotnet build
-dotnet test
+npm install
+npm run check
 ```
+
+`npm run check` builds the TypeScript package with Fable and runs the F#-authored
+Vitest specs on Node.
 
 ## Porting status
 
 The source layout mirrors effect-smol: one `src/Effect/<Module>.fs` per upstream
-`packages/effect/src/<Module>.ts`, and one `tests/Effect.Tests/<Module>Tests.fs`
-per `test/<Module>.test.ts`. [`PORTING.md`](PORTING.md) tracks all 137 upstream
-modules and their test files with per-module status (done / stub / planned).
-Not-yet-implemented modules ship as compile-safe stubs; their tests are present
-but `Skip`-ped as red→green targets.
+`packages/effect/src/<Module>.ts`. Runtime tests live under `test/*Spec.fs`,
+compile to JavaScript with Fable, and run with Vitest on Node.
 
 ## Roadmap
 

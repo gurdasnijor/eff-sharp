@@ -7,7 +7,7 @@ namespace Effect
 /// abstract service). The concrete implementations live in the platform package,
 /// as upstream splits the service from `platform-node-shared/NodeChildProcessSpawner`:
 ///   * `Effect.Platform.Node`'s `NodeChildProcessSpawner` — dual-backed,
-///     `System.Diagnostics.Process` on .NET (the xUnit surface) and Node's
+///     `System.Diagnostics.Process` on .NET (the non-Fable BCL fallback) and Node's
 ///     `node:child_process` under Fable, provided via `NodeChildProcessSpawner.layer`.
 ///
 /// Consumers depend on the abstract service via `ChildProcessSpawner.tag` /

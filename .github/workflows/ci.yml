@@ -1,9 +1,8 @@
 name: CI
 
-# eff-sharp is an F# port of Effect-TS whose runtime target is Node/TS (via Fable).
-# Its build/test toolchain is the .NET SDK, so CI runs on .NET. The xUnit suite
-# (tests/Effect.Tests) is the gate and runs in its own job so its signal comes back
-# fast; format/lint/aux-build run concurrently in a second job.
+# Runtime target: Node/TypeScript.
+# Compiler host: .NET SDK + Fable.
+# The gate builds the TypeScript package and runs F#-authored Vitest specs on Node.
 
 on:
   push:
@@ -22,68 +21,28 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 
 jobs:
-  test:
-    name: build · test (gate)
+  node-fable:
+    name: Node/Fable gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1            # only the Fantomas diff needs history; that's in `quality`
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.301'
-          global-json-file: global.json
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.fsproj', '.config/dotnet-tools.json', 'global.json') }}
-          restore-keys: |
-            nuget-${{ runner.os }}-
-      - name: Gate (build + test)
-        run: bash tools/ci/check.sh fast
-      - name: Publish test summary
-        if: always()
-        run: |
-          trx=$(ls TestResults/*.trx 2>/dev/null | head -1 || true)
-          {
-            echo "## xUnit test results"
-            if [ -z "$trx" ]; then
-              echo "No .trx produced (the run failed before tests, e.g. build/scan)."
-            else
-              line=$(grep -oE '<Counters[^/]*/>' "$trx" | head -1)
-              get() { echo "$line" | grep -oE "$1=\"[0-9]+\"" | grep -oE '[0-9]+'; }
-              echo "| Total | Passed | Failed | Skipped |"
-              echo "|------:|-------:|-------:|--------:|"
-              echo "| $(get total) | $(get passed) | $(get failed) | $(get '(notExecuted|skipped)') |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: TestResults/
-          if-no-files-found: warn
 
-  quality:
-    name: format · lint · aux-build
-    runs-on: ubuntu-latest
-    env:
-      # Empty on push; set to the PR base branch on pull_request → Fantomas then
-      # checks only changed files against origin/<base>.
-      PR_BASE: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0            # full history for the Fantomas changed-file diff
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.301'
           global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.fsproj', '.config/dotnet-tools.json', 'global.json') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.fsproj', 'Directory.Packages.props', 'global.json') }}
           restore-keys: |
             nuget-${{ runner.os }}-
-      - name: Quality (format + lint + aux build)
-        run: bash tools/ci/check.sh quality
+
+      - name: Build TypeScript package and run Vitest
+        run: bash tools/ci/check.sh

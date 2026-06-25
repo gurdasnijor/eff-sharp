@@ -5,7 +5,7 @@ open Effect
 /// `NodeHttpClient` — the dual-backed implementation of the core `HttpClient`
 /// service. Mirror of effect-smol's `platform-node` `NodeHttpClient`.
 ///
-///   * `#if !FABLE_COMPILER` — `System.Net.Http.HttpClient` (the xUnit surface).
+///   * `#if !FABLE_COMPILER` — `System.Net.Http.HttpClient` (the non-Fable BCL fallback).
 ///   * `#if FABLE_COMPILER` — the global `fetch` (Node 18+).
 ///
 /// Built on the public `Effect` API. A transport failure maps to the typed

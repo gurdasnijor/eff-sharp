@@ -1,7 +1,6 @@
 # fluent-firegrid → eff-sharp cutover: closing plan
 
-Companion to `fluent-firegrid-cutover-gap.md` (the gap analysis). This is the
-**execution plan** to (1) close the remaining eff-sharp gaps and (2) stand up an
+Execution plan to (1) close the remaining eff-sharp gaps and (2) stand up an
 `eff-sharp` cutover branch of fluent-firegrid.
 
 **Convergence (= "solid base state"):** a clean working branch of fluent-firegrid in
@@ -45,7 +44,7 @@ Ordered by what unblocks the POC, then breadth. Each is its own CI-gated PR.
 ### 1c. Fable tail → 0 (cleanliness, NOT driver-blocking)
 - `TxRef` async-retry: redesign blocking `retry` (`Monitor.Wait`/`PulseAll`) as async
   suspend/resume on the `Cell` wake machinery, `#if FABLE_COMPILER` (keep `Monitor`
-  on .NET). Spike harness: `spikes/stm`. Not used by fluent-firegrid.
+  on the non-Fable fallback). Not used by fluent-firegrid.
 
 ### 1d. Larger modules (per target package; defer until needed)
 - `cli` (`Argument`/`Command`/`Flag`) — verification's `CliApp.ts` entry. Scope to its
@@ -59,8 +58,7 @@ Ordered by what unblocks the POC, then breadth. Each is its own CI-gated PR.
 
 ### 2.0 Distribution: how firegrid consumes eff-sharp
 eff-sharp is unpublished. The firegrid F# package references eff-sharp **source by
-path** and Fable-compiles the whole graph (as `js-bench/port/Port.Bench.fsproj`
-already does: `<Compile Include="../../eff-sharp/src/Effect/*.fs" />`).
+path** and Fable-compiles the whole graph.
 - **Mechanism:** add eff-sharp as a **git submodule** (or sibling checkout) under
   firegrid; the F# package's `.fsproj` references `../<eff-sharp>/src/Effect/*.fs` +
   `Fable.Core`. Revisit publishing a Fable npm artifact once stable.
@@ -75,7 +73,7 @@ already does: `<Compile Include="../../eff-sharp/src/Effect/*.fs" />`).
     src/*.fs                     # the idiomatic eff-sharp rewrite
     dist/*.js                    # dotnet fable output (ESM) — package main
     package.json                 # "type":"module", main -> dist/index.js, fable build script
-    test/*.test.ts | *Tests.fs   # vitest over dist OR xUnit over .NET
+    test/*.test.ts | *Spec.fs    # Vitest over Fable output on Node
   ```
 - `package.json` `build`: `dotnet fable FluentAcpProcess.fsproj --lang javascript -o dist`.
   Wire into `turbo.json` as a build task (it shells `dotnet fable`).
@@ -104,8 +102,8 @@ already does: `<Compile Include="../../eff-sharp/src/Effect/*.fs" />`).
 - **Phase 3 — remaining drivers**, then effect-s2/observability (Phase D: SQL/httpapi).
 
 ### 2.4 Verification per ported package
-- Fable-compiles clean; `vitest` (ported behavior) green on Node; `dotnet test` (xUnit
-  port of the package's tests) green on .NET; behavior matches the TS original (A/B).
+- Fable-compiles clean; F#-authored Vitest specs are green on Node; behavior
+  matches the TS original (A/B).
 
 ---
 
