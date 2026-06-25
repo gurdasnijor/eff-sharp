@@ -13,7 +13,7 @@ open Effect
 
 let private mkClock (time: int64 ref) : Clock =
     { CurrentTimeMillisUnsafe = fun () -> time.Value
-      SleepUnsafe = fun _ -> System.Threading.Tasks.Task.CompletedTask }
+      SleepUnsafe = fun _ -> async { return () } }
 
 let private run (time: int64 ref) (eff: Effect<'A, 'E, Context>) : Exit<'A, 'E> =
     Effect.runSync (Context.make Clock.tag (mkClock time)) eff

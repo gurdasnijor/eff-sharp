@@ -1,7 +1,6 @@
 namespace Effect
 
 open System
-open System.Threading.Tasks
 
 /// `Clock` — time access as a service.
 ///
@@ -22,7 +21,7 @@ open System.Threading.Tasks
 /// returns a `Task` that completes after the given duration.
 type Clock =
     { CurrentTimeMillisUnsafe: unit -> int64
-      SleepUnsafe: Duration -> Task }
+      SleepUnsafe: Duration -> Async<unit> }
 
 [<RequireQualifiedAccess>]
 module Clock =
@@ -36,14 +35,15 @@ module Clock =
           SleepUnsafe =
             fun d ->
                 let ms = Duration.toMillis d
-
-                if Double.IsNaN ms || ms <= 0.0 then
-                    Task.CompletedTask
-                elif Double.IsInfinity ms then
-                    // an "infinite" sleep never completes; approximate with the max delay.
-                    Task.Delay(TimeSpan.FromMilliseconds(float Int32.MaxValue))
-                else
-                    Task.Delay(TimeSpan.FromMilliseconds(min ms (float Int32.MaxValue))) }
+                // ms <= 0 (or NaN, since `NaN > 0.0` is false) → no wait; an "infinite"
+                // sleep is approximated by the max delay. `Async.Sleep` works on both
+                // .NET and the Fable/JS target (where it maps to setTimeout), replacing
+                // the .NET-only `Task.Delay`.
+                async {
+                    if ms > 0.0 then
+                        let capped = if ms > float Int32.MaxValue then Int32.MaxValue else int ms
+                        do! Async.Sleep capped
+                } }
 
     /// A `Context` carrying the live clock. (Clock layer)
     let live: Context = Context.make tag (make ())
@@ -61,6 +61,6 @@ module Clock =
         clockWith (fun c ->
             Effect(fun _ _ ->
                 async {
-                    do! Async.AwaitTask(c.SleepUnsafe duration)
+                    do! c.SleepUnsafe duration
                     return Success()
                 }))

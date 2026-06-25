@@ -152,17 +152,30 @@ module RcMap =
     and private clockSleep (clock: Clock) (millis: int64) : Effect<unit, 'E, unit> =
         Effect(fun fib _ ->
             async {
-                let task = clock.SleepUnsafe(Duration.millis (float millis))
+                // Run the clock's sleep (live `Task.Delay` or a `TestClock` virtual
+                // sleep) in the background, completing a `Cell` when it finishes; poll
+                // the cell so the wait stays cooperatively interruptible. `Cell.isDone`
+                // replaces `Task.IsCompleted` (Fable has no `Task`), keeping the wait on
+                // the injected `Clock` so virtual time still controls eviction.
+                let cell = Cell.make ()
+
+                Async.StartImmediate(
+                    async {
+                        do! clock.SleepUnsafe(Duration.millis (float millis))
+                        Cell.trySet cell () |> ignore
+                    }
+                )
+
                 let mutable interrupted = false
 
-                while not task.IsCompleted && not interrupted do
+                while not (Cell.isDone cell) && not interrupted do
                     if fib.Interrupted && fib.Mask = 0 then
                         interrupted <- true
                     else
                         do! Async.Sleep 5
 
                 return
-                    if interrupted && not task.IsCompleted then
+                    if interrupted && not (Cell.isDone cell) then
                         Failure(Cause.interrupt None)
                     else
                         Success()

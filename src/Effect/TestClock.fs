@@ -58,11 +58,16 @@ module TestClock =
             regWaiters.RemoveAll(fun (n, _) -> registered >= n) |> ignore
             due
 
-        let sleepUnsafe (d: Duration) : Task =
+        // TestClock is a .NET-only test helper (excluded from the Fable build). It
+        // keeps its `TaskCompletionSource` virtual-time machinery internally and
+        // exposes it as `Async<unit>` to satisfy the `Clock.SleepUnsafe` signature —
+        // the determinism (a sleep completes only when `adjust` reaches it) is
+        // unchanged.
+        let sleepUnsafe (d: Duration) : Async<unit> =
             let ms = Duration.toMillis d
 
             if Double.IsNaN ms || ms <= 0.0 then
-                Task.CompletedTask
+                async { return () }
             else
                 let tcs, due =
                     lock gate (fun () ->
@@ -81,7 +86,7 @@ module TestClock =
                         tcs, signalRegistered ())
 
                 due |> List.iter (fun (_, w) -> w.TrySetResult() |> ignore)
-                tcs.Task :> Task
+                Async.AwaitTask(tcs.Task)
 
         let adjustUnsafe (delta: int64) =
             let due =
