@@ -361,3 +361,20 @@ let ``concurrent producers and consumer`` () =
         )
 
     Assert.Equal(55, total)
+
+[<Fact>]
+let ``toStream emits buffered items then ends when the queue is interrupted`` () =
+    let xs =
+        run (
+            effect {
+                let! q = Queue.unbounded ()
+                let! _ = Queue.offer q 1
+                let! _ = Queue.offer q 2
+                let! _ = Queue.offer q 3
+                // graceful interrupt: buffered values drain, then `take` fails and the stream ends.
+                let! _ = Queue.interrupt q
+                return! Stream.runCollect (Queue.toStream q)
+            }
+        )
+
+    Assert.Equal<int list>([ 1; 2; 3 ], xs)

@@ -379,6 +379,21 @@ module Queue =
                 else
                     None))
 
+    /// This queue as a `Stream`: emit each taken value until the queue is shut
+    /// down / interrupted and drained — at which point `take` fails (terminal
+    /// cause) and the stream ends. The eff-sharp analogue of `Stream.fromQueue`;
+    /// it lives here because compile order puts `Queue` after `Stream`. Composes
+    /// `take` through `Effect.exit` (a terminal failure becomes end-of-stream).
+    /// (Stream.fromQueue)
+    let toStream (q: Queue<'A>) : Stream<'A, 'E, 'R> =
+        Stream.repeatEffectOption (
+            take q
+            |> Effect.exit
+            |> Effect.map (function
+                | Success a -> Some a
+                | Failure _ -> None)
+        )
+
     /// View the next message without removing it (suspends until available).
     /// (Queue.peek)
     let rec peek (q: Queue<'A>) : Effect<'A, obj, 'R> =
