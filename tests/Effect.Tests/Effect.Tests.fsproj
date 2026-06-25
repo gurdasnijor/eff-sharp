@@ -119,6 +119,8 @@
     <Compile Include="FiberMapTests.fs" />
     <!-- w5-rcmap: reference-counted map of scoped resources -->
     <Compile Include="RcMapTests.fs" />
+    <!-- w6: observability metrics -->
+    <Compile Include="MetricTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
