@@ -130,6 +130,8 @@
     <Compile Include="Queue.fs" />
     <!-- w5-rcmap: reference-counted map of scoped resources (on Deferred/MutableHashMap/Clock/Scope/Fiber) -->
     <Compile Include="RcMap.fs" />
+    <!-- w6-path: file-path service + POSIX layer (on Context/Layer/PlatformError) -->
+    <Compile Include="Path.fs" />
   </ItemGroup>
 
 </Project>
