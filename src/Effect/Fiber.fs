@@ -21,6 +21,9 @@ module Fiber =
     /// Interrupt a fiber and wait until it has stopped. (Fiber.interrupt)
     let interrupt (self: Fiber<'A, 'E>) : Effect<unit, 'E2, 'R> = Effect.interrupt self
 
+    /// Signal an interrupt without waiting for the fiber to stop. (Fiber.interruptFork)
+    let interruptFork (self: Fiber<'A, 'E>) : Effect<unit, 'E2, 'R> = Effect.interruptFork self
+
     /// Await every fiber, collecting their `Exit`s in order. (Fiber.awaitAll)
     let awaitAll (fibers: seq<Fiber<'A, 'E>>) : Effect<Exit<'A, 'E> list, 'E2, 'R> = Effect.forEach fibers Effect.await
 

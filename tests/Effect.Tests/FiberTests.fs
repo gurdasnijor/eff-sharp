@@ -48,19 +48,29 @@ let ``interrupt stops a sleeping fiber and runs its finalizer`` () =
 let ``uninterruptible region completes, interrupt honored after`` () =
     let log = System.Collections.Generic.List<string>()
 
-    let masked: Effect<unit, string, unit> =
-        Effect.uninterruptible (
-            effect {
-                do! Effect.sleep 100 // not interruptible while masked
-                do! Effect.sync (fun () -> log.Add "done")
-            }
-        )
-
+    // Deterministic handshake — no wall-clock timing in the interrupt path (was
+    // flaky under parallel load when the outer `sleep 30` interrupt drifted past
+    // the child's `sleep 100` masked window). `entered` proves the child is inside
+    // the mask; `release` is held until *after* the interrupt flag is set, so the
+    // interrupt provably arrives mid-mask and the masked region runs to completion.
     let prog: Effect<Exit<unit, string>, string, unit> =
         effect {
+            let! entered = Deferred.make () // child -> parent: "I'm masked"
+            let! release = Deferred.make () // parent -> child: "finish now"
+
+            let masked: Effect<unit, string, unit> =
+                Effect.uninterruptible (
+                    effect {
+                        do! Deferred.succeed entered () |> Effect.map ignore
+                        do! Deferred.await release // parked uninterruptibly while masked
+                        do! Effect.sync (fun () -> log.Add "done")
+                    }
+                )
+
             let! fib = Effect.fork masked
-            do! Effect.sleep 30
-            do! Effect.interrupt fib // arrives mid-mask; must be deferred
+            do! Deferred.await entered // child is now inside the mask
+            do! Effect.interruptFork fib // set the flag mid-mask; deferred, no wait
+            do! Deferred.succeed release () |> Effect.map ignore // let the mask finish
             return! Effect.await fib
         }
 
