@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-<<<<<<< HEAD
   <!-- eff-sharp ai-docs: runnable, type-checked example modules.
        Every example compiles against the real library via the ProjectReference
        below, so the docs can never drift from the API. This is an Exe so the
@@ -16,9 +15,11 @@
     <OtherFlags>$(OtherFlags) --nowarn:1182</OtherFlags>
   </PropertyGroup>
 
+  <!-- Compile order = dependency order: shared helpers first, topics next (each
+       self-contained), entry point last. -->
   <ItemGroup>
-    <!-- shared run/assert helpers first -->
     <Compile Include="Shared.fs" />
+    <Compile Include="Demo.fs" />
     <!-- 01_effect -->
     <Compile Include="01_effect/01_Basics.fs" />
     <Compile Include="01_effect/02_Services.fs" />
@@ -26,39 +27,27 @@
     <Compile Include="01_effect/04_Resources.fs" />
     <Compile Include="01_effect/05_Running.fs" />
     <Compile Include="01_effect/06_PubSub.fs" />
+    <Compile Include="01_effect/07_Concurrency.fs" />
+    <Compile Include="01_effect/08_State.fs" />
+    <Compile Include="01_effect/09_Queues.fs" />
+    <!-- 02_stream -->
+    <Compile Include="02_Stream.fs" />
     <!-- 03_integration -->
     <Compile Include="03_integration/10_ManagedRuntime.fs" />
-    <!-- 09_testing -->
-    <Compile Include="09_testing/10_EffectTests.fs" />
-    <Compile Include="09_testing/20_LayerTests.fs" />
-    <!-- bonus: F# CE ergonomics Effect can't match -->
-    <Compile Include="bonus/01_CEPower.fs" />
-    <!-- entry point: runs the whole tour -->
-=======
-  <!-- Runnable, type-checked example gallery for eff-sharp ("ai-docs").
-       Every topic file compiles against the real library via the ProjectReference
-       below, so the examples can never drift from the API. `dotnet run` executes
-       them all. This project is deliberately NOT part of eff-sharp.slnx / the test
-       solution — it is documentation that happens to compile. -->
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>EffSharp.AiDocs</RootNamespace>
-    <!-- Examples intentionally show many shapes; keep the doc build quiet. -->
-    <WarningLevel>3</WarningLevel>
-  </PropertyGroup>
-
-  <!-- Compile order = dependency order. Demo helpers first, topics next (each is
-       self-contained), entry point last. -->
-  <ItemGroup>
-    <Compile Include="Demo.fs" />
-    <Compile Include="02_Stream.fs" />
+    <!-- 04_data -->
+    <Compile Include="04_data/01_DataToolkit.fs" />
+    <!-- 05..08 topics -->
+    <Compile Include="05_Batching.fs" />
     <Compile Include="06_Schedule.fs" />
     <Compile Include="07_DateTime.fs" />
     <Compile Include="08_Observability.fs" />
-    <Compile Include="05_Batching.fs" />
->>>>>>> wave6/showcase2
+    <!-- 09_testing -->
+    <Compile Include="09_testing/10_EffectTests.fs" />
+    <Compile Include="09_testing/20_LayerTests.fs" />
+    <!-- bonus: F# CE / STM ergonomics Effect can't match -->
+    <Compile Include="bonus/01_CEPower.fs" />
+    <Compile Include="bonus/02_StmPower.fs" />
+    <!-- entry point: runs the whole tour -->
     <Compile Include="Program.fs" />
   </ItemGroup>
 
