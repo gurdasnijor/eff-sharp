@@ -74,6 +74,7 @@
     <Compile Include="Ref.fs" />
     <Compile Include="SynchronizedRef.fs" />
     <!-- w2-deferred: one-shot completion + reusable gate (only depend on Effect core) -->
+    <Compile Include="Cell.fs" />
     <Compile Include="Deferred.fs" />
     <Compile Include="Latch.fs" />
     <!-- w2-di: Clock depends on Duration + Context, so it compiles after them -->

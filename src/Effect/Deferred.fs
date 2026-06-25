@@ -1,7 +1,5 @@
 namespace Effect
 
-open System.Threading.Tasks
-
 /// Wave 2: `Deferred` — a one-shot, awaitable completion cell.
 ///
 /// Port of repos/effect-smol/packages/effect/src/Deferred.ts. A `Deferred<'A,'E>`
@@ -10,14 +8,15 @@ open System.Threading.Tasks
 /// same completion. Awaiting an incomplete `Deferred` suspends the calling
 /// `Effect` (via `Async`) rather than blocking an OS thread.
 ///
-/// Representation — backed by a `System.Threading.Tasks.TaskCompletionSource`
-/// bridged into the async core, exactly as the brief prescribes. The slot does
-/// not store a bare `Exit`; it stores the *completion `Effect`* upstream keeps in
-/// `self.effect`. This is what makes `completeWith` non-memoizing: each awaiter
-/// re-runs the stored effect (see `completeWith` tests), while `complete`/`done`
-/// store an already-evaluated `Exit` reproduced as an effect. `TrySetResult`
-/// gives the one-shot, thread-safe "first writer wins" semantics for free, and
-/// returns the `true`/`false` that every completion combinator reports.
+/// Representation — backed by a `Cell` (the Fable-portable completion primitive)
+/// bridged into the async core. The slot does not store a bare `Exit`; it stores
+/// the *completion `Effect`* upstream keeps in `self.effect`. This is what makes
+/// `completeWith` non-memoizing: each awaiter re-runs the stored effect (see
+/// `completeWith` tests), while `complete`/`done` store an already-evaluated
+/// `Exit` reproduced as an effect. `Cell.trySet` gives the one-shot,
+/// first-writer-wins semantics, and returns the `true`/`false` that every
+/// completion combinator reports. `Cell` replaces `TaskCompletionSource`, which
+/// Fable's runtime does not implement; the .NET semantics are unchanged.
 ///
 /// Omissions vs upstream (per CONVENTIONS): the `isDeferred` runtime guard, the
 /// HKT/`Variance` plumbing and the `TypeId` brand are dropped (F#'s static types
@@ -25,7 +24,7 @@ open System.Threading.Tasks
 /// wave does not own `Fiber`; `interruptWith` carries the explicit id.
 type Deferred<'A, 'E> =
     internal
-        { Source: TaskCompletionSource<Effect<'A, 'E, unit>> }
+        { Cell: Cell<Effect<'A, 'E, unit>> }
 
 [<RequireQualifiedAccess>]
 module Deferred =
@@ -44,16 +43,15 @@ module Deferred =
     /// Allocate an empty `Deferred` synchronously, outside the `Effect` runtime.
     /// (Deferred.makeUnsafe) Continuations resume asynchronously so a completer
     /// never runs an awaiter's continuation inline on its own stack.
-    let makeUnsafe<'A, 'E> () : Deferred<'A, 'E> =
-        { Source = TaskCompletionSource<Effect<'A, 'E, unit>>(TaskCreationOptions.RunContinuationsAsynchronously) }
+    let makeUnsafe<'A, 'E> () : Deferred<'A, 'E> = { Cell = Cell.make () }
 
     /// Whether the `Deferred` has already been completed. (Deferred.isDoneUnsafe)
-    let isDoneUnsafe (self: Deferred<'A, 'E>) : bool = self.Source.Task.IsCompleted
+    let isDoneUnsafe (self: Deferred<'A, 'E>) : bool = Cell.isDone self.Cell
 
     /// Attempt to complete the `Deferred` with a completion effect directly.
     /// Returns `true` if this call completed it, `false` if it was already
     /// completed. (Deferred.doneUnsafe)
-    let doneUnsafe (self: Deferred<'A, 'E>) (effect: Effect<'A, 'E, unit>) : bool = self.Source.TrySetResult effect
+    let doneUnsafe (self: Deferred<'A, 'E>) (effect: Effect<'A, 'E, unit>) : bool = Cell.trySet self.Cell effect
 
     // --- constructors ---
 
@@ -74,7 +72,7 @@ module Deferred =
     let await (self: Deferred<'A, 'E>) : Effect<'A, 'E, 'R> =
         Effect(fun fib _ ->
             async {
-                let! completion = Async.AwaitTask self.Source.Task
+                let! completion = Cell.await self.Cell
                 let (Effect run) = completion
                 return! run fib ()
             })
@@ -158,7 +156,4 @@ module Deferred =
     /// The stored completion effect as an `option`: `Some` when completed, `None`
     /// otherwise. (Deferred.poll — Effect's `Option` is lowered to F# `option`.)
     let poll (self: Deferred<'A, 'E>) : Effect<Effect<'A, 'E, unit> option, 'F, 'R> =
-        Effect.sync (fun () ->
-            match isDoneUnsafe self with
-            | true -> Some self.Source.Task.Result
-            | false -> None)
+        Effect.sync (fun () -> Cell.value self.Cell)
