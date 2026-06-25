@@ -3,24 +3,16 @@ namespace Effect.Platform.Node
 open System
 open Effect
 
-/// `NodeFileSystem` — the dual-backed implementation of the core `FileSystem`
-/// service. Mirror of effect-smol's `platform-node-shared/NodeFileSystem.ts`.
-///
-///   * `.NET` (`#if !FABLE_COMPILER`) — `System.IO` (`File`/`Directory`/`Path`).
-///     The non-Fable BCL fallback.
-///   * Node (`#if FABLE_COMPILER`) — Node's `node:fs`, bound through `Fable.Core`'s
-///     `[<Import>]`/`[<Emit>]` (this project takes a real `Fable.Core` package
-///     reference, being a JS-interop package by nature — no local shim needed).
+/// `NodeFileSystem` — the Node implementation of the core `FileSystem` service.
+/// Mirror of effect-smol's `platform-node-shared/NodeFileSystem.ts`, bound to
+/// Node's `node:fs` through `Fable.Core` `[<Import>]`/`[<Emit>]`.
 ///
 /// Host exceptions are normalized to a `PlatformError.SystemError` with a
-/// `SystemErrorTag` derived from the .NET exception type / Node `error.code`.
+/// `SystemErrorTag` derived from the Node `error.code`.
 ///
-/// **Synchronous backing on BOTH platforms — a deliberate choice.** Upstream's
-/// `NodeFileSystem` prefers `node:fs/promises`, but eff-sharp's Effect core does
-/// not wire an `Async`↔JS-`Promise` bridge into the Fable target, so both layers
-/// wrap synchronous host calls in `Effect`s. These whole-file operations are
-/// semantically identical sync or async; raw streaming / file handles (where
-/// async would matter) are deferred (see footer).
+/// **Synchronous backing is deliberate.** Upstream's `NodeFileSystem` prefers
+/// `node:fs/promises`, but these whole-file operations are semantically identical
+/// sync or async; raw streaming / file handles are deferred (see footer).
 [<RequireQualifiedAccess>]
 module NodeFileSystem =
 
@@ -36,7 +28,6 @@ module NodeFileSystem =
               PathOrDescriptor = Some(box path)
               Cause = Some(box ex) }
 
-#if FABLE_COMPILER
     // Read Node's `error.code` (e.g. "ENOENT") off the caught JS error.
     [<Fable.Core.Emit("($0 && $0.code) ? $0.code : \"\"")>]
     let private errorCode (e: obj) : string = failwith "Fable emit only"
@@ -51,15 +42,6 @@ module NodeFileSystem =
         | "ETXTBSY" -> Busy
         | "EAGAIN" -> WouldBlock
         | _ -> Unknown
-#else
-    let private classify (ex: exn) : SystemErrorTag =
-        match ex with
-        | :? System.IO.FileNotFoundException
-        | :? System.IO.DirectoryNotFoundException -> NotFound
-        | :? System.UnauthorizedAccessException -> PermissionDenied
-        | :? System.IO.IOException as io when io.Message.Contains("already exists") -> AlreadyExists
-        | _ -> Unknown
-#endif
 
     let private toError (method: string) (path: string) (ex: exn) : PlatformError =
         systemErrorOf (classify ex) method path ex
@@ -79,7 +61,6 @@ module NodeFileSystem =
     // Platform backends. Both wrap synchronous host calls (see module header).
     // ------------------------------------------------------------------------
 
-#if FABLE_COMPILER
     // Named ESM imports. Parameter lists give Fable the arity, so calls emit as
     // `fn(a, b)` rather than curried application.
     [<Fable.Core.Import("readFileSync", "node:fs")>]
@@ -195,115 +176,10 @@ module NodeFileSystem =
           MakeTempDirectory =
             fun options ->
                 attempt "makeTempDirectory" (defaultArg options.Prefix "") (fun () -> makeTempDirNode options) }
-#else
-    let private statNet (path: string) : FileInfo =
-        // `GetAttributes` throws (FileNotFound/DirectoryNotFound) if `path` is absent.
-        let attrs = System.IO.File.GetAttributes path
-        let isDir = attrs.HasFlag System.IO.FileAttributes.Directory
-        let isSymlink = attrs.HasFlag System.IO.FileAttributes.ReparsePoint
-
-        let fsi: System.IO.FileSystemInfo =
-            if isDir then
-                System.IO.DirectoryInfo(path) :> System.IO.FileSystemInfo
-            else
-                System.IO.FileInfo(path) :> System.IO.FileSystemInfo
-
-        let typ =
-            if isSymlink then FileType.SymbolicLink
-            elif isDir then FileType.Directory
-            else FileType.File
-
-        let size =
-            match fsi with
-            | :? System.IO.FileInfo as f -> f.Length
-            | _ -> 0L
-
-        // POSIX mode is only available on Unix (.NET throws on Windows / pre-create).
-        let mode =
-            try
-                int (System.IO.File.GetUnixFileMode path)
-            with _ ->
-                0
-
-        { Type = typ
-          Mtime = Some fsi.LastWriteTimeUtc
-          Atime = Some fsi.LastAccessTimeUtc
-          Birthtime = Some fsi.CreationTimeUtc
-          Dev = 0
-          Ino = None
-          Mode = mode
-          Nlink = None
-          Uid = None
-          Gid = None
-          Rdev = None
-          Size = size
-          Blksize = None
-          Blocks = None }
-
-    let private makeDirNet (path: string) (options: MakeDirectoryOptions) : unit =
-        if options.Recursive then
-            // `CreateDirectory` is idempotent and creates intermediates.
-            System.IO.Directory.CreateDirectory path |> ignore
-        else
-            // Mirror Node's non-recursive mkdir: EEXIST if present, ENOENT if the
-            // parent is missing (.NET would otherwise create intermediates).
-            if System.IO.Directory.Exists path || System.IO.File.Exists path then
-                raise (System.IO.IOException(sprintf "EEXIST: file already exists, mkdir '%s'" path))
-
-            let parent = System.IO.Directory.GetParent path
-
-            if not (isNull parent) && not parent.Exists then
-                raise (
-                    System.IO.DirectoryNotFoundException(sprintf "ENOENT: no such file or directory, mkdir '%s'" path)
-                )
-
-            System.IO.Directory.CreateDirectory path |> ignore
-
-    let private readDirNet (path: string) (options: ReadDirectoryOptions) : string list =
-        if options.Recursive then
-            System.IO.Directory.EnumerateFileSystemEntries(path, "*", System.IO.SearchOption.AllDirectories)
-            |> Seq.map (fun full -> System.IO.Path.GetRelativePath(path, full))
-            |> List.ofSeq
-        else
-            System.IO.Directory.EnumerateFileSystemEntries path
-            |> Seq.map System.IO.Path.GetFileName
-            |> List.ofSeq
-
-    let private removeNet (path: string) (options: RemoveOptions) : unit =
-        if System.IO.File.Exists path then
-            System.IO.File.Delete path
-        elif System.IO.Directory.Exists path then
-            System.IO.Directory.Delete(path, options.Recursive)
-        elif options.Force then
-            ()
-        else
-            raise (System.IO.FileNotFoundException(sprintf "ENOENT: no such file or directory, remove '%s'" path, path))
-
-    let private makeTempDirNet (options: MakeTempOptions) : string =
-        let baseDir = defaultArg options.Directory (System.IO.Path.GetTempPath())
-        let prefix = defaultArg options.Prefix ""
-        let name = prefix + Guid.NewGuid().ToString("N").Substring(0, 12)
-        let dir = System.IO.Path.Combine(baseDir, name)
-        System.IO.Directory.CreateDirectory dir |> ignore
-        dir
-
-    let private impl: FileSystem =
-        { ReadFileString = fun path -> attempt "readFileString" path (fun () -> System.IO.File.ReadAllText path)
-          WriteFileString =
-            fun path data -> attempt "writeFileString" path (fun () -> System.IO.File.WriteAllText(path, data))
-          Exists =
-            fun path -> attempt "exists" path (fun () -> System.IO.File.Exists path || System.IO.Directory.Exists path)
-          MakeDirectory = fun path options -> attempt "makeDirectory" path (fun () -> makeDirNet path options)
-          ReadDirectory = fun path options -> attempt "readDirectory" path (fun () -> readDirNet path options)
-          Remove = fun path options -> attempt "remove" path (fun () -> removeNet path options)
-          Stat = fun path -> attempt "stat" path (fun () -> statNet path)
-          MakeTempDirectory =
-            fun options -> attempt "makeTempDirectory" (defaultArg options.Prefix "") (fun () -> makeTempDirNet options) }
-#endif
 
     // --- service wiring -----------------------------------------------------
 
-    /// The platform `FileSystem`: `System.IO`-backed on .NET, `node:fs` under Fable.
+    /// The platform `FileSystem`, backed by `node:fs`.
     let platform: FileSystem = impl
 
     /// A `Context` carrying the platform file system, keyed under `FileSystem.tag`.

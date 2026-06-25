@@ -22,17 +22,13 @@ module NodeRuntime =
               Layer.succeed Clock.tag (Clock.make ())
               Layer.succeed Console.tag Console.live ]
 
-#if FABLE_COMPILER
     [<Fable.Core.Emit("(globalThis.process.exitCode = $0)")>]
     let private setExitCode (code: int) : unit = ()
-#else
-    let private setExitCode (code: int) : unit = System.Environment.ExitCode <- code
-#endif
 
     /// Run `effect` as the program's main: provide the Node platform `layer`, run to
     /// its `Exit`, set the process exit code (0 success / 1 failure), and report a
-    /// failure's cause to stderr. Returns immediately; the effect drives the event
-    /// loop (on Node) / runs to completion (on .NET). (NodeRuntime.runMain)
+    /// failure's cause to stderr. Returns immediately; the effect drives the Node
+    /// event loop. (NodeRuntime.runMain)
     let runMain (effect: Effect<'A, 'E, Context>) : unit =
         let program = Layer.provide layer effect
 

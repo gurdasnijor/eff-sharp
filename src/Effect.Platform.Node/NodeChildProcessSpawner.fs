@@ -2,21 +2,15 @@ namespace Effect.Platform.Node
 
 open Effect
 
-/// `NodeChildProcessSpawner` — the dual-backed implementation of the core
+/// `NodeChildProcessSpawner` — the Node implementation of the core
 /// `ChildProcessSpawner` service. Mirror of effect-smol's
 /// `platform-node-shared/NodeChildProcessSpawner.ts`.
 ///
-///   * `#if !FABLE_COMPILER` — `System.Diagnostics.Process` (the non-Fable BCL fallback).
-///     Streams stdout/stderr **incrementally** (chunk-by-chunk via
-///     `Stream.repeatEffectOption` over `Stream.ReadAsync`) and supports live
-///     `Stdin` writes (`Sink.fromWrite`) — genuine bidirectional streaming.
-///   * `#if FABLE_COMPILER` — Node's `node:child_process` via `Fable.Core` interop.
-///     **Buffered v1**: attaches `data` listeners at spawn and resolves captured
-///     chunks once the process `close`s, so `Stdout`/`Stderr` emit after exit.
-///     Sufficient for spawn→capture→exit and batch commands; live incremental
-///     streaming on Node (for long-running bidirectional JSON-RPC) is the next
-///     step, and lands once `Stream.repeatEffectOption` is wired to a Node
-///     `Readable` push-source.
+/// Uses Node's `node:child_process` via `Fable.Core` interop. Buffered v1:
+/// attaches `data` listeners at spawn and resolves captured chunks once the
+/// process `close`s, so `Stdout`/`Stderr` emit after exit. Sufficient for
+/// spawn→capture→exit and batch commands; live incremental streaming on Node is
+/// the next step.
 ///
 /// Built entirely on the PUBLIC `Effect`/`Stream`/`Sink` surface — the internal
 /// constructors are inaccessible from this assembly, which is correct: platform
@@ -40,140 +34,8 @@ module NodeChildProcessSpawner =
               PathOrDescriptor = None
               Cause = cause }
 
-#if !FABLE_COMPILER
     // ------------------------------------------------------------------------
-    // .NET layer — System.Diagnostics.Process (the non-Fable BCL fallback).
-    // ------------------------------------------------------------------------
-
-    /// Run an async host operation, mapping a throw into the `PlatformError`
-    /// channel. The async catches into a `Result`, so no exception escapes the
-    /// public `Effect.promise` (which would otherwise surface as a defect). On
-    /// .NET, `Effect.promise` takes a `Task`, so the workflow is started as one.
-    let private attempt (method: string) (work: unit -> Async<'A>) : Effect<'A, PlatformError, Context> =
-        Effect.promise (fun () ->
-            (async {
-                try
-                    let! v = work ()
-                    return Ok v
-                with ex ->
-                    return Error ex
-            })
-            |> Async.StartAsTask)
-        |> Effect.flatMap (function
-            | Ok v -> Effect.succeed v
-            | Error ex -> Effect.fail (failSystem SystemErrorTag.Unknown method ex.Message (Some(box ex))))
-
-    /// Run a synchronous host thunk, mapping a throw into `PlatformError`.
-    let private attemptSync (method: string) (thunk: unit -> 'A) : Effect<'A, PlatformError, Context> =
-        Effect.suspend (fun () ->
-            try
-                Effect.succeed (thunk ())
-            with ex ->
-                Effect.fail (failSystem SystemErrorTag.Unknown method ex.Message (Some(box ex))))
-
-    /// Read a redirected process stream, emitting each chunk (incremental on .NET).
-    /// Delegates to the shared `NodeStream` adapter; `enabled` is `false` for
-    /// non-piped streams, which yield nothing.
-    let private readStream
-        (enabled: bool)
-        (getStream: unit -> System.IO.Stream)
-        : Stream<byte[], PlatformError, Context> =
-        if not enabled then
-            Stream.empty
-        else
-            NodeStream.fromReadable getStream
-
-    /// A sink writing byte chunks to the process's stdin, closing it on completion.
-    /// Delegates to the shared `NodeSink` adapter.
-    let private writeSink
-        (enabled: bool)
-        (proc: System.Diagnostics.Process)
-        : Sink<byte[], unit, PlatformError, Context> =
-        if not enabled then
-            Sink.drain
-        else
-            NodeSink.fromWritable (fun () -> proc.StandardInput.BaseStream)
-
-    let private spawnDotnet
-        (command: Command)
-        (scope: Scope<PlatformError, Context>)
-        : Effect<ChildProcessHandle, PlatformError, Context> =
-        let (Command.Standard sc) = command
-        let o = sc.Options
-
-        Effect.suspend (fun () ->
-            try
-                let psi = System.Diagnostics.ProcessStartInfo()
-                psi.FileName <- sc.Command
-
-                for a in sc.Args do
-                    psi.ArgumentList.Add a
-
-                o.Cwd |> Option.iter (fun c -> psi.WorkingDirectory <- c)
-                psi.UseShellExecute <- false
-                psi.RedirectStandardOutput <- (o.Stdout = Stdio.Pipe)
-                psi.RedirectStandardError <- (o.Stderr = Stdio.Pipe)
-                psi.RedirectStandardInput <- (o.Stdin = Stdio.Pipe)
-
-                if not o.ExtendEnv then
-                    psi.Environment.Clear()
-
-                for KeyValue(k, v) in o.Env do
-                    match v with
-                    | Some value -> psi.Environment.[k] <- value
-                    | None -> psi.Environment.Remove k |> ignore
-
-                let proc = new System.Diagnostics.Process()
-                proc.StartInfo <- psi
-                proc.Start() |> ignore
-                let pid = proc.Id
-
-                let handle =
-                    { Pid = pid
-                      Stdout = readStream (o.Stdout = Stdio.Pipe) (fun () -> proc.StandardOutput.BaseStream)
-                      Stderr = readStream (o.Stderr = Stdio.Pipe) (fun () -> proc.StandardError.BaseStream)
-                      Stdin = writeSink (o.Stdin = Stdio.Pipe) proc
-                      ExitCode =
-                        attempt "exitCode" (fun () ->
-                            async {
-                                do! proc.WaitForExitAsync() |> Async.AwaitTask
-                                return proc.ExitCode
-                            })
-                      IsRunning = Effect.sync (fun () -> not proc.HasExited)
-                      Kill =
-                        attemptSync "kill" (fun () ->
-                            if not proc.HasExited then
-                                proc.Kill true) }
-
-                // Tear down the process when the scope closes (best-effort).
-                let cleanup =
-                    Effect.sync (fun () ->
-                        (try
-                            if not proc.HasExited then
-                                proc.Kill true
-                         with _ ->
-                             ())
-
-                        (try
-                            proc.Dispose()
-                         with _ ->
-                             ()))
-
-                Scope.addFinalizer scope cleanup |> Effect.map (fun () -> handle)
-            with ex ->
-                let errorTag =
-                    match ex with
-                    | :? System.ComponentModel.Win32Exception -> SystemErrorTag.NotFound
-                    | :? System.IO.FileNotFoundException -> SystemErrorTag.NotFound
-                    | _ -> SystemErrorTag.Unknown
-
-                Effect.fail (failSystem errorTag "spawn" ex.Message (Some(box ex))))
-
-    let private spawner: ChildProcessSpawner = { Spawn = spawnDotnet }
-
-#else
-    // ------------------------------------------------------------------------
-    // Node layer — node:child_process via Fable interop (the runtime target).
+    // Node layer — node:child_process via Fable interop.
     // ------------------------------------------------------------------------
     open Fable.Core
     open Fable.Core.JsInterop
@@ -265,10 +127,8 @@ module NodeChildProcessSpawner =
                 Effect.fail (failSystem SystemErrorTag.Unknown "spawn" ex.Message None))
 
     let private spawner: ChildProcessSpawner = { Spawn = spawnNode }
-#endif
 
-    /// The platform `ChildProcessSpawner` layer: `System.Diagnostics.Process` on
-    /// .NET (the non-Fable BCL fallback), Node's `child_process` under Fable.
+    /// The platform `ChildProcessSpawner` layer.
     let layer<'E, 'RIn> : Layer<'E, 'RIn> =
         Layer.succeed ChildProcessSpawner.tag spawner
 

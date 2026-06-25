@@ -7,8 +7,7 @@ open Effect
 /// `Writable → Sink` adapter (ChildProcess stdin, Stdio, Socket build on it):
 /// write each chunk, then `close` the writer on completion (so a child sees EOF).
 ///
-///   * `#if !FABLE_COMPILER` — `System.IO.Stream` (`WriteAsync` + `Close`).
-///   * `#if FABLE_COMPILER` — a Node `Writable` (`.write()` + `.end()`).
+/// Uses a Node `Writable` (`.write()` + `.end()`).
 ///
 /// Built on the public `Sink.fromWrite` enabler — no internal `Sink` construction.
 [<RequireQualifiedAccess>]
@@ -24,31 +23,6 @@ module NodeSink =
               PathOrDescriptor = None
               Cause = Some(box ex) }
 
-#if !FABLE_COMPILER
-    /// Write byte chunks to a .NET stream, closing it when the input ends.
-    let fromWritable (getStream: unit -> System.IO.Stream) : Sink<byte[], unit, PlatformError, Context> =
-        Sink.fromWrite
-            (fun (chunk: byte[]) ->
-                Effect.promise (fun () ->
-                    task {
-                        try
-                            let stream = getStream ()
-                            do! stream.WriteAsync(chunk, 0, chunk.Length)
-                            do! stream.FlushAsync()
-                            return Ok()
-                        with ex ->
-                            return Error ex
-                    })
-                |> Effect.flatMap (function
-                    | Ok() -> Effect.succeed ()
-                    | Error ex -> Effect.fail (failWrite ex)))
-            (fun () ->
-                Effect.sync (fun () ->
-                    try
-                        (getStream ()).Close()
-                    with _ ->
-                        ()))
-#else
     open Fable.Core
 
     [<Emit("$0.write(new Uint8Array($1))")>]
@@ -61,4 +35,3 @@ module NodeSink =
     let fromWritable (getWritable: unit -> obj) : Sink<byte[], unit, PlatformError, Context> =
         Sink.fromWrite (fun (chunk: byte[]) -> Effect.sync (fun () -> writeChunk (getWritable ()) chunk)) (fun () ->
             Effect.sync (fun () -> endWritable (getWritable ())))
-#endif
