@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Fable-only project: never `dotnet build`, only `dotnet fable`. References the
+       real src/Effect core (the Phase-1 #if FABLE_COMPILER shims make it compile to
+       JS) plus the Workloads module. Mirrors the proven Fable core slice from
+       fable-spike/EffectSpike.fsproj, with Cell added after Effect.fs. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <DefineConstants>FABLE_COMPILER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Fable.Core provides Async.StartAsPromise for the type-checker (Fable maps
+         it to the JS startAsPromise at transform time). -->
+    <PackageReference Include="Fable.Core" Version="5.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/Effect/Cause.fs" />
+    <Compile Include="../../src/Effect/Exit.fs" />
+    <Compile Include="../../src/Effect/Context.fs" />
+    <Compile Include="../../src/Effect/Effect.fs" />
+    <Compile Include="../../src/Effect/Cell.fs" />
+    <Compile Include="../../src/Effect/Scope.fs" />
+    <Compile Include="../../src/Effect/Fiber.fs" />
+    <Compile Include="../../src/Effect/Runtime.fs" />
+    <Compile Include="../../src/Effect/MutableRef.fs" />
+    <Compile Include="../../src/Effect/Ref.fs" />
+    <Compile Include="Workloads.fs" />
+  </ItemGroup>
+
+</Project>
