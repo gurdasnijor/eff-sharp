@@ -6,7 +6,7 @@ open Effect
 /// `platform-node` NodeRuntime.
 ///
 /// `layer` merges every Node platform service a program typically needs
-/// (FileSystem, ChildProcessSpawner, HttpClient, Clock, Console) so a consumer provides ONE
+/// (FileSystem, ChildProcessSpawner, HttpClient, Path, Crypto, HttpPlatform, Clock, Console) so a consumer provides ONE
 /// layer at the program edge instead of wiring each service. `runMain` runs an
 /// effect as the program's main: provide that layer, run to its `Exit`, set the
 /// process exit code, and report a failure's cause.
@@ -14,13 +14,16 @@ open Effect
 module NodeRuntime =
 
     /// The merged Node platform layer: FileSystem + ChildProcessSpawner +
-    /// HttpClient + Clock + Console. Provide this once:
+    /// HttpClient + Path + Crypto + HttpPlatform + Clock + Console. Provide this once:
     /// `Layer.provide NodeRuntime.layer program`.
     let layer<'E, 'RIn> : Layer<'E, 'RIn> =
         Layer.mergeAll
             [ NodeFileSystem.layer
               NodeChildProcessSpawner.layer
               NodeHttpClient.layer
+              NodePath.layer
+              NodeCrypto.layer
+              NodeHttpPlatform.layer
               Layer.succeed Clock.tag (Clock.make ())
               Layer.succeed Console.tag Console.live ]
 

@@ -13,4 +13,15 @@ describe "NodePlatform" (fun () ->
         |> Layer.provide NodePlatform.layer
         |> Effect.map (fun response ->
             toBe response.Status 200
-            toBe response.Body "node-platform")))
+            toBe response.Body "node-platform"))
+
+    itEffectIn Clock.live "layer provides Node path and crypto services" (fun () ->
+        effect {
+            let! path = Path.path
+            let! crypto = Crypto.service
+            let! bytes = crypto.RandomBytes 4
+
+            toBe (path.Basename "/tmp/file.txt" None) "file.txt"
+            toBe bytes.Length 4
+        }
+        |> Layer.provide NodePlatform.layer))

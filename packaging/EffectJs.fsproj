@@ -7,6 +7,7 @@
   <PropertyGroup>
     <!-- TargetFramework inherited from the repo-root Directory.Build.props. -->
     <EffectSrcDir>$(MSBuildThisFileDirectory)../src/Effect/</EffectSrcDir>
+    <EffectPlatformNodeSrcDir>$(MSBuildThisFileDirectory)../src/Effect.Platform.Node/</EffectPlatformNodeSrcDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,5 +17,24 @@
   </ItemGroup>
 
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />
+
+  <ItemGroup>
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeFileSystem.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)Mime.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodePath.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeCrypto.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeStream.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeSink.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpIncomingMessage.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpServerRequest.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpPlatform.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeMultipart.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeChildProcessSpawner.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpClient.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpServer.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)Undici.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeRuntime.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodePlatform.fs" />
+  </ItemGroup>
 
 </Project>

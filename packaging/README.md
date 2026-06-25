@@ -4,11 +4,12 @@ This is the **packaging pipeline** that turns the F# eff-sharp library into a
 TypeScript package consumable by Node/TS projects (e.g. `fluent-firegrid`).
 
 ## How it works
-- `EffectJs.fsproj` — the **consumer view** of `src/Effect`: the canonical core
-  source list emitted for JS/TS consumers.
+- `EffectJs.fsproj` — the **consumer view** of `src/Effect` plus
+  `src/Effect.Platform.Node`: the canonical source lists emitted for JS/TS consumers.
 - `dotnet fable EffectJs.fsproj --lang typescript -o dist --optimize` emits the whole
   surface to TypeScript, `--optimize` for leaner output.
-- `package.json` exposes it: `import * as Effect from "eff-sharp"` (→ `dist/.../Effect.ts`).
+- `package.json` exposes it: `import * as Effect from "eff-sharp"` (→ `dist/.../Effect.ts`)
+  and `eff-sharp/platform-node/NodeHttpClient` for Node platform modules.
 
 ## Proof (runs on Node today)
 ```bash
@@ -23,4 +24,5 @@ and runs a real effect on Node. Module functions are emitted as `<Module>_<fn>` 
 - Consume via a real TS toolchain (`tsx`/`tsc`/bundler) — Fable's emit mixes type+value
   imports without `import type`, which Node's raw `--experimental-strip-types` rejects but
   `tsc`/esbuild handle (as fluent-firegrid's build will).
-- Wire `Effect.Platform.Node` in once its Node impls are consumer-ready.
+- The `Undici` facade uses a dynamic import, so applications that call it should
+  install `undici` themselves.
