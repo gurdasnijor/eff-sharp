@@ -36,6 +36,25 @@ module UrlParams =
 
     let private encode (value: string) = Uri.EscapeDataString(value).Replace("%20", "+")
 
+    let private decode (value: string) = Uri.UnescapeDataString(value.Replace("+", " "))
+
+    let parseQueryString (query: string) : UrlParams =
+        let q = if query.StartsWith("?") then query.Substring(1) else query
+
+        if q = "" then
+            empty
+        else
+            q.Split('&')
+            |> Array.toList
+            |> List.filter (fun part -> part <> "")
+            |> List.map (fun part ->
+                let index = part.IndexOf('=')
+
+                if index < 0 then
+                    decode part, ""
+                else
+                    decode (part.Substring(0, index)), decode (part.Substring(index + 1)))
+
     let toQueryString (params_: UrlParams) : string =
         params_
         |> List.map (fun (key, value) -> encode key + "=" + encode value)
