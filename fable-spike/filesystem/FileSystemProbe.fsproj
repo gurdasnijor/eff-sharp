@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Effect</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Fable probe for the FileSystem subsystem: compiles the REAL
+       src/Effect/FileSystem.fs (+ the minimal core slice it needs) to JS via Fable
+       to PROVE it compiles with 0 errors, then drives the Node (`node:fs`) Layer
+       end-to-end on Node. Files are referenced READ-ONLY by path from ../../src/Effect;
+       the real Effect.fsproj is untouched. Compile order mirrors the real one.
+
+       FableCoreShims.fs re-declares the local `Fable.Core` Emit/Import attributes
+       (normally supplied by Terminal.fs, which this probe does not include). -->
+  <ItemGroup>
+    <Compile Include="FableCoreShims.fs" />
+    <Compile Include="../../src/Effect/Cause.fs" />
+    <Compile Include="../../src/Effect/Exit.fs" />
+    <Compile Include="../../src/Effect/Context.fs" />
+    <Compile Include="../../src/Effect/Effect.fs" />
+    <Compile Include="../../src/Effect/Scope.fs" />
+    <Compile Include="../../src/Effect/Fiber.fs" />
+    <Compile Include="../../src/Effect/Runtime.fs" />
+    <Compile Include="../../src/Effect/Layer.fs" />
+    <Compile Include="../../src/Effect/PlatformError.fs" />
+    <Compile Include="../../src/Effect/FileSystem.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+</Project>
