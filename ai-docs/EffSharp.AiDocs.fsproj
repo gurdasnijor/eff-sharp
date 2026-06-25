@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- eff-sharp ai-docs: runnable, type-checked example modules.
+       Every example compiles against the real library via the ProjectReference
+       below, so the docs can never drift from the API. This is an Exe so the
+       whole tour runs with `dotnet run`; it is intentionally NOT part of the
+       test solution (eff-sharp.slnx). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>EffSharp.AiDocs</AssemblyName>
+    <RootNamespace>EffSharp.AiDocs</RootNamespace>
+    <!-- Examples deliberately bind values purely to show types; don't fail on it. -->
+    <WarningLevel>3</WarningLevel>
+    <OtherFlags>$(OtherFlags) --nowarn:1182</OtherFlags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- shared run/assert helpers first -->
+    <Compile Include="Shared.fs" />
+    <!-- 01_effect -->
+    <Compile Include="01_effect/01_Basics.fs" />
+    <Compile Include="01_effect/02_Services.fs" />
+    <Compile Include="01_effect/03_Errors.fs" />
+    <Compile Include="01_effect/04_Resources.fs" />
+    <Compile Include="01_effect/05_Running.fs" />
+    <Compile Include="01_effect/06_PubSub.fs" />
+    <!-- 03_integration -->
+    <Compile Include="03_integration/10_ManagedRuntime.fs" />
+    <!-- 09_testing -->
+    <Compile Include="09_testing/10_EffectTests.fs" />
+    <Compile Include="09_testing/20_LayerTests.fs" />
+    <!-- bonus: F# CE ergonomics Effect can't match -->
+    <Compile Include="bonus/01_CEPower.fs" />
+    <!-- entry point: runs the whole tour -->
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../src/Effect/Effect.fsproj" />
+  </ItemGroup>
+
+</Project>
