@@ -30,19 +30,51 @@ module Scheduler =
     /// A dispatcher draining a priority queue. Re-entrant `scheduleTask` during a
     /// `flush` is honored in the same drain (matching upstream's "running" loop).
     type private PriorityDispatcher() =
+#if FABLE_COMPILER
+        // Fable lacks System.Collections.Generic.PriorityQueue; a small list with
+        // min-priority extraction is faithful here (dispatcher queues are short and
+        // drained eagerly each flush).
+        let queue = ResizeArray<struct (int * (unit -> unit))>()
+        let enqueue (task: unit -> unit) (priority: int) = queue.Add(struct (priority, task))
+
+        let tryDequeue () : (unit -> unit) option =
+            if queue.Count = 0 then
+                None
+            else
+                let mutable mi = 0
+
+                for i in 1 .. queue.Count - 1 do
+                    let struct (pi, _) = queue.[i]
+                    let struct (pm, _) = queue.[mi]
+
+                    if pi < pm then
+                        mi <- i
+
+                let struct (_, task) = queue.[mi]
+                queue.RemoveAt mi
+                Some task
+#else
         let queue = PriorityQueue<unit -> unit, int>()
+        let enqueue (task: unit -> unit) (priority: int) = queue.Enqueue(task, priority)
+
+        let tryDequeue () : (unit -> unit) option =
+            if queue.Count > 0 then Some(queue.Dequeue()) else None
+#endif
         let mutable running = false
 
         interface SchedulerDispatcher with
-            member _.ScheduleTask(task, priority) = queue.Enqueue(task, priority)
+            member _.ScheduleTask(task, priority) = enqueue task priority
 
             member this.Flush() =
                 if not running then
                     running <- true
 
                     try
-                        while queue.Count > 0 do
-                            (queue.Dequeue()) ()
+                        let mutable next = tryDequeue ()
+
+                        while next.IsSome do
+                            next.Value()
+                            next <- tryDequeue ()
                     finally
                         running <- false
 
