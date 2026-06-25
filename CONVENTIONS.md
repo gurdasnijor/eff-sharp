@@ -62,11 +62,37 @@ arithmetic — use FSharp.Core. Only port the Effect-specific surface that F# la
 
 ## 6. Layout & naming (mirror effect-smol)
 
-- One module per file: `src/Effect/<Module>.fs`, `namespace Effect`,
-  `[<RequireQualifiedAccess>] module <Module>`.
+- One module per file: `src/<Package>/<Module>.fs`, `[<RequireQualifiedAccess>]
+  module <Module>`.
 - One test file per module: `tests/Effect.Tests/<Module>Tests.fs`, xUnit `[<Fact>]`,
   ported from the upstream `*.test.ts`. Cite the upstream file in a header comment.
 - Doc-comment the public surface; note the upstream reference and any omissions.
+
+### 6.1 Package = project (mirror effect-smol's `packages/`)
+
+effect-smol is a monorepo of packages; the F# equivalent of a package is a
+**`.fsproj`** (→ one assembly, one publishable unit). One package = one project.
+
+- **`effect`** → `src/Effect/Effect.fsproj`, `namespace Effect`. The core, including
+  the platform-agnostic service *abstractions* that live in `effect/unstable/`
+  upstream (e.g. `ChildProcessSpawner` the Tag/handle, `FileSystem`, `Command`).
+- **`platform-node`** (+ `platform-node-shared`, folded in until a Bun target needs
+  the split) → `src/Effect.Platform.Node/`, `namespace Effect.Platform.Node`. The
+  Node *implementations* of those abstractions (`NodeChildProcessSpawner`,
+  `NodeStream`, …). References the core project.
+- Future packages (`sql`, `ai`, `platform-browser`, …) → `src/Effect.<Pkg>/`,
+  `namespace Effect.<Pkg>`, one project each, added **when you start porting them**
+  — don't scaffold ahead of need.
+- Namespace tracks project tracks folder. Don't introduce `Effect.Unstable.*` —
+  `unstable/` is an upstream stability marker, not a module boundary; keep core flat.
+- Abstraction lives in core; implementation lives in the platform package (as
+  upstream splits `effect/unstable/process/ChildProcessSpawner.ts` from
+  `platform-node-shared/NodeChildProcessSpawner.ts`). Don't bake platform impls into
+  core.
+- Project references encode the dependency DAG (the F# stand-in for the TS import
+  graph); the compiler enforces it acyclically. Shared MSBuild settings live in the
+  repo-root `Directory.Build.props`; `repos/Directory.Build.props` shields vendored
+  compilers from it.
 
 ## 7. Definition of done (per module)
 

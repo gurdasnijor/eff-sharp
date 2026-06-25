@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Effect/Effect.fsproj" />
+    <Project Path="src/Effect.Platform.Node/Effect.Platform.Node.fsproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Effect.Tests/Effect.Tests.fsproj" />

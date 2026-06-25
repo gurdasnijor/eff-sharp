@@ -20,6 +20,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 LIB="src/Effect/Effect.fsproj"
+PLATFORM_NODE="src/Effect.Platform.Node/Effect.Platform.Node.fsproj"  # platform pkg (lint + transitively built via TESTS)
 TESTS="tests/Effect.Tests/Effect.Tests.fsproj"        # the test suite — THE GATE
 AIDOCS="ai-docs/EffSharp.AiDocs.fsproj"               # Exe, build-only (not in .slnx)
 BENCH="benchmarks/Effect.Benchmarks/Effect.Benchmarks.fsproj"  # build-only
@@ -93,15 +94,17 @@ quality() {
     echo "ok — tree is formatted."
   fi
 
-  step "Lint (FSharpLint) — src/Effect (shipped surface)"
-  # Lint's value is in the shipped library; FSharpLint is the slowest tool and
+  step "Lint (FSharpLint) — shipped surface (core + platform packages)"
+  # Lint's value is in the shipped libraries; FSharpLint is the slowest tool and
   # exits 0 even with warnings, so we parse the summary for the verdict.
-  out="$(dotnet fsharplint lint --lint-config fsharplint.json --file-type project "$LIB" 2>&1)" || true
-  echo "$out" | grep -E '==========' || true
-  if echo "$out" | grep -qE 'Summary: [1-9][0-9]* warnings'; then
-    echo "$out"
-    fail "FSharpLint reported warnings (see above)."
-  fi
+  for proj in "$LIB" "$PLATFORM_NODE"; do
+    out="$(dotnet fsharplint lint --lint-config fsharplint.json --file-type project "$proj" 2>&1)" || true
+    echo "$out" | grep -E '==========' || true
+    if echo "$out" | grep -qE 'Summary: [1-9][0-9]* warnings'; then
+      echo "$out"
+      fail "FSharpLint reported warnings in $proj (see above)."
+    fi
+  done
   echo "ok — lint clean."
 
   step "Build-break check: ai-docs + benchmarks (off the gate's critical path)"

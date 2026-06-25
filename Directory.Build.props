@@ -1,0 +1,18 @@
+<Project>
+
+  <!-- Shared MSBuild config for all first-party Effect.* projects (core + the
+       per-package projects that mirror effect-smol's packages/: Effect.Platform.Node,
+       Effect.Sql, …). One effect-smol package = one .fsproj here; this file is the
+       DRY home for settings every such project shares, so each .fsproj stays a bare
+       file list.
+
+       Vendored compilers under repos/ are shielded by repos/Directory.Build.props
+       (an empty stop-file) so this never perturbs the Fable/F# sources we build
+       against. CI never builds repos/ anyway (see tools/ci/check.sh). -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>
