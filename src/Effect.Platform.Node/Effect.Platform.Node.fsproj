@@ -33,6 +33,7 @@
     <Compile Include="NodeSink.fs" />
     <Compile Include="NodeChildProcessSpawner.fs" />
     <Compile Include="NodeHttpClient.fs" />
+    <Compile Include="NodeHttpServer.fs" />
     <Compile Include="NodeRuntime.fs" />
   </ItemGroup>
 
