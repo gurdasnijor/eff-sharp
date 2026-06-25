@@ -43,6 +43,16 @@ let private sse () = HttpApiSchema.streamSse eventsSchema errorSchema
 let private endpoint success = HttpApiEndpoint.get "events" "/events" { HttpApiEndpoint.empty with Success = success }
 
 describe "HttpApiEndpoint streaming success schemas" (fun () ->
+    test "OPTIONS endpoint and prefix preserve endpoint metadata" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.options "cors" "/resource" HttpApiEndpoint.empty
+            |> HttpApiEndpoint.prefix "/api"
+            |> HttpApiEndpoint.addError HttpApiError.unauthorized
+
+        toBe (HttpApiEndpoint.methodString endpoint) "OPTIONS"
+        toBe endpoint.Path "/api/resource"
+        toEqual (endpoint.Options.Error |> List.map (fun error -> error.Status)) [ 401 ])
+
     test "GET endpoint accepts StreamSse success" (fun () ->
         let stream = sse ()
         let endpoint = endpoint [ stream ]

@@ -37,6 +37,44 @@ let private asObject =
     | other -> failwithf "expected object, got %A" other
 
 describe "OpenApi" (fun () ->
+    test "emits request bodies, path parameters, tags, and error responses" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "createUser"
+                "/users/:id"
+                { HttpApiEndpoint.empty with
+                    Payload = [ HttpApiSchema.asJson messageSchema ]
+                    Success = [ HttpApiSchema.created ]
+                    Error = [ HttpApiError.badRequest; HttpApiError.conflict ] }
+
+        let api =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.make "users" |> HttpApiGroup.add endpoint)
+
+        let operation =
+            OpenApi.fromApi api
+            |> getObject "paths"
+            |> getObject "/users/:id"
+            |> getObject "post"
+            |> asObject
+
+        toEqual (operation |> Map.find "tags") (JArray [ JString "users" ])
+        toBe (operation |> Map.containsKey "requestBody") true
+
+        let parameters = operation |> Map.find "parameters"
+
+        match parameters with
+        | JArray [ parameter ] ->
+            toEqual (parameter |> getObject "name") (JString "id")
+            toEqual (parameter |> getObject "in") (JString "path")
+        | other -> failwithf "expected one path parameter, got %A" other
+
+        let responses = operation |> Map.find "responses" |> asObject
+
+        toBe (responses |> Map.containsKey "201") true
+        toBe (responses |> Map.containsKey "400") true
+        toBe (responses |> Map.containsKey "409") true)
+
     test "emits buffered and stream successes with the same status" (fun () ->
         let endpoint =
             HttpApiEndpoint.get

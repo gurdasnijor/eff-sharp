@@ -64,38 +64,81 @@ module OpenApi =
                             "causeSchema", jo [ "type", js "object" ] ] ]
             )
 
+    let private contentMap (schemas: HttpApiContent list) =
+        schemas
+        |> List.choose responseContent
+        |> Map.ofList
+
     let private responseForStatus (schemas: HttpApiContent list) =
-        let content =
-            schemas
-            |> List.choose responseContent
-            |> Map.ofList
+        let content = contentMap schemas
 
         if Map.isEmpty content then
             jo [ "description", js "No Content" ]
         else
             jo [ "description", js "Response"; "content", JObject content ]
 
-    let private operationForEndpoint (endpoint: HttpApiEndpoint) =
-        let responses =
-            endpoint.Options.Success
-            |> List.groupBy (fun schema -> schema.Status)
-            |> List.map (fun (status, schemas) -> string status, responseForStatus schemas)
-            |> Map.ofList
+    let private requestBody (endpoint: HttpApiEndpoint) =
+        let content = contentMap endpoint.Options.Payload
 
+        if Map.isEmpty content then
+            None
+        else
+            Some("requestBody", jo [ "required", JBool true; "content", JObject content ])
+
+    let private pathParameter (name: string) =
         jo
-            [ "operationId", js endpoint.Name
-              "responses", JObject responses ]
+            [ "name", js name
+              "in", js "path"
+              "required", JBool true
+              "schema", jo [ "type", js "string" ] ]
+
+    let private pathParameters (path: string) =
+        path.Trim('/').Split('/')
+        |> Array.toList
+        |> List.choose (fun segment ->
+            if segment.StartsWith(":") then
+                Some(pathParameter (segment.Substring(1).TrimEnd('?')))
+            else
+                None)
+
+    let private parameters (endpoint: HttpApiEndpoint) =
+        match pathParameters endpoint.Path with
+        | [] -> None
+        | parameters -> Some("parameters", ja parameters)
+
+    let private responses (endpoint: HttpApiEndpoint) =
+        let byStatus =
+            (endpoint.Options.Success @ endpoint.Options.Error)
+            |> List.fold
+                (fun acc schema ->
+                    let existing = acc |> Map.tryFind schema.Status |> Option.defaultValue []
+                    acc |> Map.add schema.Status (existing @ [ schema ]))
+                Map.empty
+
+        byStatus
+        |> Map.toList
+        |> List.map (fun (status, schemas) -> string status, responseForStatus schemas)
+        |> Map.ofList
+
+    let private operationForEndpoint (group: HttpApiGroup) (endpoint: HttpApiEndpoint) =
+        [ Some("operationId", js endpoint.Name)
+          Some("tags", ja [ js group.Identifier ])
+          parameters endpoint
+          requestBody endpoint
+          Some("responses", JObject(responses endpoint)) ]
+        |> List.choose id
+        |> jo
 
     let fromApi (api: HttpApi) : Json =
         let paths =
             api.Groups
             |> Map.toList
-            |> List.collect (fun (_, group) -> group.Endpoints |> Map.toList |> List.map snd)
-            |> List.groupBy (fun endpoint -> endpoint.Path)
+            |> List.collect (fun (_, group) -> group.Endpoints |> Map.toList |> List.map (fun (_, endpoint) -> group, endpoint))
+            |> List.groupBy (fun (_, endpoint) -> endpoint.Path)
             |> List.map (fun (path, endpoints) ->
                 let operations =
                     endpoints
-                    |> List.map (fun endpoint -> HttpApiEndpoint.methodString endpoint |> fun m -> m.ToLowerInvariant(), operationForEndpoint endpoint)
+                    |> List.map (fun (group, endpoint) -> HttpApiEndpoint.methodString endpoint |> fun m -> m.ToLowerInvariant(), operationForEndpoint group endpoint)
                     |> Map.ofList
 
                 path, JObject operations)

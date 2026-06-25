@@ -24,4 +24,16 @@ describe "HttpApiGroup" (fun () ->
             |> HttpApiGroup.add first
             |> HttpApiGroup.add second
 
-        toBe group.Endpoints.["find"].Path "/v2/find"))
+        toBe group.Endpoints.["find"].Path "/v2/find")
+
+    test "prefix and addError apply to every endpoint" (fun () ->
+        let group =
+            HttpApiGroup.make "todos"
+            |> HttpApiGroup.addMany
+                [ HttpApiEndpoint.get "list" "/todos" HttpApiEndpoint.empty
+                  HttpApiEndpoint.post "create" "/todos" { HttpApiEndpoint.empty with Payload = [ HttpApiSchema.asJson Schema.string ] } ]
+            |> HttpApiGroup.prefix "/api"
+            |> HttpApiGroup.addError HttpApiError.forbidden
+
+        toEqual (group.Endpoints |> Map.toList |> List.map (fun (name, endpoint) -> name, endpoint.Path)) [ "create", "/api/todos"; "list", "/api/todos" ]
+        toEqual (group.Endpoints |> Map.toList |> List.map (fun (_, endpoint) -> endpoint.Options.Error.Head.Status)) [ 403; 403 ]))
