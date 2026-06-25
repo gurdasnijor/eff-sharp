@@ -21,6 +21,9 @@ namespace Effect
 /// provide constructors directly.
 
 open Microsoft.FSharp.Reflection
+#if FABLE_COMPILER
+open Fable.Core
+#endif
 
 [<RequireQualifiedAccess>]
 module Data =
@@ -51,13 +54,19 @@ module Data =
     /// The discriminator tag of a value, mirroring effect's `_tag`. For a
     /// discriminated-union value it is the active case name; for any other type
     /// it is the runtime type name.
-    let tagOf (value: 'a) : string =
 #if FABLE_COMPILER
-        // Fable erases generic type info (`typeof<'a>`) and FSharpType reflection,
-        // so the precise union-case discriminator isn't available; fall back to the
-        // runtime value's constructor name.
-        (box value).GetType().Name
+    [<Emit("""(function(value) {
+  if (value == null) return "null";
+  if (typeof value.tag === "number" && typeof value.cases === "function") {
+    return value.cases()[value.tag];
+  }
+  if (typeof value.tag === "string") return value.tag;
+  if (typeof value._tag === "string") return value._tag;
+  return value.constructor && value.constructor.name ? value.constructor.name : typeof value;
+})($0)""")>]
+    let tagOf (value: 'a) : string = jsNative
 #else
+    let tagOf (value: 'a) : string =
         let t = typeof<'a>
 
         if FSharpType.IsUnion(t, true) then
