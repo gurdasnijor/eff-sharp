@@ -154,50 +154,52 @@ module Formatter =
             | :? System.Numerics.BigInteger as bi -> string bi + "n"
             | :? DateTime as dt -> formatDate dt
             | :? System.Text.RegularExpressions.Regex as re -> "/" + re.ToString() + "/"
-            | :? IRedactable as r -> recur (r.Redact()) d
             | :? exn as e -> formatExn e d
             | _ ->
-                let t = v.GetType()
-
-                if isNumericType t then
-                    formatNumber v
-                elif t.IsArray || isFSharpList t then
-                    bracket (toObjArray v) d v
-                elif isFSharpMap t then
-                    let entries =
-                        toObjArray v
-                        |> Array.map (fun kv -> let k, value = kvParts kv in box [| k; value |])
-
-                    "Map(" + bracket entries d v + ")"
-                elif isFSharpSet t then
-                    "Set(" + bracket (toObjArray v) d v + ")"
-                elif FSharpType.IsRecord(t, true) then
-                    enter v (fun () ->
-                        let fields = FSharpType.GetRecordFields(t, true)
-                        let kvs = fields |> Array.map (fun p -> formatPropertyKey p.Name, p.GetValue v)
-                        let body = objectBody kvs d
-                        if isAnonymous t then body else t.Name + "(" + body + ")")
-                elif FSharpType.IsUnion(t, true) then
-                    let case, vals = FSharpValue.GetUnionFields(v, t, true)
-
-                    if vals.Length = 0 then
-                        case.Name
-                    else
-                        case.Name + "(" + String.Join(",", vals |> Array.map (fun x -> recur x d)) + ")"
-                elif (v :? IEnumerable) then
-                    t.Name + "(" + bracket (toObjArray v) d v + ")"
-                elif not ignoreToString && hasCustomToString t then
-                    v.ToString()
+                if Redactable.isRedactable v then
+                    recur (Redactable.redact v) d
                 else
-                    // Reflect public readable instance properties (class instance).
-                    enter v (fun () ->
-                        let props =
-                            t.GetProperties()
-                            |> Array.filter (fun p -> p.CanRead && p.GetIndexParameters().Length = 0)
+                    let t = v.GetType()
 
-                        let kvs = props |> Array.map (fun p -> formatPropertyKey p.Name, p.GetValue v)
-                        let body = objectBody kvs d
-                        t.Name + "(" + body + ")")
+                    if isNumericType t then
+                        formatNumber v
+                    elif t.IsArray || isFSharpList t then
+                        bracket (toObjArray v) d v
+                    elif isFSharpMap t then
+                        let entries =
+                            toObjArray v
+                            |> Array.map (fun kv -> let k, value = kvParts kv in box [| k; value |])
+
+                        "Map(" + bracket entries d v + ")"
+                    elif isFSharpSet t then
+                        "Set(" + bracket (toObjArray v) d v + ")"
+                    elif FSharpType.IsRecord(t, true) then
+                        enter v (fun () ->
+                            let fields = FSharpType.GetRecordFields(t, true)
+                            let kvs = fields |> Array.map (fun p -> formatPropertyKey p.Name, p.GetValue v)
+                            let body = objectBody kvs d
+                            if isAnonymous t then body else t.Name + "(" + body + ")")
+                    elif FSharpType.IsUnion(t, true) then
+                        let case, vals = FSharpValue.GetUnionFields(v, t, true)
+
+                        if vals.Length = 0 then
+                            case.Name
+                        else
+                            case.Name + "(" + String.Join(",", vals |> Array.map (fun x -> recur x d)) + ")"
+                    elif (v :? IEnumerable) then
+                        t.Name + "(" + bracket (toObjArray v) d v + ")"
+                    elif not ignoreToString && hasCustomToString t then
+                        v.ToString()
+                    else
+                        // Reflect public readable instance properties (class instance).
+                        enter v (fun () ->
+                            let props =
+                                t.GetProperties()
+                                |> Array.filter (fun p -> p.CanRead && p.GetIndexParameters().Length = 0)
+
+                            let kvs = props |> Array.map (fun p -> formatPropertyKey p.Name, p.GetValue v)
+                            let body = objectBody kvs d
+                            t.Name + "(" + body + ")")
 
         and bracket (items: obj[]) (d: int) (orig: obj) : string =
             enter orig (fun () ->
