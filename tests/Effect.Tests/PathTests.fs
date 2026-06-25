@@ -95,22 +95,51 @@ let ``relative`` () =
 [<Fact>]
 let ``parse - absolute`` () =
     Assert.Equal(
-        { Root = "/"; Dir = "/home/user/dir"; Base = "file.txt"; Ext = ".txt"; Name = "file" },
+        { Root = "/"
+          Dir = "/home/user/dir"
+          Base = "file.txt"
+          Ext = ".txt"
+          Name = "file" },
         p.Parse "/home/user/dir/file.txt"
     )
 
 [<Fact>]
 let ``parse - relative`` () =
     Assert.Equal(
-        { Root = ""; Dir = ""; Base = "file.txt"; Ext = ".txt"; Name = "file" },
+        { Root = ""
+          Dir = ""
+          Base = "file.txt"
+          Ext = ".txt"
+          Name = "file" },
         p.Parse "file.txt"
     )
 
 [<Fact>]
 let ``format`` () =
-    Assert.Equal("/home/user/newfile.ts", p.Format { Path.parsedEmpty with Dir = "/home/user"; Name = "newfile"; Ext = ".ts" })
-    Assert.Equal("/file.txt", p.Format { Path.parsedEmpty with Root = "/"; Base = "file.txt" })
-    Assert.Equal("x.y", p.Format { Path.parsedEmpty with Name = "x"; Ext = ".y" })
+    Assert.Equal(
+        "/home/user/newfile.ts",
+        p.Format
+            { Path.parsedEmpty with
+                Dir = "/home/user"
+                Name = "newfile"
+                Ext = ".ts" }
+    )
+
+    Assert.Equal(
+        "/file.txt",
+        p.Format
+            { Path.parsedEmpty with
+                Root = "/"
+                Base = "file.txt" }
+    )
+
+    Assert.Equal(
+        "x.y",
+        p.Format
+            { Path.parsedEmpty with
+                Name = "x"
+                Ext = ".y" }
+    )
 
 [<Fact>]
 let ``parse then format round-trips`` () =
@@ -130,9 +159,15 @@ let ``sep and toNamespacedPath`` () =
 let ``layer provides the POSIX Path service`` () =
     let program: Effect<string, string, Context> =
         Path.path |> Effect.map (fun path -> path.Join [ "home"; "user"; "file.txt" ])
-    Assert.Equal<Exit<string, string>>(Exit.succeed "home/user/file.txt", Effect.runSync () (Layer.provide Path.layer program))
+
+    Assert.Equal<Exit<string, string>>(
+        Exit.succeed "home/user/file.txt",
+        Effect.runSync () (Layer.provide Path.layer program)
+    )
 
 [<Fact>]
 let ``service can be read from a Context`` () =
-    let program: Effect<string, string, Context> = Path.path |> Effect.map (fun path -> path.Sep)
+    let program: Effect<string, string, Context> =
+        Path.path |> Effect.map (fun path -> path.Sep)
+
     Assert.Equal<Exit<string, string>>(Exit.succeed "/", Effect.runSync (Context.make Path.tag Path.posix) program)

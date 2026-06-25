@@ -31,7 +31,15 @@ let ``make builds a map from pairs`` () =
 
 [<Fact>]
 let ``fromIterable builds a map from a sequence`` () =
-    let map = HashMap.fromIterable (seq { "a", 1; "b", 2; "c", 3 })
+    let map =
+        HashMap.fromIterable (
+            seq {
+                "a", 1
+                "b", 2
+                "c", 3
+            }
+        )
+
     Assert.Equal(3, HashMap.size map)
     Assert.Equal(Some 1, HashMap.get map "a")
 
@@ -86,7 +94,10 @@ let ``remove of a missing key returns the same instance`` () =
 let ``getUnsafe returns the value or throws`` () =
     let map = HashMap.make [ ("a", 1); ("b", 2) ]
     Assert.Equal(1, HashMap.getUnsafe map "a")
-    let ex = Assert.Throws<System.Exception>(fun () -> HashMap.getUnsafe map "z" |> ignore)
+
+    let ex =
+        Assert.Throws<System.Exception>(fun () -> HashMap.getUnsafe map "z" |> ignore)
+
     Assert.Contains("HashMap.getUnsafe: key not found", ex.Message)
 
 // --- iterators and getters ---
@@ -97,10 +108,7 @@ let ``keys values and entries expose the contents`` () =
     Assert.Equal<string list>([ "a"; "b"; "c" ], HashMap.keys map |> List.ofSeq |> List.sort)
     Assert.Equal<int list>([ 1; 2; 3 ], HashMap.values map |> List.ofSeq |> List.sort)
     Assert.Equal<int list>([ 1; 2; 3 ], HashMap.toValues map |> List.sort)
-    Assert.Equal<(string * int) list>(
-        [ ("a", 1); ("b", 2); ("c", 3) ],
-        HashMap.entries map |> List.ofSeq |> List.sort
-    )
+    Assert.Equal<(string * int) list>([ ("a", 1); ("b", 2); ("c", 3) ], HashMap.entries map |> List.ofSeq |> List.sort)
     Assert.Equal<(string * int) list>([ ("a", 1); ("b", 2); ("c", 3) ], HashMap.toEntries map |> List.sort)
 
 // --- bulk operations ---
@@ -148,7 +156,10 @@ let ``map transforms values`` () =
 [<Fact>]
 let ``flatMap expands and flattens`` () =
     let map1 = HashMap.make [ ("a", 1); ("b", 2) ]
-    let map2 = HashMap.flatMap map1 (fun value key -> HashMap.make [ (key + "1", value); (key + "2", value * 2) ])
+
+    let map2 =
+        HashMap.flatMap map1 (fun value key -> HashMap.make [ (key + "1", value); (key + "2", value * 2) ])
+
     Assert.Equal(4, HashMap.size map2)
     Assert.Equal(Some 1, HashMap.get map2 "a1")
     Assert.Equal(Some 2, HashMap.get map2 "a2")
@@ -178,12 +189,17 @@ let ``compact drops None values`` () =
 [<Fact>]
 let ``filterMap keeps Ok results and can see the key`` () =
     let map1 = HashMap.make [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
-    let map2 = HashMap.filterMap map1 (fun value _key -> if value % 2 = 0 then Ok(value * 2) else Error())
+
+    let map2 =
+        HashMap.filterMap map1 (fun value _key -> if value % 2 = 0 then Ok(value * 2) else Error())
+
     Assert.Equal(2, HashMap.size map2)
     Assert.Equal(Some 4, HashMap.get map2 "b")
     Assert.Equal(Some 8, HashMap.get map2 "d")
 
-    let map3 = HashMap.filterMap map1 (fun value key -> if key < "c" then Ok(sprintf "%s:%d" key value) else Error())
+    let map3 =
+        HashMap.filterMap map1 (fun value key -> if key < "c" then Ok(sprintf "%s:%d" key value) else Error())
+
     Assert.Equal(2, HashMap.size map3)
     Assert.Equal(Some "a:1", HashMap.get map3 "a")
     Assert.Equal(Some "b:2", HashMap.get map3 "b")
@@ -216,10 +232,19 @@ let ``hasBy tests key and value together`` () =
 [<Fact>]
 let ``modifyAt updates inserts and removes`` () =
     let map1 = HashMap.make [ ("a", 1); ("b", 2) ]
-    let updated = HashMap.modifyAt map1 "a" (function Some v -> Some(v * 2) | None -> None)
+
+    let updated =
+        HashMap.modifyAt map1 "a" (function
+            | Some v -> Some(v * 2)
+            | None -> None)
+
     Assert.Equal(Some 2, HashMap.get updated "a")
 
-    let inserted = HashMap.modifyAt (HashMap.make [ ("a", 1) ]) "b" (function Some v -> Some v | None -> Some 10)
+    let inserted =
+        HashMap.modifyAt (HashMap.make [ ("a", 1) ]) "b" (function
+            | Some v -> Some v
+            | None -> Some 10)
+
     Assert.Equal(Some 10, HashMap.get inserted "b")
 
     let removed = HashMap.modifyAt map1 "a" (fun _ -> None)
@@ -286,13 +311,16 @@ let ``structurally equal record keys address the same entry`` () =
 [<Fact>]
 let ``handles many inserts lookups and removals`` () =
     let mutable map = HashMap.empty<int, string>
+
     for i in 0..999 do
         map <- HashMap.set map i (sprintf "value%d" i)
+
     Assert.Equal(1000, HashMap.size map)
     Assert.Equal(Some "value42", HashMap.get map 42)
 
     for i in 0..499 do
         map <- HashMap.remove map i
+
     Assert.Equal(500, HashMap.size map)
     Assert.False(HashMap.has map 0)
     Assert.True(HashMap.has map 999)

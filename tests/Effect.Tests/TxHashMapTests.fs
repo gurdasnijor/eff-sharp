@@ -22,7 +22,8 @@ let ``set then get within a transaction`` () =
                 stm {
                     do! TxHashMap.set m "a" 1
                     return! TxHashMap.get m "a"
-                })
+                }
+            )
         )
 
     Assert.Equal(Some 1, value)
@@ -44,7 +45,8 @@ let ``multi-key writes commit atomically`` () =
             stm {
                 do! TxHashMap.set m "a" 1
                 do! TxHashMap.set m "b" 2
-            })
+            }
+        )
     )
 
     Assert.Equal(Some 1, run (TxRef.atomically (TxHashMap.get m "a")))

@@ -18,12 +18,15 @@ namespace Effect
 /// `CurrentMetadata` (a `Context.Reference`, which the port lacks) and the
 /// metadata threading; per-step `Schedule` and `while` predicates; input/error
 /// row-types (the single error channel uses one `'E`).
-
 /// One fallback step: a layer to provide, with a retry budget.
-type ExecutionStep<'E> = { Provide: Layer<'E, unit>; Attempts: int }
+type ExecutionStep<'E> =
+    { Provide: Layer<'E, unit>
+      Attempts: int }
 
 /// An ordered, non-empty list of fallback steps.
-type ExecutionPlan<'E> = internal { Steps: ExecutionStep<'E> list }
+type ExecutionPlan<'E> =
+    internal
+        { Steps: ExecutionStep<'E> list }
 
 /// Metadata describing the active step/attempt. (ExecutionPlan.Metadata)
 type Metadata = { Attempt: int; StepIndex: int }
@@ -62,8 +65,10 @@ module ExecutionPlan =
             let rec withRetries (remaining: int) : Effect<'A, 'E, unit> =
                 let once = Layer.provide s.Provide effect
 
-                if remaining <= 1 then once
-                else once |> Effect.catchAll (fun _ -> withRetries (remaining - 1))
+                if remaining <= 1 then
+                    once
+                else
+                    once |> Effect.catchAll (fun _ -> withRetries (remaining - 1))
 
             withRetries s.Attempts
 

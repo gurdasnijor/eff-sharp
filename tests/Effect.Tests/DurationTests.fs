@@ -14,7 +14,9 @@ let private inf = System.Double.PositiveInfinity
 let private ninf = System.Double.NegativeInfinity
 let private nan = System.Double.NaN
 
-let private obj fields = Duration.fromInputUnsafe (FromObject fields)
+let private obj fields =
+    Duration.fromInputUnsafe (FromObject fields)
+
 let private E = DurationObject.Empty
 
 [<Fact>]
@@ -51,7 +53,12 @@ let ``fromInputUnsafe`` () =
     Assert.Equal(Duration.negativeInfinity, Duration.fromInputUnsafe (FromString "-Infinity"))
 
     Assert.Equal(Duration.nanos (BigInteger 500123456789L), Duration.fromInputUnsafe (FromHrTime(500.0, 123456789.0)))
-    Assert.Equal(Duration.nanos (BigInteger -500000000000L + BigInteger 123456789), Duration.fromInputUnsafe (FromHrTime(-500.0, 123456789.0)))
+
+    Assert.Equal(
+        Duration.nanos (BigInteger -500000000000L + BigInteger 123456789),
+        Duration.fromInputUnsafe (FromHrTime(-500.0, 123456789.0))
+    )
+
     Assert.Equal(Duration.nanos (BigInteger 2), Duration.fromInputUnsafe (FromHrTime(0.0, 1.5)))
     Assert.Equal(Duration.nanos (BigInteger -2), Duration.fromInputUnsafe (FromHrTime(0.0, -1.5)))
     Assert.Equal(Duration.nanos (BigInteger 1), Duration.fromInputUnsafe (FromHrTime(0.0000000005, 0.5)))
@@ -70,17 +77,49 @@ let ``fromInputUnsafe`` () =
     Assert.Equal(Duration.minutes 45.0, obj { E with Minutes = Some 45.0 })
     Assert.Equal(Duration.seconds 30.0, obj { E with Seconds = Some 30.0 })
     Assert.Equal(Duration.millis 500.0, obj { E with Milliseconds = Some 500.0 })
-    Assert.Equal(Duration.sum (Duration.hours 1.0) (Duration.minutes 30.0), obj { E with Hours = Some 1.0; Minutes = Some 30.0 })
+
+    Assert.Equal(
+        Duration.sum (Duration.hours 1.0) (Duration.minutes 30.0),
+        obj
+            { E with
+                Hours = Some 1.0
+                Minutes = Some 30.0 }
+    )
+
     Assert.Equal(Duration.hours -1.0, obj { E with Hours = Some -1.0 })
-    Assert.Equal(Duration.nanos (BigInteger 1000000500L), obj { E with Seconds = Some 1.0; Nanoseconds = Some 500.0 })
+
+    Assert.Equal(
+        Duration.nanos (BigInteger 1000000500L),
+        obj
+            { E with
+                Seconds = Some 1.0
+                Nanoseconds = Some 500.0 }
+    )
+
     Assert.Equal(Duration.micros (BigInteger 100), obj { E with Microseconds = Some 100.0 })
     Assert.Equal(Duration.nanos (BigInteger -1500), obj { E with Microseconds = Some -1.5 })
     Assert.Equal(Duration.nanos (BigInteger 2), obj { E with Nanoseconds = Some 1.5 })
     Assert.Equal(Duration.nanos (BigInteger -2), obj { E with Nanoseconds = Some -1.5 })
-    Assert.Equal(Duration.nanos (BigInteger 1), obj { E with Milliseconds = Some 0.0000005; Nanoseconds = Some 0.5 })
+
     Assert.Equal(
-        Duration.sum (Duration.sum (Duration.days 1.0) (Duration.hours 2.0)) (Duration.sum (Duration.minutes 30.0) (Duration.seconds 15.0)),
-        obj { E with Days = Some 1.0; Hours = Some 2.0; Minutes = Some 30.0; Seconds = Some 15.0 })
+        Duration.nanos (BigInteger 1),
+        obj
+            { E with
+                Milliseconds = Some 0.0000005
+                Nanoseconds = Some 0.5 }
+    )
+
+    Assert.Equal(
+        Duration.sum
+            (Duration.sum (Duration.days 1.0) (Duration.hours 2.0))
+            (Duration.sum (Duration.minutes 30.0) (Duration.seconds 15.0)),
+        obj
+            { E with
+                Days = Some 1.0
+                Hours = Some 2.0
+                Minutes = Some 30.0
+                Seconds = Some 15.0 }
+    )
 
 [<Fact>]
 let ``fromInput`` () =
@@ -137,7 +176,11 @@ let ``min`` () =
 [<Fact>]
 let ``clamp`` () =
     Assert.Equal(Duration.millis 2.0, Duration.clamp (Duration.millis 2.0) (Duration.millis 3.0) (Duration.millis 1.0))
-    Assert.Equal(Duration.minutes 1.5, Duration.clamp (Duration.minutes 1.0) (Duration.minutes 2.0) (Duration.minutes 1.5))
+
+    Assert.Equal(
+        Duration.minutes 1.5,
+        Duration.clamp (Duration.minutes 1.0) (Duration.minutes 2.0) (Duration.minutes 1.5)
+    )
 
 [<Fact>]
 let ``equals`` () =
@@ -185,8 +228,12 @@ let ``divideUnsafe`` () =
 
     Assert.Equal(Duration.nanos (BigInteger 1), Duration.divideUnsafe (Duration.nanos (BigInteger 2)) 2.0)
     Assert.Equal(Duration.zero, Duration.divideUnsafe (Duration.nanos (BigInteger 1)) 3.0)
-    Assert.Throws<System.Exception>(fun () -> Duration.divideUnsafe (Duration.nanos (BigInteger 1)) 0.5 |> ignore) |> ignore
-    Assert.Throws<System.Exception>(fun () -> Duration.divideUnsafe (Duration.nanos (BigInteger 1)) 1.5 |> ignore) |> ignore
+
+    Assert.Throws<System.Exception>(fun () -> Duration.divideUnsafe (Duration.nanos (BigInteger 1)) 0.5 |> ignore)
+    |> ignore
+
+    Assert.Throws<System.Exception>(fun () -> Duration.divideUnsafe (Duration.nanos (BigInteger 1)) 1.5 |> ignore)
+    |> ignore
 
     Assert.Equal(Duration.infinity, Duration.divideUnsafe Duration.infinity 2.0)
 
@@ -215,7 +262,12 @@ let ``times`` () =
 [<Fact>]
 let ``sum`` () =
     Assert.Equal(Duration.minutes 1.0, Duration.sum (Duration.seconds 30.0) (Duration.seconds 30.0))
-    Assert.Equal(Duration.nanos (BigInteger 60), Duration.sum (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 30)))
+
+    Assert.Equal(
+        Duration.nanos (BigInteger 60),
+        Duration.sum (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 30))
+    )
+
     Assert.Equal(Duration.infinity, Duration.sum Duration.infinity (Duration.seconds 30.0))
     Assert.Equal(Duration.infinity, Duration.sum (Duration.seconds 30.0) Duration.infinity)
     Assert.Equal(Duration.infinity, Duration.sum Duration.infinity (Duration.nanos (BigInteger 1)))
@@ -227,9 +279,17 @@ let ``subtract`` () =
     Assert.Equal(Duration.zero, Duration.subtract (Duration.seconds 30.0) (Duration.seconds 30.0))
     Assert.Equal(Duration.seconds -10.0, Duration.subtract (Duration.seconds 30.0) (Duration.seconds 40.0))
 
-    Assert.Equal(Duration.nanos (BigInteger 20), Duration.subtract (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 10)))
+    Assert.Equal(
+        Duration.nanos (BigInteger 20),
+        Duration.subtract (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 10))
+    )
+
     Assert.Equal(Duration.zero, Duration.subtract (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 30)))
-    Assert.Equal(Duration.nanos (BigInteger -10), Duration.subtract (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 40)))
+
+    Assert.Equal(
+        Duration.nanos (BigInteger -10),
+        Duration.subtract (Duration.nanos (BigInteger 30)) (Duration.nanos (BigInteger 40))
+    )
 
     Assert.Equal(Duration.infinity, Duration.subtract Duration.infinity (Duration.seconds 30.0))
     Assert.Equal(Duration.negativeInfinity, Duration.subtract (Duration.seconds 30.0) Duration.infinity)
@@ -279,9 +339,35 @@ let ``format`` () =
 
 [<Fact>]
 let ``parts`` () =
-    Assert.Equal({ Days = inf; Hours = inf; Minutes = inf; Seconds = inf; Millis = inf; Nanos = inf }, Duration.parts Duration.infinity)
-    Assert.Equal({ Days = 0.0; Hours = 0.0; Minutes = 5.0; Seconds = 19.0; Millis = 500.0; Nanos = 0.0 }, Duration.parts (Duration.minutes 5.325))
-    Assert.Equal({ Days = 0.0; Hours = 0.0; Minutes = 3.0; Seconds = 6.0; Millis = 675.0; Nanos = 0.0 }, Duration.parts (Duration.minutes 3.11125))
+    Assert.Equal(
+        { Days = inf
+          Hours = inf
+          Minutes = inf
+          Seconds = inf
+          Millis = inf
+          Nanos = inf },
+        Duration.parts Duration.infinity
+    )
+
+    Assert.Equal(
+        { Days = 0.0
+          Hours = 0.0
+          Minutes = 5.0
+          Seconds = 19.0
+          Millis = 500.0
+          Nanos = 0.0 },
+        Duration.parts (Duration.minutes 5.325)
+    )
+
+    Assert.Equal(
+        { Days = 0.0
+          Hours = 0.0
+          Minutes = 3.0
+          Seconds = 6.0
+          Millis = 675.0
+          Nanos = 0.0 },
+        Duration.parts (Duration.minutes 3.11125)
+    )
 
 [<Fact>]
 let ``isDuration`` () =
@@ -320,7 +406,10 @@ let ``toNanos`` () =
 [<Fact>]
 let ``toNanosUnsafe`` () =
     Assert.Equal(BigInteger 1, Duration.toNanosUnsafe (Duration.nanos (BigInteger 1)))
-    Assert.Throws<System.Exception>(fun () -> Duration.toNanosUnsafe Duration.infinity |> ignore) |> ignore
+
+    Assert.Throws<System.Exception>(fun () -> Duration.toNanosUnsafe Duration.infinity |> ignore)
+    |> ignore
+
     Assert.Equal(BigInteger 1000500, Duration.toNanosUnsafe (Duration.millis 1.0005))
     Assert.Equal(BigInteger 2, Duration.toNanosUnsafe (Duration.millis 0.0000015))
     Assert.Equal(BigInteger -2, Duration.toNanosUnsafe (Duration.millis -0.0000015))
@@ -395,7 +484,15 @@ let ``negative values`` () =
     Assert.Equal(Duration.zero, Duration.times Duration.infinity 0.0)
     Assert.Equal(Duration.seconds -10.0, Duration.times (Duration.seconds 5.0) -2.0)
 
-    Assert.Equal({ Days = ninf; Hours = ninf; Minutes = ninf; Seconds = ninf; Millis = ninf; Nanos = ninf }, Duration.parts Duration.negativeInfinity)
+    Assert.Equal(
+        { Days = ninf
+          Hours = ninf
+          Minutes = ninf
+          Seconds = ninf
+          Millis = ninf
+          Nanos = ninf },
+        Duration.parts Duration.negativeInfinity
+    )
 
     Assert.Equal("-Infinity", Duration.toString Duration.negativeInfinity)
     Assert.Equal("-5 millis", Duration.toString (Duration.millis -5.0))
@@ -410,6 +507,7 @@ let ``match`` () =
             (fun () -> "infinity")
             (fun () -> "infinity")
             d
+
     Assert.Equal("millis: 100", m (Duration.millis 100.0))
     Assert.Equal("nanos: 10", m (Duration.nanos (BigInteger 10)))
     Assert.Equal("infinity", m Duration.infinity)

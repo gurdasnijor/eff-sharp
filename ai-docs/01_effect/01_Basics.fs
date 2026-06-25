@@ -26,7 +26,8 @@ let boom: Effect<int, string, unit> = Effect.fail "nope"
 
 /// `sync` defers a side-effecting thunk; exceptions become *defects* (the `Die`
 /// channel) rather than typed failures.
-let now: Effect<System.DateTime, string, unit> = Effect.sync (fun () -> System.DateTime.UtcNow)
+let now: Effect<System.DateTime, string, unit> =
+    Effect.sync (fun () -> System.DateTime.UtcNow)
 
 // ---------------------------------------------------------------------------
 // Composing with combinators (the lingua franca — works in any language)

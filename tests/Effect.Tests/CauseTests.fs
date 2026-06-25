@@ -83,7 +83,9 @@ let ``map transforms Fail reasons and leaves Die/Interrupt untouched`` () =
 [<Fact>]
 let ``map leaves a Fail-less cause's reasons intact`` () =
     // The mapping function must never run (no Fail reason present).
-    let mapped = Cause.map (fun (_: int) -> failwith "must not be called") (Cause.die (box "d"))
+    let mapped =
+        Cause.map (fun (_: int) -> failwith "must not be called") (Cause.die (box "d"))
+
     Assert.True(Cause.isDieReason mapped.Reasons.[0])
 
 [<Fact>]

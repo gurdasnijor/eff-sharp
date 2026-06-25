@@ -49,13 +49,16 @@ module TxPubSub =
     // --- constructors ---
 
     /// Bounded hub: publishers retry while any subscriber queue is full. (TxPubSub.bounded)
-    let bounded (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> = makeWith TxQueueStrategy.Bounded capacity
+    let bounded (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Bounded capacity
 
     /// Dropping hub: full subscriber queues drop the new message. (TxPubSub.dropping)
-    let dropping (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> = makeWith TxQueueStrategy.Dropping capacity
+    let dropping (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Dropping capacity
 
     /// Sliding hub: full subscriber queues evict their oldest message. (TxPubSub.sliding)
-    let sliding (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> = makeWith TxQueueStrategy.Sliding capacity
+    let sliding (capacity: int) : Effect<TxPubSub<'A>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Sliding capacity
 
     /// Unbounded hub: messages are always accepted. (TxPubSub.unbounded)
     let unbounded () : Effect<TxPubSub<'A>, 'Err, 'R> =
@@ -67,7 +70,8 @@ module TxPubSub =
     let capacity (self: TxPubSub<'A>) : int = self.Capacity
 
     /// Whether the hub has been shut down. (TxPubSub.isShutdown)
-    let isShutdown (self: TxPubSub<'A>) : Effect<bool, 'Err, 'R> = TxRef.atomically (TxRef.get self.ShutdownRef)
+    let isShutdown (self: TxPubSub<'A>) : Effect<bool, 'Err, 'R> =
+        TxRef.atomically (TxRef.get self.ShutdownRef)
 
     /// Max buffered size across subscriber queues. (TxPubSub.size)
     let size (self: TxPubSub<'A>) : Effect<int, 'Err, 'R> =
@@ -80,10 +84,16 @@ module TxPubSub =
                     return! maxLoop rest (max acc n)
                 }
 
-        TxRef.atomically (stm { let! subs = TxRef.get self.SubscribersRef in return! maxLoop subs 0 })
+        TxRef.atomically (
+            stm {
+                let! subs = TxRef.get self.SubscribersRef
+                return! maxLoop subs 0
+            }
+        )
 
     /// Whether all subscriber queues are empty. (TxPubSub.isEmpty)
-    let isEmpty (self: TxPubSub<'A>) : Effect<bool, 'Err, 'R> = size self |> Effect.map (fun s -> s = 0)
+    let isEmpty (self: TxPubSub<'A>) : Effect<bool, 'Err, 'R> =
+        size self |> Effect.map (fun s -> s = 0)
 
     /// Whether any subscriber queue is full. (TxPubSub.isFull)
     let isFull (self: TxPubSub<'A>) : Effect<bool, 'Err, 'R> =
@@ -99,7 +109,12 @@ module TxPubSub =
                         if full then return true else return! anyFull rest
                     }
 
-            TxRef.atomically (stm { let! subs = TxRef.get self.SubscribersRef in return! anyFull subs })
+            TxRef.atomically (
+                stm {
+                    let! subs = TxRef.get self.SubscribersRef
+                    return! anyFull subs
+                }
+            )
 
     // --- mutations ---
 
@@ -126,7 +141,8 @@ module TxPubSub =
         }
 
     /// (TxPubSub.publish)
-    let publish (self: TxPubSub<'A>) (value: 'A) : Effect<bool, 'Err, 'R> = TxRef.atomically (publishStm self value)
+    let publish (self: TxPubSub<'A>) (value: 'A) : Effect<bool, 'Err, 'R> =
+        TxRef.atomically (publishStm self value)
 
     /// Publish every item from a sequence. (TxPubSub.publishAll)
     let publishAll (self: TxPubSub<'A>) (values: seq<'A>) : Effect<bool, 'Err, 'R> =
@@ -153,7 +169,11 @@ module TxPubSub =
     let releaseSubscriber (self: TxPubSub<'A>) (queue: TxQueue<'A, unit>) : Effect<unit, 'Err, 'R> =
         TxRef.atomically (
             stm {
-                do! TxRef.update self.SubscribersRef (List.filter (fun q -> not (System.Object.ReferenceEquals(q, queue))))
+                do!
+                    TxRef.update
+                        self.SubscribersRef
+                        (List.filter (fun q -> not (System.Object.ReferenceEquals(q, queue))))
+
                 let! _ = TxQueue.shutdownStm queue
                 return ()
             }

@@ -15,7 +15,14 @@ let ``Tracer span has ids and a child inherits the parent's traceId`` () =
     let root = t.Span("root", Tracer.defaultSpanOptions)
     Assert.Equal("root", root.Name)
     Assert.True(root.SpanId.Length > 0)
-    let child = t.Span("child", { Tracer.defaultSpanOptions with Parent = Some(LiveSpan root) })
+
+    let child =
+        t.Span(
+            "child",
+            { Tracer.defaultSpanOptions with
+                Parent = Some(LiveSpan root) }
+        )
+
     Assert.Equal(root.TraceId, child.TraceId) // same trace
     Assert.NotEqual<string>(root.SpanId, child.SpanId) // distinct spans
 

@@ -21,12 +21,9 @@ namespace Effect
 ///     plumbing and are omitted (§3, §4).
 ///   * The dual data-first/data-last completion signatures collapse to plain
 ///     curried, self-first functions.
-
 /// A request for a value of type `'A` that may fail with `'E` and needs services
 /// `'R`. Implemented (as an empty marker) by concrete request types. (Request.Request)
-type Request<'A, 'E, 'R> =
-    interface
-    end
+type Request<'A, 'E, 'R> = interface end
 
 /// A pending request handed to a resolver: the original request, the captured
 /// context, an `Uninterruptible` flag used by batching internals, and the
@@ -62,12 +59,10 @@ module Request =
         Effect.sync (fun () -> self.CompleteUnsafe result)
 
     /// Completes an entry successfully with `value`. (Request.succeed)
-    let succeed (self: Entry<'A, 'E, 'R>) (value: 'A) : Effect<unit, 'E2, 'R2> =
-        complete self (Exit.succeed value)
+    let succeed (self: Entry<'A, 'E, 'R>) (value: 'A) : Effect<unit, 'E2, 'R2> = complete self (Exit.succeed value)
 
     /// Completes an entry with a typed failure. (Request.fail)
-    let fail (self: Entry<'A, 'E, 'R>) (error: 'E) : Effect<unit, 'E2, 'R2> =
-        complete self (Exit.fail error)
+    let fail (self: Entry<'A, 'E, 'R>) (error: 'E) : Effect<unit, 'E2, 'R2> = complete self (Exit.fail error)
 
     /// Completes an entry with a failure `Cause`. (Request.failCause)
     let failCause (self: Entry<'A, 'E, 'R>) (cause: Cause<'E>) : Effect<unit, 'E2, 'R2> =

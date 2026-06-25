@@ -13,7 +13,6 @@ namespace Effect
 /// intentionally omitted: they exist because TS is structurally typed at
 /// runtime, whereas F#'s static types make them unnecessary. The reason-level
 /// guards (`isFailReason` etc.) are kept since they narrow within a `Cause`.
-
 /// A single reason contributing to a `Cause`.
 [<RequireQualifiedAccess>]
 type Reason<'E> =
@@ -52,23 +51,41 @@ module Cause =
     let die (defect: obj) : Cause<'E> = { Reasons = [ Reason.Die defect ] }
 
     /// A cause from a single fiber interruption.
-    let interrupt (fiberId: int option) : Cause<'E> = { Reasons = [ Reason.Interrupt fiberId ] }
+    let interrupt (fiberId: int option) : Cause<'E> =
+        { Reasons = [ Reason.Interrupt fiberId ] }
 
     // --- reason guards ---
 
-    let isFailReason (reason: Reason<'E>) = match reason with Reason.Fail _ -> true | _ -> false
-    let isDieReason (reason: Reason<'E>) = match reason with Reason.Die _ -> true | _ -> false
-    let isInterruptReason (reason: Reason<'E>) = match reason with Reason.Interrupt _ -> true | _ -> false
+    let isFailReason (reason: Reason<'E>) =
+        match reason with
+        | Reason.Fail _ -> true
+        | _ -> false
+
+    let isDieReason (reason: Reason<'E>) =
+        match reason with
+        | Reason.Die _ -> true
+        | _ -> false
+
+    let isInterruptReason (reason: Reason<'E>) =
+        match reason with
+        | Reason.Interrupt _ -> true
+        | _ -> false
 
     // --- projections ---
 
     /// The typed failures within a cause, in order.
     let failures (cause: Cause<'E>) : 'E list =
-        cause.Reasons |> List.choose (function Reason.Fail e -> Some e | _ -> None)
+        cause.Reasons
+        |> List.choose (function
+            | Reason.Fail e -> Some e
+            | _ -> None)
 
     /// The defects within a cause, in order.
     let defects (cause: Cause<'E>) : obj list =
-        cause.Reasons |> List.choose (function Reason.Die d -> Some d | _ -> None)
+        cause.Reasons
+        |> List.choose (function
+            | Reason.Die d -> Some d
+            | _ -> None)
 
     // --- transformations ---
 
@@ -124,9 +141,16 @@ module Cause =
         | Reason.Fail e -> sprintf "Fail(%s)" (renderValue (box e))
         | Reason.Die d -> sprintf "Die(%s)" (renderValue d)
         | Reason.Interrupt id ->
-            let inner = match id with Some i -> string i | None -> "undefined"
+            let inner =
+                match id with
+                | Some i -> string i
+                | None -> "undefined"
+
             sprintf "Interrupt(%s)" inner
 
     /// `Cause([Fail("error"), ...])`
     let render (cause: Cause<'E>) : string =
-        cause.Reasons |> List.map renderReason |> String.concat ", " |> sprintf "Cause([%s])"
+        cause.Reasons
+        |> List.map renderReason
+        |> String.concat ", "
+        |> sprintf "Cause([%s])"

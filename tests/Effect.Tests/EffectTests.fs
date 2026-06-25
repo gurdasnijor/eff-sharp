@@ -18,7 +18,10 @@ type DivError = DivByZero
 type Config = { Factor: int }
 
 let private safeDiv a b : Effect<int, DivError, 'R> =
-    if b = 0 then Effect.fail DivByZero else Effect.succeed (a / b)
+    if b = 0 then
+        Effect.fail DivByZero
+    else
+        Effect.succeed (a / b)
 
 /// Run an async effect to completion for assertions.
 let private exitOf env eff = Effect.runSync env eff
@@ -114,7 +117,8 @@ let ``runAsync returns the success value`` () =
 let ``async typed failure lands in the Exit`` () =
     // promise then fail: the failure crosses an async boundary.
     let e: Effect<int, DivError, unit> =
-        Effect.promise (fun () -> delayed 1) |> Effect.flatMap (fun _ -> Effect.fail DivByZero)
+        Effect.promise (fun () -> delayed 1)
+        |> Effect.flatMap (fun _ -> Effect.fail DivByZero)
 
     Assert.Equal<Exit<int, DivError>>(Exit.fail DivByZero, exitOf () e)
 
@@ -201,7 +205,11 @@ let ``effect for-loop short-circuits on failure`` () =
     let program: Effect<unit, DivError, unit> =
         effect {
             for x in [ 1; 2; 3 ] do
-                do! (if x = 2 then Effect.fail DivByZero else Effect.sync (fun () -> seen.Add x))
+                do!
+                    (if x = 2 then
+                         Effect.fail DivByZero
+                     else
+                         Effect.sync (fun () -> seen.Add x))
         }
 
     Assert.Equal<Exit<unit, DivError>>(Exit.fail DivByZero, exitOf () program)
@@ -258,6 +266,7 @@ let ``effect try-finally runs the finalizer on failure`` () =
 /// A disposable that records its disposal into a shared log, for `use!` tests.
 type private Tracked(name: string, log: System.Collections.Generic.List<string>) =
     member _.Name = name
+
     interface System.IDisposable with
         member _.Dispose() = log.Add name
 
@@ -310,7 +319,8 @@ let ``catchAll does not recover a defect-only cause (Die propagates unchanged)``
     let boom = System.Exception "boom"
 
     let e: Effect<int, DivError, unit> =
-        Effect.failCause (Cause.die (box boom)) |> Effect.catchAll (fun _ -> Effect.succeed 99)
+        Effect.failCause (Cause.die (box boom))
+        |> Effect.catchAll (fun _ -> Effect.succeed 99)
 
     match exitOf () e with
     | Failure cause ->

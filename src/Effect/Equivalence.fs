@@ -43,8 +43,7 @@ module Equivalence =
     let BigInt: Equivalence<bigint> = fun self that -> self = that
 
     /// Combines two equivalences with logical AND (short-circuiting).
-    let combine (that: Equivalence<'a>) (self: Equivalence<'a>) : Equivalence<'a> =
-        fun x y -> self x y && that x y
+    let combine (that: Equivalence<'a>) (self: Equivalence<'a>) : Equivalence<'a> = fun x y -> self x y && that x y
 
     /// Combines a collection of equivalences with logical AND. An empty
     /// collection yields the always-true equivalence.
@@ -52,13 +51,11 @@ module Equivalence =
         fun x y -> collection |> Seq.forall (fun eq -> eq x y)
 
     /// Derives an equivalence for `'b` by mapping inputs into `'a` first.
-    let mapInput (f: 'b -> 'a) (self: Equivalence<'a>) : Equivalence<'b> =
-        fun x y -> self (f x) (f y)
+    let mapInput (f: 'b -> 'a) (self: Equivalence<'a>) : Equivalence<'b> = fun x y -> self (f x) (f y)
 
     /// Equivalence for arrays/lists: same length and element-wise equivalent.
     let Array (item: Equivalence<'a>) : Equivalence<'a list> =
-        fun self that ->
-            List.length self = List.length that && List.forall2 item self that
+        fun self that -> List.length self = List.length that && List.forall2 item self that
 
     /// Equivalence for a 2-tuple from per-position equivalences.
     let tuple2 (eqA: Equivalence<'a>) (eqB: Equivalence<'b>) : Equivalence<'a * 'b> =
@@ -73,7 +70,11 @@ module Equivalence =
     let record (value: Equivalence<'v>) : Equivalence<Map<'k, 'v>> =
         fun self that ->
             Map.count self = Map.count that
-            && self |> Map.forall (fun k v -> match Map.tryFind k that with Some w -> value v w | None -> false)
+            && self
+               |> Map.forall (fun k v ->
+                   match Map.tryFind k that with
+                   | Some w -> value v w
+                   | None -> false)
 
     /// Equivalence for `DateTime` values, compared by value (full tick resolution).
     let Date: Equivalence<System.DateTime> = fun self that -> self = that

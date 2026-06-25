@@ -49,7 +49,9 @@ module Pool =
     /// channel (defects/interrupts are left to propagate — acquisitions in the
     /// suite fail typed).
     let private toExit (eff: Effect<'A, obj, unit>) : Effect<Exit<'A, obj>, obj, unit> =
-        eff |> Effect.map Success |> Effect.catchAll (fun e -> Effect.succeed (Exit.fail e))
+        eff
+        |> Effect.map Success
+        |> Effect.catchAll (fun e -> Effect.succeed (Exit.fail e))
 
     /// Acquire one item into a fresh item-scope and add it to the available
     /// buffer. A failed acquisition still runs its registered finalizers
@@ -62,7 +64,11 @@ module Pool =
             pool.Acquire itemScope
             |> toExit
             |> Effect.flatMap (fun exit ->
-                let item: PoolItem<'A> = { Exit = exit; ItemScope = itemScope; Invalidated = false }
+                let item: PoolItem<'A> =
+                    { Exit = exit
+                      ItemScope = itemScope
+                      Invalidated = false }
+
                 lock pool.Lock (fun () -> pool.AllItems.Add item)
 
                 match exit with
@@ -77,7 +83,11 @@ module Pool =
     let private releaseAndReplace (pool: Pool<'A>) (item: PoolItem<'A>) : Effect<unit, obj, unit> =
         Effect.sync (fun () -> lock pool.Lock (fun () -> pool.AllItems.Remove item |> ignore))
         |> Effect.flatMap (fun () -> Scope.close item.ItemScope (Scope.eraseExit item.Exit))
-        |> Effect.flatMap (fun () -> if pool.ShuttingDown then Effect.succeed () else allocate pool)
+        |> Effect.flatMap (fun () ->
+            if pool.ShuttingDown then
+                Effect.succeed ()
+            else
+                allocate pool)
 
     /// Return a borrowed item to the pool (or release+replace it if invalidated).
     let private returnItem (pool: Pool<'A>) (item: PoolItem<'A>) : Effect<unit, obj, unit> =

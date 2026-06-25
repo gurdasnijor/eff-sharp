@@ -31,10 +31,14 @@ let private get (time: int64 ref) (eff: Effect<'A, 'E, Context>) : 'A =
 let ``get - miss invokes lookup, hit serves from cache (lookup runs once)`` () =
     let time = ref 0L
     let count = ref 0
+
     let cache: Cache<string, int, string> =
-        get time (Cache.make 10 (fun (k: string) -> Effect.sync (fun () ->
-            count.Value <- count.Value + 1
-            k.Length)))
+        get
+            time
+            (Cache.make 10 (fun (k: string) ->
+                Effect.sync (fun () ->
+                    count.Value <- count.Value + 1
+                    k.Length)))
 
     Assert.Equal<Exit<int, string>>(Exit.succeed 5, run time (Cache.get cache "hello"))
     Assert.Equal<Exit<int, string>>(Exit.succeed 5, run time (Cache.get cache "hello"))
@@ -44,10 +48,18 @@ let ``get - miss invokes lookup, hit serves from cache (lookup runs once)`` () =
 let ``get - caches failures`` () =
     let time = ref 0L
     let count = ref 0
+
     let cache: Cache<string, int, string> =
-        get time (Cache.make 10 (fun (k: string) -> Effect.suspend (fun () ->
-            count.Value <- count.Value + 1
-            if k = "error" then Effect.fail "boom" else Effect.succeed k.Length)))
+        get
+            time
+            (Cache.make 10 (fun (k: string) ->
+                Effect.suspend (fun () ->
+                    count.Value <- count.Value + 1
+
+                    if k = "error" then
+                        Effect.fail "boom"
+                    else
+                        Effect.succeed k.Length)))
 
     Assert.Equal<Exit<int, string>>(Exit.fail "boom", run time (Cache.get cache "error"))
     Assert.Equal<Exit<int, string>>(Exit.fail "boom", run time (Cache.get cache "error"))
@@ -56,7 +68,9 @@ let ``get - caches failures`` () =
 [<Fact>]
 let ``getOption - None before, Some after a get`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
 
     Assert.Equal<Exit<int option, string>>(Exit.succeed None, run time (Cache.getOption cache "hello"))
     run time (Cache.get cache "hello") |> ignore
@@ -65,9 +79,15 @@ let ``getOption - None before, Some after a get`` () =
 [<Fact>]
 let ``getSuccess - only resolved successes`` () =
     let time = ref 0L
+
     let cache: Cache<string, int, string> =
-        get time (Cache.make 10 (fun (k: string) ->
-            if k = "error" then Effect.fail "boom" else Effect.succeed k.Length))
+        get
+            time
+            (Cache.make 10 (fun (k: string) ->
+                if k = "error" then
+                    Effect.fail "boom"
+                else
+                    Effect.succeed k.Length))
 
     Assert.Equal<Exit<int option, string>>(Exit.succeed None, run time (Cache.getSuccess cache "hello"))
     run time (Cache.get cache "hello") |> ignore
@@ -82,7 +102,9 @@ let ``getSuccess - only resolved successes`` () =
 [<Fact>]
 let ``set - overrides the lookup value`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 100 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 100 (fun (k: string) -> Effect.succeed k.Length))
 
     Assert.Equal(4, get time (Cache.get cache "test"))
     run time (Cache.set cache "test" 999) |> ignore
@@ -91,7 +113,9 @@ let ``set - overrides the lookup value`` () =
 [<Fact>]
 let ``has / invalidate`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
 
     Assert.False(get time (Cache.has cache "hello"))
     run time (Cache.get cache "hello") |> ignore
@@ -103,10 +127,14 @@ let ``has / invalidate`` () =
 let ``invalidate - lookup runs again afterwards`` () =
     let time = ref 0L
     let count = ref 0
+
     let cache: Cache<string, int, string> =
-        get time (Cache.make 10 (fun (k: string) -> Effect.sync (fun () ->
-            count.Value <- count.Value + 1
-            k.Length)))
+        get
+            time
+            (Cache.make 10 (fun (k: string) ->
+                Effect.sync (fun () ->
+                    count.Value <- count.Value + 1
+                    k.Length)))
 
     run time (Cache.get cache "test") |> ignore
     run time (Cache.invalidate cache "test") |> ignore
@@ -116,7 +144,9 @@ let ``invalidate - lookup runs again afterwards`` () =
 [<Fact>]
 let ``invalidateWhen - removes only when the predicate matches`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
 
     run time (Cache.get cache "hello") |> ignore // 5
     run time (Cache.get cache "hi") |> ignore // 2
@@ -128,7 +158,9 @@ let ``invalidateWhen - removes only when the predicate matches`` () =
 [<Fact>]
 let ``invalidateAll / size`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
 
     run time (Cache.get cache "a") |> ignore
     run time (Cache.get cache "bb") |> ignore
@@ -144,10 +176,14 @@ let ``invalidateAll / size`` () =
 let ``refresh - always re-runs lookup and overwrites`` () =
     let time = ref 0L
     let counter = ref 0
+
     let cache: Cache<string, string, string> =
-        get time (Cache.make 10 (fun (k: string) -> Effect.sync (fun () ->
-            counter.Value <- counter.Value + 1
-            sprintf "%s-%d" k counter.Value)))
+        get
+            time
+            (Cache.make 10 (fun (k: string) ->
+                Effect.sync (fun () ->
+                    counter.Value <- counter.Value + 1
+                    sprintf "%s-%d" k counter.Value)))
 
     Assert.Equal("user-1", get time (Cache.get cache "user"))
     Assert.Equal("user-1", get time (Cache.get cache "user")) // cached
@@ -161,7 +197,9 @@ let ``refresh - always re-runs lookup and overwrites`` () =
 [<Fact>]
 let ``make - default infinite TTL never expires`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 10 (fun (k: string) -> Effect.succeed k.Length))
 
     run time (Cache.get cache "test") |> ignore
     time.Value <- 1000L * 60L * 60L * 1000L // 1000 hours later
@@ -170,6 +208,7 @@ let ``make - default infinite TTL never expires`` () =
 [<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
 let ``makeWithTtl - entries expire after the TTL`` () =
     let time = ref 0L
+
     let cache: Cache<string, int, string> =
         get time (Cache.makeWithTtl 10 (Duration.hours 1.0) (fun (k: string) -> Effect.succeed k.Length))
 
@@ -182,13 +221,20 @@ let ``makeWithTtl - entries expire after the TTL`` () =
 [<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
 let ``makeWith - dynamic TTL by exit`` () =
     let time = ref 0L
+
     let ttl (exit: Exit<int, string>) (_key: string) =
         match exit with
         | Success _ -> Duration.hours 1.0
         | Failure _ -> Duration.seconds 1.0
+
     let cache: Cache<string, int, string> =
-        get time (Cache.makeWith 10 ttl (fun (k: string) ->
-            if k = "fail" then Effect.fail "boom" else Effect.succeed k.Length))
+        get
+            time
+            (Cache.makeWith 10 ttl (fun (k: string) ->
+                if k = "fail" then
+                    Effect.fail "boom"
+                else
+                    Effect.succeed k.Length))
 
     run time (Cache.get cache "ok") |> ignore
     run time (Cache.get cache "fail") |> ignore
@@ -205,7 +251,9 @@ let ``makeWith - dynamic TTL by exit`` () =
 [<Fact>]
 let ``capacity - exceeding it evicts the oldest entry`` () =
     let time = ref 0L
-    let cache: Cache<string, int, string> = get time (Cache.make 2 (fun (k: string) -> Effect.succeed k.Length))
+
+    let cache: Cache<string, int, string> =
+        get time (Cache.make 2 (fun (k: string) -> Effect.succeed k.Length))
 
     run time (Cache.set cache "a" 1) |> ignore
     run time (Cache.set cache "b" 2) |> ignore

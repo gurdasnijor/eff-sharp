@@ -26,7 +26,6 @@ open System.Text
 ///     floats, matching upstream.
 ///   * `Cause.NoSuchElementError` is not in the ported `Cause`; a local
 ///     `NoSuchElementError` exception stands in for `choice`'s empty failure.
-
 /// The random-number service. Mirrors upstream `{ nextIntUnsafe, nextDoubleUnsafe }`.
 type Random =
     { NextIntUnsafe: unit -> float
@@ -64,8 +63,10 @@ module Random =
     /// numeric seed from a string seed.
     let private fnv1a (s: string) : int =
         let mutable h = 2166136261u
+
         for b in Encoding.UTF8.GetBytes s do
             h <- (h ^^^ uint32 b) * 16777619u
+
         int h
 
     /// A deterministic generator for `seed` (same seed → same sequence).
@@ -92,13 +93,16 @@ module Random =
             })
 
     /// A random double in `[0, 1)`. (Random.next)
-    let next<'E> : Effect<float, 'E, Context> = randomWith (fun r -> r.NextDoubleUnsafe())
+    let next<'E> : Effect<float, 'E, Context> =
+        randomWith (fun r -> r.NextDoubleUnsafe())
 
     /// A random boolean (`nextDouble > 0.5`). (Random.nextBoolean)
-    let nextBoolean<'E> : Effect<bool, 'E, Context> = randomWith (fun r -> r.NextDoubleUnsafe() > 0.5)
+    let nextBoolean<'E> : Effect<bool, 'E, Context> =
+        randomWith (fun r -> r.NextDoubleUnsafe() > 0.5)
 
     /// A random safe integer. (Random.nextInt)
-    let nextInt<'E> : Effect<float, 'E, Context> = randomWith (fun r -> r.NextIntUnsafe())
+    let nextInt<'E> : Effect<float, 'E, Context> =
+        randomWith (fun r -> r.NextIntUnsafe())
 
     /// A random double in `[min, max)`. (Random.nextBetween)
     let nextBetween (min: float) (max: float) : Effect<float, 'E, Context> =
@@ -133,7 +137,8 @@ module Random =
         if buffer.Length = 0 then
             Effect.fail (NoSuchElementError "Cannot select a random element from an empty array")
         else
-            randomWith (fun r -> buffer.[min (buffer.Length - 1) (int (floor (r.NextDoubleUnsafe() * float buffer.Length)))])
+            randomWith (fun r ->
+                buffer.[min (buffer.Length - 1) (int (floor (r.NextDoubleUnsafe() * float buffer.Length)))])
 
     /// Run `self` with a deterministic generator for `seed`. (Random.withSeed)
     let withSeed (seed: Seed) (self: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =

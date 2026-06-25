@@ -16,7 +16,10 @@ let private S = BigDecimal.fromStringUnsafe
 let private bd (v: int) (s: int) = BigDecimal.make (BigInteger v) s
 
 let private assertEq (expected: BigDecimal) (actual: BigDecimal) =
-    Assert.True(BigDecimal.equals expected actual, sprintf "expected %s = %s" (BigDecimal.format expected) (BigDecimal.format actual))
+    Assert.True(
+        BigDecimal.equals expected actual,
+        sprintf "expected %s = %s" (BigDecimal.format expected) (BigDecimal.format actual)
+    )
 
 let private assertSomeEq (expected: BigDecimal) (actual: BigDecimal option) =
     match actual with
@@ -136,13 +139,31 @@ let ``divide`` () =
     assertDivide "100" "5" "20"
     assertDivide "-50" "5" "-10"
     assertDivide "200" "-5" "-40.0"
-    assertDivide "1" "3" "0.3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"
-    assertDivide "-2" "-3" "0.6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"
-    assertDivide "-12.34" "1.233" "-10.00811030008110300081103000811030008110300081103000811030008110300081103000811030008110300081103001"
-    assertDivide "125348" "352.2283" "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"
+
+    assertDivide
+        "1"
+        "3"
+        "0.3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"
+
+    assertDivide
+        "-2"
+        "-3"
+        "0.6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"
+
+    assertDivide
+        "-12.34"
+        "1.233"
+        "-10.00811030008110300081103000811030008110300081103000811030008110300081103000811030008110300081103001"
+
+    assertDivide
+        "125348"
+        "352.2283"
+        "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"
 
     Assert.True((BigDecimal.divide (S "5") (S "0")).IsNone)
-    Assert.Throws<System.InvalidOperationException>(fun () -> BigDecimal.divideUnsafe (S "5") (S "0") |> ignore) |> ignore
+
+    Assert.Throws<System.InvalidOperationException>(fun () -> BigDecimal.divideUnsafe (S "5") (S "0") |> ignore)
+    |> ignore
 
 [<Fact>]
 let ``Equivalence`` () =
@@ -243,7 +264,9 @@ let ``remainderUnsafe`` () =
     assertEq (S "1") (BigDecimal.remainderUnsafe (S "5") (S "2"))
     assertEq (S "0") (BigDecimal.remainderUnsafe (S "4") (S "2"))
     assertEq (S "0.056") (BigDecimal.remainderUnsafe (S "123.456") (S "0.2"))
-    Assert.Throws<System.InvalidOperationException>(fun () -> BigDecimal.remainderUnsafe (S "5") (S "0") |> ignore) |> ignore
+
+    Assert.Throws<System.InvalidOperationException>(fun () -> BigDecimal.remainderUnsafe (S "5") (S "0") |> ignore)
+    |> ignore
 
 [<Fact>]
 let ``normalize`` () =

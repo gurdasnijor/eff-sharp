@@ -21,10 +21,10 @@ open System.Threading.Tasks
 ///     so `dispose` interrupts them — standing in for upstream's `Fiber.runIn`.
 ///   * Dropped: `runCallback`, `RunOptions`/scheduler overrides, the `TypeId`
 ///     brand, and the JS `Promise`-flavoured `context()` (use `contextEffect`).
-
 /// A reference-keyed cache of built contexts, shareable across runtimes.
 type MemoMap =
-    internal { Built: System.Collections.Generic.Dictionary<obj, Context> }
+    internal
+        { Built: System.Collections.Generic.Dictionary<obj, Context> }
 
 /// A runtime built from a `Layer`, executing effects against the layer's services.
 type ManagedRuntime<'E> =
@@ -87,7 +87,8 @@ module ManagedRuntime =
                             ctx))
 
     let private provide (self: ManagedRuntime<'E>) (effect: Effect<'A, 'E, Context>) : Effect<'A, 'E, unit> =
-        contextEffect self |> Effect.flatMap (fun ctx -> Effect.provideContext ctx effect)
+        contextEffect self
+        |> Effect.flatMap (fun ctx -> Effect.provideContext ctx effect)
 
     // --- runners ---
 
@@ -115,7 +116,8 @@ module ManagedRuntime =
             |> Effect.flatMap (fun ctx ->
                 Effect.fork (Effect.provideContext ctx effect)
                 |> Effect.flatMap (fun fiber ->
-                    Scope.addFinalizer self.Scope (Effect.interrupt fiber) |> Effect.map (fun () -> fiber)))
+                    Scope.addFinalizer self.Scope (Effect.interrupt fiber)
+                    |> Effect.map (fun () -> fiber)))
 
         match Effect.runSync () program with
         | Success fiber -> fiber

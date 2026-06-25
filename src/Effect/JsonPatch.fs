@@ -17,7 +17,6 @@ namespace Effect
 /// Following the Cause/Exit house pattern, the data types live at namespace
 /// level (so their cases are usable unqualified) and the operations live in a
 /// `[<RequireQualifiedAccess>]` module.
-
 /// An untyped JSON value (locally defined; mirrors `Schema.Json`).
 /// Object members are a `Map`, giving order-independent structural equality and
 /// sorted-key iteration — matching upstream's sorted-key diff output.
@@ -51,6 +50,7 @@ module JsonPatch =
     /// of upstream's in-place `prefixPathInPlace`).
     let private prefixPath (parent: string) (op: Operation) : Operation =
         let pre (p: string) = if p = "" then parent else parent + p
+
         match op with
         | Add(p, v) -> Add(pre p, v)
         | Remove p -> Remove(pre p)
@@ -75,6 +75,7 @@ module JsonPatch =
                 let prefixed =
                     [ for i in 0 .. shared - 1 do
                           let path = sprintf "/%d" i
+
                           for op in get av.[i] bv.[i] do
                               yield prefixPath path op ]
 
@@ -93,6 +94,7 @@ module JsonPatch =
 
                 [ for key in allKeys do
                       let path = "/" + JsonPointer.escapeToken key
+
                       match Map.tryFind key a, Map.tryFind key b with
                       | Some va, Some vb ->
                           for op in get va vb do
@@ -135,10 +137,7 @@ module JsonPatch =
 
     /// Walk to the parent of `pointer`, recording the path. Returns None if the
     /// parent path cannot be resolved.
-    let private resolveParent
-        (doc: Json)
-        (pointer: string)
-        : (StackEntry list * Json * string) option =
+    let private resolveParent (doc: Json) (pointer: string) : (StackEntry list * Json * string) option =
         match tokenize pointer with
         | [] -> None // caller handles root
         | tokens ->
@@ -152,8 +151,11 @@ module JsonPatch =
                     match cur with
                     | JArray xs ->
                         let idx = toIndex token
-                        if idx < 0 || idx >= xs.Length then None
-                        else walk (ArrEntry(xs, idx) :: stack) xs.[idx] tl
+
+                        if idx < 0 || idx >= xs.Length then
+                            None
+                        else
+                            walk (ArrEntry(xs, idx) :: stack) xs.[idx] tl
                     | JObject m ->
                         match Map.tryFind token m with
                         | Some v -> walk (ObjEntry(m, token) :: stack) v tl
@@ -182,8 +184,10 @@ module JsonPatch =
                 match parent with
                 | JArray xs ->
                     let idx = if lastToken = "-" then xs.Length else toIndex lastToken
+
                     if idx < 0 || idx > xs.Length then
                         failwithf "Array index out of bounds at \"%s\"." pointer
+
                     rebuildFromStack stack (JArray(List.insertAt idx value xs))
                 | JObject m -> rebuildFromStack stack (JObject(Map.add lastToken value m))
                 | _ -> failwithf "Cannot add at \"%s\" (parent not found or not a container)." pointer
@@ -202,19 +206,29 @@ module JsonPatch =
                 | JArray xs ->
                     if lastToken = "-" then
                         failwithf "\"-\" is not valid for %s at \"%s\"." mode pointer
+
                     let idx = toIndex lastToken
+
                     if idx < 0 || idx >= xs.Length then
                         failwithf "Array index out of bounds at \"%s\"." pointer
+
                     let updated =
-                        if mode = "remove" then List.removeAt idx xs
-                        else List.updateAt idx (Option.get value) xs
+                        if mode = "remove" then
+                            List.removeAt idx xs
+                        else
+                            List.updateAt idx (Option.get value) xs
+
                     rebuildFromStack stack (JArray updated)
                 | JObject m ->
                     if not (Map.containsKey lastToken m) then
                         failwithf "Property \"%s\" does not exist at \"%s\"." lastToken pointer
+
                     let updated =
-                        if mode = "remove" then Map.remove lastToken m
-                        else Map.add lastToken (Option.get value) m
+                        if mode = "remove" then
+                            Map.remove lastToken m
+                        else
+                            Map.add lastToken (Option.get value) m
+
                     rebuildFromStack stack (JObject updated)
                 | _ -> failwithf "Cannot %s at \"%s\" (parent not found or not a container)." mode pointer
 
@@ -226,7 +240,10 @@ module JsonPatch =
             (fun doc op ->
                 match op with
                 | Replace(path, value) ->
-                    if path = "" then value else setAt doc path (Some value) "replace"
+                    if path = "" then
+                        value
+                    else
+                        setAt doc path (Some value) "replace"
                 | Add(path, value) -> addAt doc path value
                 | Remove path -> setAt doc path None "remove")
             oldValue

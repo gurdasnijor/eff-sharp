@@ -45,12 +45,14 @@ type Shape =
 let ``taggedEnum: constructors carry their tag and fields`` () =
     let c = Circle 5.0
     Assert.Equal("Circle", Data.tagOf c)
+
     match c with
     | Circle r -> Assert.Equal(5.0, r)
     | _ -> failwith "expected Circle"
 
     let r = Rect(3.0, 4.0)
     Assert.Equal("Rect", Data.tagOf r)
+
     match r with
     | Rect(w, h) ->
         Assert.Equal(3.0, w)
@@ -69,6 +71,7 @@ let ``taggedEnum: $match lowers to a native match`` () =
         function
         | Circle radius -> System.Math.PI * radius ** 2.0
         | Rect(width, height) -> width * height
+
     Assert.Equal(System.Math.PI * 25.0, area (Circle 5.0))
     Assert.Equal(12.0, area (Rect(3.0, 4.0)))
 

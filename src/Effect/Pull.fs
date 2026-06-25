@@ -17,7 +17,6 @@ namespace Effect
 /// The Effect-kernel-coupled helpers (`matchEffect`, `catchDone`) are
 /// implemented by destructuring the effect's `Async<Exit>` directly; they need
 /// no fiber/runtime scheduler.
-
 /// Normal-completion marker carrying a leftover value. Upstream `Cause.Done<L>`.
 type Done<'L> = { Leftover: 'L }
 
@@ -49,7 +48,8 @@ module Pull =
         | _ -> false
 
     /// Whether a `Cause` contains any `Done` failure.
-    let isDoneCause (cause: Cause<obj>) : bool = cause.Reasons |> List.exists isDoneFailure
+    let isDoneCause (cause: Cause<obj>) : bool =
+        cause.Reasons |> List.exists isDoneFailure
 
     // --- Cause-level filters (built from Filter, as upstream) ---
 
@@ -57,21 +57,28 @@ module Pull =
     /// passes the error, fails with the whole cause when none is present.
     let findError: Filter<Cause<obj>, obj, Cause<obj>> =
         fun cause ->
-            match cause.Reasons |> List.tryPick (function Reason.Fail e -> Some e | _ -> None) with
+            match
+                cause.Reasons
+                |> List.tryPick (function
+                    | Reason.Fail e -> Some e
+                    | _ -> None)
+            with
             | Some e -> Ok e
             | None -> Error cause
 
     /// Extracts the `Done` marker from a cause when its first error is a `Done`;
     /// otherwise fails with the original cause.
     let filterDone: Filter<Cause<obj>, obj, Cause<obj>> =
-        findError |> Filter.composePassthrough (fun e -> if isDone e then Ok e else Error e)
+        findError
+        |> Filter.composePassthrough (fun e -> if isDone e then Ok e else Error e)
 
     /// Like `filterDone` (the done payload is not used).
     let filterDoneVoid: Filter<Cause<obj>, obj, Cause<obj>> = filterDone
 
     /// Extracts the leftover value carried by a `Done` completion.
     let filterDoneLeftover: Filter<Cause<obj>, obj, Cause<obj>> =
-        findError |> Filter.composePassthrough (fun e -> if isDone e then Ok(leftoverOf e) else Error e)
+        findError
+        |> Filter.composePassthrough (fun e -> if isDone e then Ok(leftoverOf e) else Error e)
 
     /// Keeps a cause only when it contains no `Done` failures.
     let filterNoDone: Filter<Cause<obj>, Cause<obj>, Cause<obj>> =
@@ -108,6 +115,7 @@ module Pull =
             async {
                 let (Effect run) = self
                 let! exit = run fib r
+
                 match exit with
                 | Success a ->
                     let (Effect run2) = onSuccess a

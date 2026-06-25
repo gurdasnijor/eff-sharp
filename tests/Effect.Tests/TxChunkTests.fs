@@ -27,7 +27,8 @@ let ``append and prepend within one transaction commit together`` () =
             stm {
                 do! TxChunk.prepend tx 0
                 do! TxChunk.append tx 4
-            })
+            }
+        )
     )
 
     let chunk = run (TxRef.atomically (TxChunk.get tx))

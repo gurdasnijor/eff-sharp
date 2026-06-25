@@ -205,7 +205,9 @@ let ``complex key`` () =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope (Some 1) (fun _ -> Duration.zero) (fun (k: Key) _ -> Effect.succeed k.Id)
+
+                return!
+                    RcMap.makeWith mapScope (Some 1) (fun _ -> Duration.zero) (fun (k: Key) _ -> Effect.succeed k.Id)
             }
         )
 
@@ -249,7 +251,12 @@ let ``keys lookup`` () =
 let ``dynamic idleTimeToLive`` () =
     let addAcq, snapAcq = mkLog ()
     let addRel, snapRel = mkLog ()
-    let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 80.0 else Duration.millis 300.0
+
+    let ttl (k: string) =
+        if k.StartsWith "short:" then
+            Duration.millis 80.0
+        else
+            Duration.millis 300.0
 
     let map =
         run (
@@ -274,7 +281,12 @@ let ``dynamic idleTimeToLive`` () =
 let ``dynamic idleTimeToLive with touch`` () =
     let addAcq, snapAcq = mkLog ()
     let addRel, snapRel = mkLog ()
-    let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 150.0 else Duration.millis 2000.0
+
+    let ttl (k: string) =
+        if k.StartsWith "short:" then
+            Duration.millis 150.0
+        else
+            Duration.millis 2000.0
 
     let map =
         run (

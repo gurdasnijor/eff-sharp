@@ -28,6 +28,7 @@ let combined: Stream<int, string, unit> =
     stream {
         yield 1 // a single element
         yield! Stream.fromIterable [ 2; 3 ] // splice another stream
+
         for x in [ 4; 5 ] do
             yield x // a loop
     }
@@ -62,7 +63,8 @@ let taskSchema: Schema<Task> =
         let! title = Schema.field "title" (Schema.string |> Schema.minLength 1) (fun (t: Task) -> t.Title)
 
         and! priority =
-            Schema.field "priority" (Schema.literalMap [ JString "low", Low; JString "high", High ]) (fun t -> t.Priority)
+            Schema.field "priority" (Schema.literalMap [ JString "low", Low; JString "high", High ]) (fun t ->
+                t.Priority)
 
         return { Title = title; Priority = priority }
     }

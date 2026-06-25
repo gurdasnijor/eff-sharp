@@ -95,7 +95,9 @@ module PartitionedSemaphore =
             elif self.KeyOrder.Count = 0 then
                 remaining <- 0
             else
-                if self.Rr >= self.KeyOrder.Count then self.Rr <- 0
+                if self.Rr >= self.KeyOrder.Count then
+                    self.Rr <- 0
+
                 let key = self.KeyOrder.[self.Rr]
                 let set = self.Partitions.[key]
                 let waiter = set.First.Value
@@ -112,8 +114,10 @@ module PartitionedSemaphore =
         self.Total
 
     let private tryTakeUnsafe (self: PartitionedSemaphore<'K>) (permits: int) : bool =
-        if permits <= 0 then true
-        elif self.Capacity < permits || self.Total < permits then false
+        if permits <= 0 then
+            true
+        elif self.Capacity < permits || self.Total < permits then
+            false
         else
             self.Total <- self.Total - permits
             true
@@ -166,7 +170,7 @@ module PartitionedSemaphore =
                     match action with
                     | Choice1Of2 forever -> do! Async.AwaitTask forever.Task
                     | Choice2Of2 None -> ()
-                    | Choice2Of2 (Some tcs) -> do! Async.AwaitTask tcs.Task
+                    | Choice2Of2(Some tcs) -> do! Async.AwaitTask tcs.Task
 
                     return Success()
                 })
@@ -189,7 +193,9 @@ module PartitionedSemaphore =
         else
             take self key permits
             |> Effect.flatMap (fun () ->
-                Effect.ensuring (Effect.sync (fun () -> lock self.Lock (fun () -> releaseUnsafe self permits |> ignore))) effect)
+                Effect.ensuring
+                    (Effect.sync (fun () -> lock self.Lock (fun () -> releaseUnsafe self permits |> ignore)))
+                    effect)
 
     /// `withPermits` with a single permit. (PartitionedSemaphore.withPermit)
     let withPermit (self: PartitionedSemaphore<'K>) (key: 'K) (effect: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =

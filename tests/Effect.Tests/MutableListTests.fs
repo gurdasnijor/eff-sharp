@@ -47,7 +47,10 @@ let ``filter keeps matching values in place and updates length`` () =
 [<Fact>]
 let ``remove deletes all strictly equal values and updates length`` () =
     let list = MutableList.make<string> ()
-    MutableList.appendAll list [ "apple"; "banana"; "apple"; "cherry"; "apple" ] |> ignore
+
+    MutableList.appendAll list [ "apple"; "banana"; "apple"; "cherry"; "apple" ]
+    |> ignore
+
     MutableList.remove list "apple"
     Assert.Equal<string[]>([| "banana"; "cherry" |], MutableList.toArrayN list 2)
     Assert.Equal(2, list.Length)

@@ -160,8 +160,9 @@ let ``size`` () =
 [<Fact>]
 let ``end completes takes after draining`` () =
     let exit =
-        Effect.runSync () (
-            effect {
+        Effect.runSync
+            ()
+            (effect {
                 let! q = Queue.bounded 2
                 let! _ = Queue.offer q 1
                 let! _ = Queue.offer q 2
@@ -170,8 +171,7 @@ let ``end completes takes after draining`` () =
                 let! b = Queue.take q
                 // third take must fail with the Done marker
                 return! Queue.take q |> Effect.map (fun c -> (a, b, c))
-            }
-        )
+            })
 
     match exit with
     | Failure c -> Assert.True(causeIsDone c)
@@ -210,16 +210,16 @@ let ``collect does not duplicate messages`` () =
 [<Fact>]
 let ``fail drains buffered values before failing takers`` () =
     let exit =
-        Effect.runSync () (
-            effect {
+        Effect.runSync
+            ()
+            (effect {
                 let! q = Queue.unbounded ()
                 let! _ = Queue.offerAll q [ 1; 2; 3; 4; 5 ]
                 let! _ = Queue.fail q (box "boom")
                 let! drained = Queue.takeAll q
                 // next takeAll fails with the boxed error
                 return! Queue.takeAll q |> Effect.map (fun _ -> drained)
-            }
-        )
+            })
 
     match exit with
     | Success drained -> Assert.True(false, sprintf "expected failure, drained %A" drained)

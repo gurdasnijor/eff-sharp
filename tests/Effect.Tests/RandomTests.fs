@@ -18,10 +18,12 @@ let private run (ctx: Context) (eff: Effect<'A, 'E, Context>) : 'A =
 let private mockDoubles (values: float list) : Context =
     let arr = List.toArray values
     let mutable i = 0
+
     let nextDouble () =
         let v = if i < arr.Length then arr.[i] else 0.0
         i <- i + 1
         v
+
     Context.make Random.tag (Random.ofDouble nextDouble)
 
 let private empty = Context.empty
@@ -53,6 +55,7 @@ let ``nextBoolean is deterministic with the same seed`` () =
 [<Fact>]
 let ``nextBoolean uses a strict greater-than threshold`` () =
     let ctx = mockDoubles [ 0.5; 0.500001; 0.1 ]
+
     let program =
         effect {
             let! a = Random.nextBoolean
@@ -60,6 +63,7 @@ let ``nextBoolean uses a strict greater-than threshold`` () =
             let! c = Random.nextBoolean
             return [ a; b; c ]
         }
+
     Assert.Equal<bool list>([ false; true; false ], run ctx program)
 
 [<Fact>]
@@ -140,11 +144,12 @@ let ``choice is deterministic with the same seed`` () =
             let! c = Random.choice [ 1; 2; 3; 4; 5 ]
             return [ a; b; c ]
         }
+
     let r1 = run empty (Random.withSeed (SeedString "choice-seed") program)
     let r2 = run empty (Random.withSeed (SeedString "choice-seed") program)
     Assert.Equal<int list>(r1, r2)
 
-let private seq5 : Effect<float list, string, Context> =
+let private seq5: Effect<float list, string, Context> =
     effect {
         let! a = Random.next
         let! b = Random.next

@@ -26,6 +26,7 @@ namespace Effect
 ///     `System.Exception`.
 type BrandError =
     { Message: string }
+
     override this.ToString() = sprintf "BrandError(%s)" this.Message
 
 /// Raised by `Constructor.Construct` when validation fails. Carries the
@@ -35,14 +36,16 @@ exception BrandException of BrandError with
 
 /// A constructor for a branded/refined value.
 type Constructor<'A> =
-    { /// Construct, throwing on invalid input.
-      Construct: 'A -> 'A
-      /// Construct, yielding `None` on invalid input.
-      Option: 'A -> 'A option
-      /// Construct, yielding `Error (BrandError ...)` on invalid input.
-      Result: 'A -> Result<'A, BrandError>
-      /// `true` when the input is valid.
-      Is: 'A -> bool }
+    {
+        /// Construct, throwing on invalid input.
+        Construct: 'A -> 'A
+        /// Construct, yielding `None` on invalid input.
+        Option: 'A -> 'A option
+        /// Construct, yielding `Error (BrandError ...)` on invalid input.
+        Result: 'A -> Result<'A, BrandError>
+        /// `true` when the input is valid.
+        Is: 'A -> bool
+    }
 
 [<RequireQualifiedAccess>]
 module Brand =
@@ -59,8 +62,9 @@ module Brand =
     let make (filter: 'a -> Result<unit, string>) : Constructor<'a> =
         let result (input: 'a) : Result<'a, BrandError> =
             match filter input with
-            | Ok () -> Ok input
+            | Ok() -> Ok input
             | Error message -> Error { Message = message }
+
         { Construct =
             fun input ->
                 match result input with

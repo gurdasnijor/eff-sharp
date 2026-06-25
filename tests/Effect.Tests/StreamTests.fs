@@ -15,6 +15,7 @@ let ``stream { } yields, yield!s, and for-loops`` () =
             yield 1
             yield 2
             yield! Stream.range 3 4
+
             for x in [ 5; 6 ] do
                 yield x * 10
         }
@@ -46,7 +47,11 @@ let ``take stops the producer early`` () =
 [<Fact>]
 let ``runForEach runs an effect per element`` () =
     let sum = ref 0
-    let prog = Stream.range 1 5 |> Stream.runForEach (fun n -> Effect.sync (fun () -> sum.Value <- sum.Value + n))
+
+    let prog =
+        Stream.range 1 5
+        |> Stream.runForEach (fun n -> Effect.sync (fun () -> sum.Value <- sum.Value + n))
+
     Assert.Equal<Exit<unit, string>>(Exit.succeed (), Effect.runSync () prog)
     Assert.Equal(15, sum.Value)
 

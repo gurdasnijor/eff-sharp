@@ -11,8 +11,15 @@ open Effect
 // slice. UTC `parseUnsafe(expr, Some "UTC")` is treated as plain UTC stepping.
 
 let private mk (values: CronValues) = Cron.make values
+
 let private cv =
-    { Seconds = None; Minutes = []; Hours = []; Days = []; Months = []; Weekdays = []; Tz = None }
+    { Seconds = None
+      Minutes = []
+      Hours = []
+      Days = []
+      Months = []
+      Weekdays = []
+      Tz = None }
 
 let private dt s = DateTime.makeUnsafe (InputString s)
 let private parseU s = Cron.parseUnsafe s None
@@ -23,6 +30,7 @@ let ``isCronParseError`` () =
     match Cron.parse "" None with
     | Error e -> Assert.True(Cron.isCronParseError (box e))
     | Ok _ -> Assert.Fail "expected failure"
+
     Assert.False(Cron.isCronParseError (box (System.Exception "regular error")))
     Assert.False(Cron.isCronParseError (box "not an error"))
 
@@ -38,14 +46,44 @@ let ``CronParseError constructor`` () =
 [<Fact>]
 let ``parse`` () =
     Assert.Equal(
-        Ok(mk { cv with Minutes = [ 0 ]; Hours = [ 4 ]; Days = [ 8; 9; 10; 11; 12; 13; 14 ]; Months = []; Weekdays = [] }),
-        Cron.parse "0 4 8-14 * 0-6" None)
+        Ok(
+            mk
+                { cv with
+                    Minutes = [ 0 ]
+                    Hours = [ 4 ]
+                    Days = [ 8; 9; 10; 11; 12; 13; 14 ]
+                    Months = []
+                    Weekdays = [] }
+        ),
+        Cron.parse "0 4 8-14 * 0-6" None
+    )
+
     Assert.Equal(
-        Ok(mk { cv with Minutes = [ 0 ]; Hours = [ 0 ]; Days = [ 1; 15 ]; Months = []; Weekdays = [ 3 ] }),
-        Cron.parse "0 0 1,15 * 3" None)
+        Ok(
+            mk
+                { cv with
+                    Minutes = [ 0 ]
+                    Hours = [ 0 ]
+                    Days = [ 1; 15 ]
+                    Months = []
+                    Weekdays = [ 3 ] }
+        ),
+        Cron.parse "0 0 1,15 * 3" None
+    )
+
     Assert.Equal(
-        Ok(mk { cv with Minutes = [ 23 ]; Hours = [ 0; 2; 4; 6; 8; 10; 12; 14; 16; 18; 20 ]; Days = []; Months = []; Weekdays = [] }),
-        Cron.parse "23 0-20/2 * * *" None)
+        Ok(
+            mk
+                { cv with
+                    Minutes = [ 23 ]
+                    Hours = [ 0; 2; 4; 6; 8; 10; 12; 14; 16; 18; 20 ]
+                    Days = []
+                    Months = []
+                    Weekdays = [] }
+        ),
+        Cron.parse "23 0-20/2 * * *" None
+    )
+
     Assert.True((parseU "23 0-20/2 * * *").Tz.IsNone)
 
 [<Fact>]
@@ -53,7 +91,10 @@ let ``parseUnsafe errors`` () =
     let e1 = Assert.Throws<CronParseError>(fun () -> Cron.parseUnsafe "" None |> ignore)
     Assert.Equal("Invalid number of segments in cron expression", e1.Message)
     Assert.Equal(Some "", e1.Input)
-    let e2 = Assert.Throws<CronParseError>(fun () -> Cron.parseUnsafe "0 0 4 8-14 * *" (Some "") |> ignore)
+
+    let e2 =
+        Assert.Throws<CronParseError>(fun () -> Cron.parseUnsafe "0 0 4 8-14 * *" (Some "") |> ignore)
+
     Assert.Equal("Invalid time zone in cron expression", e2.Message)
 
 [<Fact>]
@@ -128,13 +169,23 @@ let ``forward and reverse sequences stay aligned`` () =
     let gatherForward cron (lower: DateTime) (upper: DateTime) =
         let rec loop (cur: DateTime) acc =
             let n = Cron.next cron cur
-            if n.EpochMillis >= upper.EpochMillis then List.rev acc else loop n (n :: acc)
+
+            if n.EpochMillis >= upper.EpochMillis then
+                List.rev acc
+            else
+                loop n (n :: acc)
+
         loop lower []
 
     let gatherReverse cron (lower: DateTime) (upper: DateTime) =
         let rec loop (cur: DateTime) acc =
             let p = Cron.prev cron cur
-            if p.EpochMillis <= lower.EpochMillis then acc else loop p (p :: acc)
+
+            if p.EpochMillis <= lower.EpochMillis then
+                acc
+            else
+                loop p (p :: acc)
+
         loop upper []
 
     for expr, lowerStr, upperStr in cases do
@@ -185,10 +236,19 @@ let ``prev with multiple months specified`` () =
 
 [<Fact>]
 let ``sequence`` () =
-    let gen = Cron.sequence (parseU "23 0-20/2 * * 0") (dt "2024-01-01 00:00:00") |> Seq.take 5 |> Seq.toList
+    let gen =
+        Cron.sequence (parseU "23 0-20/2 * * 0") (dt "2024-01-01 00:00:00")
+        |> Seq.take 5
+        |> Seq.toList
+
     Assert.Equal<DateTime list>(
-        [ dt "2024-01-07 00:23:00"; dt "2024-01-07 02:23:00"; dt "2024-01-07 04:23:00"; dt "2024-01-07 06:23:00"; dt "2024-01-07 08:23:00" ],
-        gen)
+        [ dt "2024-01-07 00:23:00"
+          dt "2024-01-07 02:23:00"
+          dt "2024-01-07 04:23:00"
+          dt "2024-01-07 06:23:00"
+          dt "2024-01-07 08:23:00" ],
+        gen
+    )
 
 [<Fact>]
 let ``equal`` () =
@@ -201,7 +261,9 @@ let ``equal`` () =
 
 [<Fact>]
 let ``handles leap years`` () =
-    let m s = Cron.matches (parseU "0 0 29 2 *") (dt s)
+    let m s =
+        Cron.matches (parseU "0 0 29 2 *") (dt s)
+
     Assert.True(m "2024-02-29 00:00:00")
     Assert.False(m "2025-03-01 00:00:00")
     Assert.True(m "2028-02-29 00:00:00")

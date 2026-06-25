@@ -84,7 +84,8 @@ module Semaphore =
           Waiters = List<SemaphoreWaiter>() }
 
     /// Construct inside an `Effect`. (Semaphore.make)
-    let make (permits: int) : Effect<Semaphore, 'E, 'R> = Effect.sync (fun () -> makeUnsafe permits)
+    let make (permits: int) : Effect<Semaphore, 'E, 'R> =
+        Effect.sync (fun () -> makeUnsafe permits)
 
     // --- manual permit operations ---
 
@@ -125,7 +126,9 @@ module Semaphore =
         Effect.sync (fun () ->
             lock self.Lock (fun () ->
                 self.Permits <- permits
-                if self.Permits - self.Taken >= 0 then updateTakenUnsafe self id |> ignore))
+
+                if self.Permits - self.Taken >= 0 then
+                    updateTakenUnsafe self id |> ignore))
 
     /// The current number of free permits (a port convenience). (Semaphore.available)
     let available (self: Semaphore) : Effect<int, 'E, 'R> =
@@ -140,10 +143,8 @@ module Semaphore =
         if permits <= 0 then
             effect
         else
-            Effect.acquireUseRelease
-                (take self permits)
-                (fun _ -> effect)
-                (fun _ _ -> release self permits |> Effect.map ignore)
+            Effect.acquireUseRelease (take self permits) (fun _ -> effect) (fun _ _ ->
+                release self permits |> Effect.map ignore)
 
     /// `withPermits` holding exactly one permit. (Semaphore.withPermit)
     let withPermit (self: Semaphore) (effect: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> = withPermits self 1 effect
@@ -171,7 +172,5 @@ module Semaphore =
                 if not took then
                     Effect.succeed None
                 else
-                    Effect.acquireUseRelease
-                        (Effect.succeed ())
-                        (fun () -> effect |> Effect.map Some)
-                        (fun _ _ -> release self permits |> Effect.map ignore))
+                    Effect.acquireUseRelease (Effect.succeed ()) (fun () -> effect |> Effect.map Some) (fun _ _ ->
+                        release self permits |> Effect.map ignore))

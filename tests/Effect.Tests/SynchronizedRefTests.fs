@@ -20,15 +20,18 @@ type State =
     | Changed
     | Closed
 
-let private isActive = function
+let private isActive =
+    function
     | Active -> true
     | _ -> false
 
-let private isChanged = function
+let private isChanged =
+    function
     | Changed -> true
     | _ -> false
 
-let private isClosed = function
+let private isClosed =
+    function
     | Closed -> true
     | _ -> false
 
@@ -40,13 +43,18 @@ let private run (eff: Effect<'A, 'E, unit>) : 'A =
 
 [<Fact>]
 let ``get`` () =
-    let result = run (SynchronizedRef.make current |> Effect.flatMap SynchronizedRef.get)
+    let result =
+        run (SynchronizedRef.make current |> Effect.flatMap SynchronizedRef.get)
+
     Assert.Equal(current, result)
 
 [<Fact>]
 let ``getAndUpdateEffect - happy path`` () =
     let ref = run (SynchronizedRef.make current)
-    let result1 = run (SynchronizedRef.getAndUpdateEffect ref (fun _ -> Effect.succeed update))
+
+    let result1 =
+        run (SynchronizedRef.getAndUpdateEffect ref (fun _ -> Effect.succeed update))
+
     let result2 = run (SynchronizedRef.get ref)
     Assert.Equal(current, result1)
     Assert.Equal(update, result2)
@@ -54,7 +62,10 @@ let ``getAndUpdateEffect - happy path`` () =
 [<Fact>]
 let ``getAndUpdateEffect - with failure`` () =
     let ref = run (SynchronizedRef.make current)
-    let result = Effect.runSync () (SynchronizedRef.getAndUpdateEffect ref (fun _ -> Effect.fail failure))
+
+    let result =
+        Effect.runSync () (SynchronizedRef.getAndUpdateEffect ref (fun _ -> Effect.fail failure))
+
     Assert.Equal<Exit<string, string>>(Exit.fail failure, result)
 
 [<Fact>]
@@ -62,8 +73,13 @@ let ``getAndUpdateSomeEffect - happy path`` () =
     let ref = run (SynchronizedRef.make Active)
 
     let result1 =
-        run (SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
-            if isClosed s then Effect.succeed (Some Changed) else Effect.succeed None))
+        run (
+            SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
+                if isClosed s then
+                    Effect.succeed (Some Changed)
+                else
+                    Effect.succeed None)
+        )
 
     let result2 = run (SynchronizedRef.get ref)
     Assert.Equal(Active, result1)
@@ -74,14 +90,21 @@ let ``getAndUpdateSomeEffect - twice`` () =
     let ref = run (SynchronizedRef.make Active)
 
     let result1 =
-        run (SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
-            if isActive s then Effect.succeed (Some Changed) else Effect.succeed None))
+        run (
+            SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
+                if isActive s then
+                    Effect.succeed (Some Changed)
+                else
+                    Effect.succeed None)
+        )
 
     let result2 =
-        run (SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
-            if isClosed s then Effect.succeed (Some Active)
-            elif isChanged s then Effect.succeed (Some Closed)
-            else Effect.succeed None))
+        run (
+            SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
+                if isClosed s then Effect.succeed (Some Active)
+                elif isChanged s then Effect.succeed (Some Closed)
+                else Effect.succeed None)
+        )
 
     let result3 = run (SynchronizedRef.get ref)
     Assert.Equal(Active, result1)
@@ -96,7 +119,10 @@ let ``getAndUpdateSomeEffect - with failure`` () =
         Effect.runSync
             ()
             (SynchronizedRef.getAndUpdateSomeEffect ref (fun s ->
-                if isActive s then Effect.fail failure else Effect.succeed None))
+                if isActive s then
+                    Effect.fail failure
+                else
+                    Effect.succeed None))
 
     Assert.Equal<Exit<State, string>>(Exit.fail failure, result)
 
@@ -105,14 +131,20 @@ let ``getAndUpdateSomeEffect - with failure`` () =
 [<Fact>]
 let ``updateAndGetEffect stores and returns the new value`` () =
     let ref = run (SynchronizedRef.make Active)
-    let result = run (SynchronizedRef.updateAndGetEffect ref (fun _ -> Effect.succeed Closed))
+
+    let result =
+        run (SynchronizedRef.updateAndGetEffect ref (fun _ -> Effect.succeed Closed))
+
     Assert.Equal(Closed, result)
     Assert.Equal(Closed, run (SynchronizedRef.get ref))
 
 [<Fact>]
 let ``modifyEffect returns a result while storing the new value`` () =
     let ref = run (SynchronizedRef.make current)
-    let result1 = run (SynchronizedRef.modifyEffect ref (fun _ -> Effect.succeed ("hello", update)))
+
+    let result1 =
+        run (SynchronizedRef.modifyEffect ref (fun _ -> Effect.succeed ("hello", update)))
+
     let result2 = run (SynchronizedRef.get ref)
     Assert.Equal("hello", result1)
     Assert.Equal(update, result2)
@@ -122,8 +154,13 @@ let ``updateSomeAndGetEffect returns current when no transition matches`` () =
     let ref = run (SynchronizedRef.make Active)
 
     let result =
-        run (SynchronizedRef.updateSomeAndGetEffect ref (fun s ->
-            if isClosed s then Effect.succeed (Some Changed) else Effect.succeed None))
+        run (
+            SynchronizedRef.updateSomeAndGetEffect ref (fun s ->
+                if isClosed s then
+                    Effect.succeed (Some Changed)
+                else
+                    Effect.succeed None)
+        )
 
     Assert.Equal(Active, result)
 
@@ -144,8 +181,13 @@ let ``modifySome applies matching transitions`` () =
     let ref = run (SynchronizedRef.make Active)
 
     let result =
-        run (SynchronizedRef.modifySome ref (fun s ->
-            if isActive s then ("changed", Some Changed) else ("state does not change", None)))
+        run (
+            SynchronizedRef.modifySome ref (fun s ->
+                if isActive s then
+                    ("changed", Some Changed)
+                else
+                    ("state does not change", None))
+        )
 
     Assert.Equal("changed", result)
     Assert.Equal(Changed, run (SynchronizedRef.get ref))

@@ -26,7 +26,7 @@ type Redacted<'A> internal (value: 'A, label: string option) =
     let mutable stored = Some value
 
     /// The optional label shown in the redacted placeholder.
-    member _.Label : string option = label
+    member _.Label: string option = label
 
     member internal _.Stored = stored
 

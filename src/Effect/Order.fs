@@ -55,13 +55,14 @@ module Order =
         fun a1 a2 ->
             let mutable out = 0
             let mutable e = (collection :> _ seq).GetEnumerator()
+
             while out = 0 && e.MoveNext() do
                 out <- e.Current a1 a2
+
             out
 
     /// Derives an order for `'b` by mapping inputs into `'a` first.
-    let mapInput (f: 'b -> 'a) (self: Order<'a>) : Order<'b> =
-        fun b1 b2 -> self (f b1) (f b2)
+    let mapInput (f: 'b -> 'a) (self: Order<'a>) : Order<'b> = fun b1 b2 -> self (f b1) (f b2)
 
     /// Order for `DateTime`, chronological (full tick resolution).
     let Date: Order<System.DateTime> = fun a b -> sign (compare a b)
@@ -77,7 +78,10 @@ module Order =
     let tuple3 (oA: Order<'a>) (oB: Order<'b>) (oC: Order<'c>) : Order<'a * 'b * 'c> =
         fun (a1, b1, c1) (a2, b2, c2) ->
             match oA a1 a2 with
-            | 0 -> (match oB b1 b2 with 0 -> oC c1 c2 | o -> o)
+            | 0 ->
+                (match oB b1 b2 with
+                 | 0 -> oC c1 c2
+                 | o -> o)
             | o -> o
 
     /// Lexicographic order for lists: element-wise, then by length.
@@ -92,6 +96,7 @@ module Order =
                     match o x y with
                     | 0 -> go xs' ys'
                     | r -> r
+
             go self that
 
     // --- predicates ---
@@ -111,16 +116,13 @@ module Order =
     // --- comparisons ---
 
     /// The smaller of two values; the first when equal.
-    let min (o: Order<'a>) (self: 'a) (that: 'a) : 'a =
-        if o self that < 1 then self else that
+    let min (o: Order<'a>) (self: 'a) (that: 'a) : 'a = if o self that < 1 then self else that
 
     /// The larger of two values; the first when equal.
-    let max (o: Order<'a>) (self: 'a) (that: 'a) : 'a =
-        if o self that > -1 then self else that
+    let max (o: Order<'a>) (self: 'a) (that: 'a) : 'a = if o self that > -1 then self else that
 
     /// Clamps `self` into the inclusive `[minimum, maximum]` range.
-    let clamp (o: Order<'a>) (minimum: 'a) (maximum: 'a) (self: 'a) : 'a =
-        min o maximum (max o minimum self)
+    let clamp (o: Order<'a>) (minimum: 'a) (maximum: 'a) (self: 'a) : 'a = min o maximum (max o minimum self)
 
     /// `true` when `self` is within the inclusive `[minimum, maximum]` range.
     let isBetween (o: Order<'a>) (minimum: 'a) (maximum: 'a) (self: 'a) : bool =

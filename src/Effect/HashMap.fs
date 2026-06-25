@@ -109,6 +109,7 @@ module HashMap =
                 (fun acc k v -> Map.fold (fun a k2 v2 -> Map.add k2 v2 a) acc (f v k).entries)
                 Map.empty
                 self.entries
+
         { entries = folded }
 
     // --- traversing / folding ---
@@ -137,6 +138,7 @@ module HashMap =
                     | None -> acc)
                 Map.empty
                 self.entries
+
         { entries = folded }
 
     /// Map and keep only `Ok` results. (HashMap.filterMap)
@@ -149,6 +151,7 @@ module HashMap =
                     | Error _ -> acc)
                 Map.empty
                 self.entries
+
         { entries = folded }
 
     // --- searching ---

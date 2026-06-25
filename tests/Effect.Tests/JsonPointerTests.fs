@@ -74,9 +74,33 @@ let ``unescapeToken edge cases and passthrough`` () =
 [<Fact>]
 let ``round-trip unescape(escape(token)) = token`` () =
     let cases =
-        [ "abc"; "a~b"; "a/b"; "a~b/c"; "path/to~key"; "name/alias"; "~"; "/"; "~~"; "//"; "~/"; "/~"
-          ""; "~01"; "~10"; "~00"; "~11"; "a~01b"; "a~10b"; "héllo"; "世界"; "🚀"; "héllo~world/test"
-          "世界/🌍~key"; "a~b/c~d/e"; "~a/b~c/d~" ]
+        [ "abc"
+          "a~b"
+          "a/b"
+          "a~b/c"
+          "path/to~key"
+          "name/alias"
+          "~"
+          "/"
+          "~~"
+          "//"
+          "~/"
+          "/~"
+          ""
+          "~01"
+          "~10"
+          "~00"
+          "~11"
+          "a~01b"
+          "a~10b"
+          "héllo"
+          "世界"
+          "🚀"
+          "héllo~world/test"
+          "世界/🌍~key"
+          "a~b/c~d/e"
+          "~a/b~c/d~" ]
+
     for token in cases do
         let escaped = JsonPointer.escapeToken token
         Assert.Equal(token, JsonPointer.unescapeToken escaped)

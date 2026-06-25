@@ -26,7 +26,6 @@ namespace Effect
 ///     (fresh scope + lookup); the upstream in-flight-sharing nuance is dropped.
 ///   * `capacity` is an `int`; JS-runtime machinery (`TypeId`/`Pipeable`/`toJSON`)
 ///     is dropped.
-
 /// A scoped cache entry: the shared `Deferred`, its resolved `Exit`, the optional
 /// expiry timestamp, and the per-entry `Scope` released when the entry is removed.
 type ScopedCacheEntry<'A, 'E> =
@@ -68,7 +67,10 @@ module ScopedCache =
         | Some t -> now >= t
 
     let private expiryFromTtl (now: int64) (ttl: Duration) : int64 option =
-        if Duration.isFinite ttl then Some(now + int64 (Duration.toMillis ttl)) else None
+        if Duration.isFinite ttl then
+            Some(now + int64 (Duration.toMillis ttl))
+        else
+            None
 
     /// Close every supplied entry's scope, in order. (Scope.close per entry)
     let private closeAll (entries: ScopedCacheEntry<'A, 'E> list) : Effect<unit, 'E, Context> =
@@ -81,15 +83,23 @@ module ScopedCache =
     /// caller can close their scopes. (ScopedCache checkCapacity)
     let private checkCapacity (self: ScopedCache<'Key, 'A, 'E>) : ScopedCacheEntry<'A, 'E> list =
         let diff = MutableHashMap.size self.Map - self.Capacity
+
         if diff > 0 then
             let oldest = MutableHashMap.toSeq self.Map |> Seq.truncate diff |> Seq.toList
+
             for (k, _) in oldest do
                 MutableHashMap.remove self.Map k |> ignore
+
             oldest |> List.map snd
         else
             []
 
-    let private getImpl (self: ScopedCache<'Key, 'A, 'E>) (key: 'Key) (now: int64) (isRead: bool) : ScopedCacheEntry<'A, 'E> option =
+    let private getImpl
+        (self: ScopedCache<'Key, 'A, 'E>)
+        (key: 'Key)
+        (now: int64)
+        (isRead: bool)
+        : ScopedCacheEntry<'A, 'E> option =
         match MutableHashMap.get self.Map key with
         | None -> None
         | Some entry ->
@@ -105,7 +115,8 @@ module ScopedCache =
 
     // --- constructors ---
 
-    let private defaultTimeToLive : Exit<'A, 'E> -> 'Key -> Duration = fun _ _ -> Duration.infinity
+    let private defaultTimeToLive: Exit<'A, 'E> -> 'Key -> Duration =
+        fun _ _ -> Duration.infinity
 
     /// Creates a scoped cache with dynamic time-to-live. (ScopedCache.makeWith)
     let makeWith
@@ -142,6 +153,7 @@ module ScopedCache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match MutableHashMap.get self.Map key with
                 | Some entry when not (hasExpired entry now) ->
                     MutableHashMap.remove self.Map key |> ignore
@@ -150,13 +162,16 @@ module ScopedCache =
                 | _ ->
                     let scope = Scope.make ()
                     let deferred = Deferred.makeUnsafe ()
+
                     let entry =
                         { ExpiresAt = None
                           Deferred = deferred
                           Result = None
                           Scope = scope }
+
                     MutableHashMap.set self.Map key entry |> ignore
                     let evicted = checkCapacity self
+
                     closeAll evicted
                     |> Effect.flatMap (fun () ->
                         self.Lookup key scope
@@ -165,6 +180,7 @@ module ScopedCache =
                                 Deferred.doneUnsafe deferred (ofExit exit) |> ignore
                                 entry.Result <- Some exit
                                 let ttl = self.TimeToLive exit key
+
                                 if Duration.isFinite ttl then
                                     entry.ExpiresAt <- expiryFromTtl (clock.CurrentTimeMillisUnsafe()) ttl
                                 elif Duration.isZero ttl then
@@ -175,6 +191,7 @@ module ScopedCache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match getImpl self key now true with
                 | Some entry -> Deferred.await entry.Deferred |> Effect.map Some
                 | None -> Effect.succeed None))
@@ -185,6 +202,7 @@ module ScopedCache =
         Clock.clockWith (fun clock ->
             Effect.sync (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match getImpl self key now false with
                 | Some entry ->
                     match entry.Result with
@@ -211,9 +229,11 @@ module ScopedCache =
             Effect.sync (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
                 let all = MutableHashMap.toSeq self.Map |> Seq.toList
+
                 for (k, e) in all do
                     if hasExpired e now then
                         MutableHashMap.remove self.Map k |> ignore
+
                 all |> List.choose (fun (k, e) -> if hasExpired e now then None else Some k)))
 
     // --- invalidation (closes entry scopes) ---

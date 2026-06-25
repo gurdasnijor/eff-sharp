@@ -24,11 +24,14 @@ module Logger =
 
     /// `2024-03-15T12:00:00.000Z level=INFO message=...` (Logger.formatSimple)
     let formatSimple (entry: LogEntry) : string =
-        let ts = entry.Date.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture)
+        let ts =
+            entry.Date.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture)
+
         sprintf "%s level=%s message=%O" ts (LogLevel.label entry.LogLevel) entry.Message
 
     /// The default logger: format simply and write to stdout. (Logger.defaultLogger)
-    let defaultLogger: Logger<obj, unit> = make (fun entry -> System.Console.WriteLine(formatSimple entry))
+    let defaultLogger: Logger<obj, unit> =
+        make (fun entry -> System.Console.WriteLine(formatSimple entry))
 
     /// The fiber-local set of active loggers (default = `[defaultLogger]`). Lives
     /// here (not in `References`) to break the References↔Logger file cycle.

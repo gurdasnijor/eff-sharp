@@ -23,7 +23,8 @@ type TxSemaphore =
 module TxSemaphore =
 
     /// Fail with a defect (Die), mirroring upstream `Effect.die(new Error(msg))`.
-    let private die (msg: string) : Effect<'a, 'e, 'r> = Effect.failCause (Cause.die (box (System.Exception msg)))
+    let private die (msg: string) : Effect<'a, 'e, 'r> =
+        Effect.failCause (Cause.die (box (System.Exception msg)))
 
     // --- constructors ---
 
@@ -33,12 +34,14 @@ module TxSemaphore =
         if permits < 0 then
             die "Permits must be non-negative"
         else
-            TxRef.make permits |> Effect.map (fun ref -> { PermitsRef = ref; Capacity = permits })
+            TxRef.make permits
+            |> Effect.map (fun ref -> { PermitsRef = ref; Capacity = permits })
 
     // --- getters ---
 
     /// The current number of available permits. (TxSemaphore.available)
-    let available (self: TxSemaphore) : Effect<int, 'E, 'R> = TxRef.atomically (TxRef.get self.PermitsRef)
+    let available (self: TxSemaphore) : Effect<int, 'E, 'R> =
+        TxRef.atomically (TxRef.get self.PermitsRef)
 
     /// The fixed total permit count. (TxSemaphore.capacity)
     let capacity (self: TxSemaphore) : int = self.Capacity
@@ -82,7 +85,10 @@ module TxSemaphore =
     let tryAcquire (self: TxSemaphore) : Effect<bool, 'E, 'R> =
         TxRef.atomically (
             TxRef.modify self.PermitsRef (fun permits ->
-                if permits > 0 then (true, permits - 1) else (false, permits))
+                if permits > 0 then
+                    (true, permits - 1)
+                else
+                    (false, permits))
         )
 
     /// Try to acquire `n` permits; `true` on success, `false` if too few. A
@@ -93,7 +99,10 @@ module TxSemaphore =
         else
             TxRef.atomically (
                 TxRef.modify self.PermitsRef (fun permits ->
-                    if permits >= n then (true, permits - n) else (false, permits))
+                    if permits >= n then
+                        (true, permits - n)
+                    else
+                        (false, permits))
             )
 
     // --- release ---
@@ -110,9 +119,7 @@ module TxSemaphore =
         if n <= 0 then
             die "Number of permits must be positive"
         else
-            TxRef.atomically (
-                TxRef.update self.PermitsRef (fun permits -> min self.Capacity (permits + n))
-            )
+            TxRef.atomically (TxRef.update self.PermitsRef (fun permits -> min self.Capacity (permits + n)))
 
     // --- scoped / wrapped usage ---
 

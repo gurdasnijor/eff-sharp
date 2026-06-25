@@ -14,7 +14,10 @@ let private obj kvs = JObject(Map.ofList kvs)
 
 let private get o n = JsonPatch.get o n
 let private apply p d = JsonPatch.apply p d
-let private appliesTo patch oldV newV = Assert.Equal<Json>(newV, apply patch oldV)
+
+let private appliesTo patch oldV newV =
+    Assert.Equal<Json>(newV, apply patch oldV)
+
 let private throwsContaining (sub: string) (f: unit -> 'a) =
     let ex = Assert.Throws<exn>(fun () -> f () |> ignore)
     Assert.Contains(sub, ex.Message)
@@ -53,6 +56,7 @@ let ``get: arrays - mixed operations`` () =
         [ Replace("/1", n 4); Replace("/2", n 5); Add("/3", n 6) ],
         get (arr [ n 1; n 2; n 3 ]) (arr [ n 1; n 4; n 5; n 6 ])
     )
+
     Assert.Equal<Operation list>(
         [ Replace("/1", n 5); Remove "/3"; Remove "/2" ],
         get (arr [ n 1; n 2; n 3; n 4 ]) (arr [ n 1; n 5 ])
@@ -64,6 +68,7 @@ let ``get: nested arrays`` () =
         [ Replace("/1/1", n 5) ],
         get (arr [ arr [ n 1; n 2 ]; arr [ n 3; n 4 ] ]) (arr [ arr [ n 1; n 2 ]; arr [ n 3; n 5 ] ])
     )
+
     Assert.Equal<Operation list>(
         [ Add("/1", arr [ n 3; n 4 ]) ],
         get (arr [ arr [ n 1; n 2 ] ]) (arr [ arr [ n 1; n 2 ]; arr [ n 3; n 4 ] ])
@@ -74,6 +79,7 @@ let ``get: objects - add / remove / replace in sorted key order`` () =
     Assert.Equal<Operation list>([ Add("/b", n 2) ], get (obj [ "a", n 1 ]) (obj [ "a", n 1; "b", n 2 ]))
     Assert.Equal<Operation list>([ Remove "/b" ], get (obj [ "a", n 1; "b", n 2 ]) (obj [ "a", n 1 ]))
     Assert.Equal<Operation list>([ Replace("/b", n 3) ], get (obj [ "a", n 1; "b", n 2 ]) (obj [ "a", n 1; "b", n 3 ]))
+
     Assert.Equal<Operation list>(
         [ Remove "/a"; Remove "/b"; Remove "/c" ],
         get (obj [ "a", n 1; "b", n 2; "c", n 3 ]) (obj [])
@@ -82,7 +88,13 @@ let ``get: objects - add / remove / replace in sorted key order`` () =
 [<Fact>]
 let ``get: objects - stable key order across replaces`` () =
     let patch = get (obj [ "b", n 1; "a", n 1 ]) (obj [ "a", n 2; "b", n 2 ])
-    let replacePaths = patch |> List.choose (function Replace(p, _) -> Some p | _ -> None)
+
+    let replacePaths =
+        patch
+        |> List.choose (function
+            | Replace(p, _) -> Some p
+            | _ -> None)
+
     Assert.Equal<string list>([ "/a"; "/b" ], replacePaths)
     appliesTo patch (obj [ "b", n 1; "a", n 1 ]) (obj [ "a", n 2; "b", n 2 ])
 
@@ -99,6 +111,7 @@ let ``get: nested objects`` () =
         [ Replace("/a/b", n 2) ],
         get (obj [ "a", obj [ "b", n 1 ] ]) (obj [ "a", obj [ "b", n 2 ] ])
     )
+
     Assert.Equal<Operation list>(
         [ Add("/a/c", n 2) ],
         get (obj [ "a", obj [ "b", n 1 ] ]) (obj [ "a", obj [ "b", n 1; "c", n 2 ] ])
@@ -113,7 +126,10 @@ let ``get: JSON Pointer escaping in keys`` () =
 
 [<Fact>]
 let ``get: structurally equal but distinct values yield empty patch`` () =
-    Assert.Equal<Operation list>([], get (obj [ "a", n 1; "b", obj [ "c", n 2 ] ]) (obj [ "a", n 1; "b", obj [ "c", n 2 ] ]))
+    Assert.Equal<Operation list>(
+        [],
+        get (obj [ "a", n 1; "b", obj [ "c", n 2 ] ]) (obj [ "a", n 1; "b", obj [ "c", n 2 ] ])
+    )
 
 [<Fact>]
 let ``get: deep nested structures are applicable`` () =
@@ -124,6 +140,7 @@ let ``get: deep nested structures are applicable`` () =
                   [ obj [ "id", n 1; "name", s "Alice"; "tags", arr [ s "admin" ] ]
                     obj [ "id", n 2; "name", s "Bob"; "tags", arr [] ] ]
               "metadata", obj [ "version", n 1 ] ]
+
     let newV =
         obj
             [ "users",
@@ -132,13 +149,16 @@ let ``get: deep nested structures are applicable`` () =
                     obj [ "id", n 2; "name", s "Bob"; "tags", arr [] ]
                     obj [ "id", n 3; "name", s "Charlie"; "tags", arr [] ] ]
               "metadata", obj [ "version", n 2 ] ]
+
     let patch = get oldV newV
+
     Assert.Equal<Operation list>(
         [ Replace("/metadata/version", n 2)
           Add("/users/0/tags/1", s "moderator")
           Add("/users/2", obj [ "id", n 3; "name", s "Charlie"; "tags", arr [] ]) ],
         patch
     )
+
     appliesTo patch oldV newV
 
 // ---------------------------------------------------------------------------
@@ -157,6 +177,7 @@ let ``apply: add`` () =
     Assert.Equal<Json>(obj [ "a", n 1; "b", n 2 ], apply [ Add("/b", n 2) ] (obj [ "a", n 1 ]))
     Assert.Equal<Json>(arr [ n 1; n 10; n 2; n 3 ], apply [ Add("/1", n 10) ] (arr [ n 1; n 2; n 3 ]))
     Assert.Equal<Json>(arr [ n 1; n 2; n 3; n 4 ], apply [ Add("/-", n 4) ] (arr [ n 1; n 2; n 3 ]))
+
     Assert.Equal<Json>(
         obj [ "users", arr [ obj [ "id", n 1; "tags", arr [ s "admin" ] ] ] ],
         apply [ Add("/users/0/tags/-", s "admin") ] (obj [ "users", arr [ obj [ "id", n 1; "tags", arr [] ] ] ])
@@ -177,10 +198,7 @@ let ``apply: multiple operations in sequence`` () =
 
 [<Fact>]
 let ``apply: operations after a root replace`` () =
-    Assert.Equal<Json>(
-        obj [ "a", n 1 ],
-        apply [ Replace("", obj []); Add("/a", n 1) ] (obj [ "old", JBool true ])
-    )
+    Assert.Equal<Json>(obj [ "a", n 1 ], apply [ Replace("", obj []); Add("/a", n 1) ] (obj [ "old", JBool true ]))
 
 [<Fact>]
 let ``apply: JSON Pointer decoding`` () =
@@ -200,6 +218,7 @@ let ``apply: sequential path dependencies`` () =
               Replace("/new/nested/value", n 2) ]
             (obj [])
     )
+
     Assert.Equal<Json>(
         obj [ "items", arr [ n 10; n 2 ] ],
         apply
@@ -255,7 +274,9 @@ let ``apply: rejects add/replace when parent is missing or not a container`` () 
     throwsContaining "Cannot add at" (fun () -> apply [ Add("/a/b", n 1) ] (obj []))
     throwsContaining "not a container" (fun () -> apply [ Add("/a/b", n 1) ] (obj [ "a", s "string" ]))
     throwsContaining "not a container" (fun () -> apply [ Replace("/a/b", n 1) ] (obj [ "a", n 42 ]))
-    throwsContaining "not a container" (fun () -> apply [ Add("/a/b/c", n 1) ] (obj [ "a", obj [ "b", s "not-object" ] ]))
+
+    throwsContaining "not a container" (fun () ->
+        apply [ Add("/a/b/c", n 1) ] (obj [ "a", obj [ "b", s "not-object" ] ]))
 
 [<Fact>]
 let ``apply: rejects remove at the root`` () =
@@ -284,6 +305,7 @@ let ``round-trip: apply(get(old, new), old) = new`` () =
           obj [ "a", n 1; "b", n 2; "c", n 3 ], obj [ "a", n 10; "d", n 4; "e", n 5 ]
           arr [ n 0; n 1; n 2; n 3; n 4; n 5; n 6; n 7; n 8; n 9 ],
           arr [ n 10; n 1; n 20; n 3; n 40; n 50; n 6; n 70; n 8 ] ]
+
     for (oldV, newV) in cases do
         appliesTo (get oldV newV) oldV newV
 
@@ -294,13 +316,21 @@ let ``round-trip: empty structures`` () =
           arr [ n 1; n 2; n 3 ], arr []
           obj [], obj [ "a", n 1; "b", n 2 ]
           obj [ "a", n 1; "b", n 2 ], obj [] ]
+
     for (oldV, newV) in cases do
         appliesTo (get oldV newV) oldV newV
 
 [<Fact>]
 let ``round-trip: escaped keys`` () =
     let oldV = obj [ "key/with/slash", n 1; "key~with~tilde", n 2; "normal", n 3 ]
-    let newV = obj [ "key/with/slash", n 10; "key~with~tilde", n 20; "normal", n 30; "new/key", n 40 ]
+
+    let newV =
+        obj
+            [ "key/with/slash", n 10
+              "key~with~tilde", n 20
+              "normal", n 30
+              "new/key", n 40 ]
+
     appliesTo (get oldV newV) oldV newV
 
 [<Fact>]
@@ -312,5 +342,6 @@ let ``round-trip: type changes`` () =
           JNull, arr []
           arr [], obj []
           obj [], arr [] ]
+
     for (oldV, newV) in cases do
         appliesTo (get oldV newV) oldV newV

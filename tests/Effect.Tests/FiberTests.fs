@@ -32,8 +32,7 @@ let ``interrupt stops a sleeping fiber and runs its finalizer`` () =
 
     let prog: Effect<Exit<unit, string>, string, unit> =
         effect {
-            let! fib =
-                Effect.fork (Effect.ensuring (Effect.sync (fun () -> log.Add "released")) (Effect.sleep 5000))
+            let! fib = Effect.fork (Effect.ensuring (Effect.sync (fun () -> log.Add "released")) (Effect.sleep 5000))
             do! Effect.sleep 50 // let the child start sleeping
             do! Effect.interrupt fib
             return! Effect.await fib

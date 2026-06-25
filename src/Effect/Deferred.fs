@@ -152,7 +152,8 @@ module Deferred =
     // --- inspection ---
 
     /// Whether the `Deferred` has already been completed. (Deferred.isDone)
-    let isDone (self: Deferred<'A, 'E>) : Effect<bool, 'F, 'R> = Effect.sync (fun () -> isDoneUnsafe self)
+    let isDone (self: Deferred<'A, 'E>) : Effect<bool, 'F, 'R> =
+        Effect.sync (fun () -> isDoneUnsafe self)
 
     /// The stored completion effect as an `option`: `Some` when completed, `None`
     /// otherwise. (Deferred.poll — Effect's `Option` is lowered to F# `option`.)

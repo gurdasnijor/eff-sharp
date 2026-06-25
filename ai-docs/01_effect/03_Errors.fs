@@ -27,12 +27,9 @@ type OrderError =
 /// A computation whose failures are fully described by `OrderError`.
 let placeOrder (sku: string) (qty: int) : Effect<string, OrderError, unit> =
     effect {
-        if qty <= 0 then
-            return! Effect.fail (InvalidQuantity qty)
-        elif sku = "ghost" then
-            return! Effect.fail (OutOfStock sku)
-        else
-            return sprintf "shipped %d x %s" qty sku
+        if qty <= 0 then return! Effect.fail (InvalidQuantity qty)
+        elif sku = "ghost" then return! Effect.fail (OutOfStock sku)
+        else return sprintf "shipped %d x %s" qty sku
     }
 
 // ---------------------------------------------------------------------------

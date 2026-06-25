@@ -19,7 +19,6 @@ open System.Globalization
 ///
 /// `CronParseError` is a `System.Exception` subclass (so it "is an Error").
 /// `parse` returns an F# `Result<Cron, CronParseError>`.
-
 /// A parsed cron error.
 type CronParseError(message: string, input: string option) =
     inherit System.Exception(message)
@@ -90,8 +89,19 @@ module Cron =
     // --- parsing ---
 
     let private monthAliases =
-        dict [ "jan", 1; "feb", 2; "mar", 3; "apr", 4; "may", 5; "jun", 6
-               "jul", 7; "aug", 8; "sep", 9; "oct", 10; "nov", 11; "dec", 12 ]
+        dict
+            [ "jan", 1
+              "feb", 2
+              "mar", 3
+              "apr", 4
+              "may", 5
+              "jun", 6
+              "jul", 7
+              "aug", 8
+              "sep", 9
+              "oct", 10
+              "nov", 11
+              "dec", 12 ]
 
     let private weekdayAliases =
         dict [ "sun", 0; "mon", 1; "tue", 2; "wed", 3; "thu", 4; "fri", 5; "sat", 6 ]
@@ -102,12 +112,36 @@ module Cron =
           Aliases: System.Collections.Generic.IDictionary<string, int> }
 
     let private noAliases = dict []
-    let private secondOptions = { Min = 0; Max = 59; Aliases = noAliases }
-    let private minuteOptions = { Min = 0; Max = 59; Aliases = noAliases }
-    let private hourOptions = { Min = 0; Max = 23; Aliases = noAliases }
-    let private dayOptions = { Min = 1; Max = 31; Aliases = noAliases }
-    let private monthOptions = { Min = 1; Max = 12; Aliases = monthAliases }
-    let private weekdayOptions = { Min = 0; Max = 6; Aliases = weekdayAliases }
+
+    let private secondOptions =
+        { Min = 0
+          Max = 59
+          Aliases = noAliases }
+
+    let private minuteOptions =
+        { Min = 0
+          Max = 59
+          Aliases = noAliases }
+
+    let private hourOptions =
+        { Min = 0
+          Max = 23
+          Aliases = noAliases }
+
+    let private dayOptions =
+        { Min = 1
+          Max = 31
+          Aliases = noAliases }
+
+    let private monthOptions =
+        { Min = 1
+          Max = 12
+          Aliases = monthAliases }
+
+    let private weekdayOptions =
+        { Min = 0
+          Max = 6
+          Aliases = weekdayAliases }
 
     let private parseNum (s: string) : float =
         match System.Double.TryParse(s, NumberStyles.Any, inv) with
@@ -124,7 +158,10 @@ module Cron =
         | -1 -> input, None
         | i -> input.Substring(0, i), Some(parseNum (input.Substring(i + 1)))
 
-    let private splitRange (input: string) (aliases: System.Collections.Generic.IDictionary<string, int>) : float * float option =
+    let private splitRange
+        (input: string)
+        (aliases: System.Collections.Generic.IDictionary<string, int>)
+        : float * float option =
         match input.IndexOf '-' with
         | -1 -> aliasOrValue input aliases, None
         | i -> aliasOrValue (input.Substring(0, i)) aliases, Some(aliasOrValue (input.Substring(i + 1)) aliases)
@@ -138,10 +175,12 @@ module Cron =
         let mutable result: Result<Set<int>, CronParseError> option = None
         let fields = input.Split(',')
         let mutable fi = 0
+
         while result.IsNone && fi < fields.Length do
             let field = fields.[fi]
             fi <- fi + 1
             let raw, step = splitStep field
+
             if raw = "*" && step.IsNone then
                 result <- Some(Ok Set.empty)
             else
@@ -149,20 +188,29 @@ module Cron =
                     match step with
                     | Some s when not (isInt s) -> Some(err "Expected step value to be a positive integer")
                     | Some s when s < 1.0 -> Some(err "Expected step value to be greater than 0")
-                    | Some s when s > float options.Max -> Some(err (sprintf "Expected step value to be less than %d" options.Max))
+                    | Some s when s > float options.Max ->
+                        Some(err (sprintf "Expected step value to be less than %d" options.Max))
                     | _ -> None
+
                 match stepValid with
                 | Some e -> result <- Some e
                 | None ->
-                    let stepN = match step with Some s -> int s | None -> 1
+                    let stepN =
+                        match step with
+                        | Some s -> int s
+                        | None -> 1
+
                     if raw = "*" then
                         let mutable i = options.Min
+
                         while i <= options.Max do
                             values <- Set.add i values
                             i <- i + stepN
                     else
                         let left, right = splitRange raw options.Aliases
-                        if not (isInt left) then result <- Some(err "Expected a positive integer")
+
+                        if not (isInt left) then
+                            result <- Some(err "Expected a positive integer")
                         elif int left < options.Min || int left > options.Max then
                             result <- Some(err (sprintf "Expected a value between %d and %d" options.Min options.Max))
                         else
@@ -170,15 +218,19 @@ module Cron =
                             | None -> values <- Set.add (int left) values
                             | Some r when not (isInt r) -> result <- Some(err "Expected a positive integer")
                             | Some r when int r < options.Min || int r > options.Max ->
-                                result <- Some(err (sprintf "Expected a value between %d and %d" options.Min options.Max))
+                                result <-
+                                    Some(err (sprintf "Expected a value between %d and %d" options.Min options.Max))
                             | Some r when left > r -> result <- Some(err "Invalid value range")
                             | Some r ->
                                 let mutable i = int left
+
                                 while i <= int r do
                                     values <- Set.add i values
                                     i <- i + stepN
+
                     if result.IsNone && Set.count values >= capacity then
                         result <- Some(Ok Set.empty)
+
         match result with
         | Some r -> r
         | None -> Ok values
@@ -189,10 +241,12 @@ module Cron =
 
     let parse (cron: string) (tz: string option) : Result<Cron, CronParseError> =
         let segments = cron.Split(' ') |> Array.filter (fun s -> s <> "") |> Array.toList
+
         if segments.Length <> 5 && segments.Length <> 6 then
             Error(CronParseError("Invalid number of segments in cron expression", Some cron))
         else
             let segs = if segments.Length = 5 then "0" :: segments else segments
+
             match segs with
             | [ seconds; minutes; hours; days; months; weekdays ] ->
                 let tzResult =
@@ -200,6 +254,7 @@ module Cron =
                     | None -> Ok None
                     | Some t when validateTz t -> Ok(Some t)
                     | Some t -> Error(CronParseError("Invalid time zone in cron expression", Some t))
+
                 match tzResult with
                 | Error e -> Error e
                 | Ok tzv ->
@@ -240,14 +295,23 @@ module Cron =
 
     let matches (cron: Cron) (date: DateTime) : bool =
         let parts = DateTime.toPartsUtc date
-        if not (Set.isEmpty cron.Seconds) && not (Set.contains parts.Second cron.Seconds) then false
-        elif not (Set.isEmpty cron.Minutes) && not (Set.contains parts.Minute cron.Minutes) then false
-        elif not (Set.isEmpty cron.Hours) && not (Set.contains parts.Hour cron.Hours) then false
-        elif not (Set.isEmpty cron.Months) && not (Set.contains parts.Month cron.Months) then false
-        elif Set.isEmpty cron.Days && Set.isEmpty cron.Weekdays then true
-        elif Set.isEmpty cron.Weekdays then Set.contains parts.Day cron.Days
-        elif Set.isEmpty cron.Days then Set.contains parts.WeekDay cron.Weekdays
-        else Set.contains parts.Day cron.Days || Set.contains parts.WeekDay cron.Weekdays
+
+        if not (Set.isEmpty cron.Seconds) && not (Set.contains parts.Second cron.Seconds) then
+            false
+        elif not (Set.isEmpty cron.Minutes) && not (Set.contains parts.Minute cron.Minutes) then
+            false
+        elif not (Set.isEmpty cron.Hours) && not (Set.contains parts.Hour cron.Hours) then
+            false
+        elif not (Set.isEmpty cron.Months) && not (Set.contains parts.Month cron.Months) then
+            false
+        elif Set.isEmpty cron.Days && Set.isEmpty cron.Weekdays then
+            true
+        elif Set.isEmpty cron.Weekdays then
+            Set.contains parts.Day cron.Days
+        elif Set.isEmpty cron.Days then
+            Set.contains parts.WeekDay cron.Weekdays
+        else
+            Set.contains parts.Day cron.Days || Set.contains parts.WeekDay cron.Weekdays
 
     // --- stepping (next / prev), UTC only ---
 
@@ -263,33 +327,52 @@ module Cron =
         if month0 = 0 then 31 else daysInMonth year (month0 - 1)
 
     type private Bound =
-        { Second: int; Minute: int; Hour: int; Day: int; Month: int; Weekday: int }
+        { Second: int
+          Minute: int
+          Hour: int
+          Day: int
+          Month: int
+          Weekday: int }
 
-    let private headOr (xs: int list) (dflt: int) = match xs with x :: _ -> x | [] -> dflt
-    let private lastOr (xs: int list) (dflt: int) = match xs with [] -> dflt | _ -> List.last xs
+    let private headOr (xs: int list) (dflt: int) =
+        match xs with
+        | x :: _ -> x
+        | [] -> dflt
 
-    let private lookupTable (values: int list) (size: int) (dir: Direction) : int option [] =
+    let private lastOr (xs: int list) (dflt: int) =
+        match xs with
+        | [] -> dflt
+        | _ -> List.last xs
+
+    let private lookupTable (values: int list) (size: int) (dir: Direction) : int option[] =
         let result = Array.create size None
+
         if List.isEmpty values then
             result
         else
             let arr = List.toArray values
             let mutable current = None
+
             match dir with
             | Next ->
                 let mutable index = arr.Length - 1
+
                 for i in size - 1 .. -1 .. 0 do
                     while index >= 0 && arr.[index] >= i do
                         current <- Some arr.[index]
                         index <- index - 1
+
                     result.[i] <- current
             | Prev ->
                 let mutable index = 0
+
                 for i in 0 .. size - 1 do
                     while index < arr.Length && arr.[index] <= i do
                         current <- Some arr.[index]
                         index <- index + 1
+
                     result.[i] <- current
+
             result
 
     let private stepCron (cron: Cron) (now: DateTime) (direction: Direction) : DateTime =
@@ -328,51 +411,88 @@ module Cron =
         let tMonth = lookupTable months 13 direction
         let tWeekday = lookupTable weekdays 7 direction
 
-        let needsStep (nextV: int) (current: int) = if reverse then nextV < current else nextV > current
+        let needsStep (nextV: int) (current: int) =
+            if reverse then nextV < current else nextV > current
+
         let big = 1_000_000
 
         let date = DateTime.JsDate(now.EpochMillis)
         date.SetUTCSeconds(date.Seconds + tick, 0)
 
         let secondsStage () =
-            if Set.isEmpty cron.Seconds then false
+            if Set.isEmpty cron.Seconds then
+                false
             else
                 let currentSecond = date.Seconds
+
                 match tSecond.[currentSecond] with
-                | None -> date.SetUTCMinutes(date.Minutes + tick, boundary.Second); true
-                | Some nextSecond -> if needsStep nextSecond currentSecond then (date.SetUTCSeconds nextSecond; true) else false
+                | None ->
+                    date.SetUTCMinutes(date.Minutes + tick, boundary.Second)
+                    true
+                | Some nextSecond ->
+                    if needsStep nextSecond currentSecond then
+                        (date.SetUTCSeconds nextSecond
+                         true)
+                    else
+                        false
 
         let minutesStage () =
-            if Set.isEmpty cron.Minutes then false
+            if Set.isEmpty cron.Minutes then
+                false
             else
                 let currentMinute = date.Minutes
+
                 match tMinute.[currentMinute] with
-                | None -> date.SetUTCHours(date.Hours + tick, boundary.Minute, boundary.Second); true
-                | Some nextMinute -> if needsStep nextMinute currentMinute then (date.SetUTCMinutes(nextMinute, boundary.Second); true) else false
+                | None ->
+                    date.SetUTCHours(date.Hours + tick, boundary.Minute, boundary.Second)
+                    true
+                | Some nextMinute ->
+                    if needsStep nextMinute currentMinute then
+                        (date.SetUTCMinutes(nextMinute, boundary.Second)
+                         true)
+                    else
+                        false
 
         let hoursStage () =
-            if Set.isEmpty cron.Hours then false
+            if Set.isEmpty cron.Hours then
+                false
             else
                 let currentHour = date.Hours
+
                 match tHour.[currentHour] with
                 | None ->
                     date.SetUTCDate(date.Date + tick)
                     date.SetUTCHours(boundary.Hour, boundary.Minute, boundary.Second)
                     true
-                | Some nextHour -> if needsStep nextHour currentHour then (date.SetUTCHours(nextHour, boundary.Minute, boundary.Second); true) else false
+                | Some nextHour ->
+                    if needsStep nextHour currentHour then
+                        (date.SetUTCHours(nextHour, boundary.Minute, boundary.Second)
+                         true)
+                    else
+                        false
 
         let dayStage () =
-            if Set.isEmpty cron.Weekdays && Set.isEmpty cron.Days then false
+            if Set.isEmpty cron.Weekdays && Set.isEmpty cron.Days then
+                false
             else
                 let mutable a = if reverse then -big else big
                 let mutable b = if reverse then -big else big
+
                 if not (Set.isEmpty cron.Weekdays) then
                     let currentWeekday = date.Day
+
                     match tWeekday.[currentWeekday] with
-                    | None -> a <- if reverse then currentWeekday - 7 + boundary.Weekday else 7 - currentWeekday + boundary.Weekday
+                    | None ->
+                        a <-
+                            if reverse then
+                                currentWeekday - 7 + boundary.Weekday
+                            else
+                                7 - currentWeekday + boundary.Weekday
                     | Some nextWeekday -> a <- nextWeekday - currentWeekday
+
                 if not (Set.isEmpty cron.Days) && a <> 0 then
                     let currentDay = date.Date
+
                     match tDay.[currentDay] with
                     | None ->
                         if reverse then
@@ -383,20 +503,28 @@ module Cron =
                     | Some nextDay when (not reverse) && nextDay > daysInMonth date.Year date.Month0 ->
                         b <- daysInMonth date.Year date.Month0 - currentDay + boundary.Day
                     | Some nextDay -> b <- nextDay - currentDay
+
                 let addDays = if reverse then max a b else min a b
+
                 if addDays <> 0 then
                     date.SetUTCDate(date.Date + addDays)
                     date.SetUTCHours(boundary.Hour, boundary.Minute, boundary.Second)
                     true
-                else false
+                else
+                    false
 
         let monthStage () =
-            if Set.isEmpty cron.Months then false
+            if Set.isEmpty cron.Months then
+                false
             else
                 let currentMonth = date.Month0 + 1
+
                 let clampBoundaryDay (targetMonthIndex: int) =
-                    if not (Set.isEmpty cron.Days) then boundary.Day
-                    else min boundary.Day (daysInMonth date.Year targetMonthIndex)
+                    if not (Set.isEmpty cron.Days) then
+                        boundary.Day
+                    else
+                        min boundary.Day (daysInMonth date.Year targetMonthIndex)
+
                 match tMonth.[currentMonth] with
                 | None ->
                     date.SetUTCFullYear(date.Year + tick)
@@ -409,9 +537,11 @@ module Cron =
                         date.SetUTCMonth(targetMonthIndex, clampBoundaryDay targetMonthIndex)
                         date.SetUTCHours(boundary.Hour, boundary.Minute, boundary.Second)
                         true
-                    else false
+                    else
+                        false
 
         let stages = [ secondsStage; minutesStage; hoursStage; dayStage; monthStage ]
+
         let rec runStages =
             function
             | [] -> false
@@ -419,9 +549,11 @@ module Cron =
 
         let mutable proceed = true
         let mutable count = 0
+
         while proceed do
             if count >= 10_000 then
                 raise (System.Exception(sprintf "Unable to find %s cron date" (if reverse then "prev" else "next")))
+
             count <- count + 1
             proceed <- runStages stages
 
@@ -437,6 +569,7 @@ module Cron =
     let sequence (cron: Cron) (start: DateTime) : DateTime seq =
         seq {
             let mutable current = start
+
             while true do
                 current <- next cron current
                 yield current

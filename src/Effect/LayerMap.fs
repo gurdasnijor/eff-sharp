@@ -18,7 +18,6 @@ namespace Effect
 ///     memoized); `RcMap` still memoizes one built context per key.
 ///   * The `Service` class form and `preloadKeys` are dropped; the layer input is
 ///     fixed to `unit`.
-
 /// A keyed, reference-counted map of layer-built contexts.
 type LayerMap<'K, 'E when 'K: equality> =
     internal
@@ -61,9 +60,7 @@ module LayerMap =
         { Build = fun scope -> RcMap.get self.RcMap key scope }
 
     /// Invalidate the cached entry for `key`, releasing it if unused. (LayerMap.invalidate)
-    let invalidate (self: LayerMap<'K, 'E>) (key: 'K) : Effect<unit, 'E, unit> =
-        RcMap.invalidate self.RcMap key
+    let invalidate (self: LayerMap<'K, 'E>) (key: 'K) : Effect<unit, 'E, unit> = RcMap.invalidate self.RcMap key
 
     /// Whether `key` currently has a cached entry. (LayerMap.rcMap has)
-    let contains (self: LayerMap<'K, 'E>) (key: 'K) : Effect<bool, 'E, unit> =
-        RcMap.has self.RcMap key
+    let contains (self: LayerMap<'K, 'E>) (key: 'K) : Effect<bool, 'E, unit> = RcMap.has self.RcMap key

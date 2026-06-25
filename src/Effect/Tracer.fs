@@ -46,7 +46,10 @@ type SpanOptions =
 [<RequireQualifiedAccess>]
 module Tracer =
 
-    let defaultSpanOptions: SpanOptions = { Kind = Internal; Attributes = Map.empty; Parent = Option.None }
+    let defaultSpanOptions: SpanOptions =
+        { Kind = Internal
+          Attributes = Map.empty
+          Parent = Option.None }
 
     let spanId (span: AnySpan) : string =
         match span with
@@ -60,7 +63,9 @@ module Tracer =
 
     /// Reference an externally-created span by ids. (Tracer.externalSpan)
     let externalSpan (spanId: string) (traceId: string) (sampled: bool) : ExternalSpan =
-        { SpanId = spanId; TraceId = traceId; Sampled = sampled }
+        { SpanId = spanId
+          TraceId = traceId
+          Sampled = sampled }
 
     /// The `Context` tag for the ambient parent span. (Tracer.ParentSpan)
     let ParentSpan: Tag<AnySpan> = Tag.make<AnySpan> "effect/Tracer/ParentSpan"

@@ -38,7 +38,11 @@ module TxPriorityQueue =
 
         while lo < hi do
             let mid = (lo + hi) / 2
-            if ord arr.[mid] value <= 0 then lo <- mid + 1 else hi <- mid
+
+            if ord arr.[mid] value <= 0 then
+                lo <- mid + 1
+            else
+                hi <- mid
 
         Chunk.make (List.ofArray (Array.concat [ arr.[0 .. lo - 1]; [| value |]; arr.[lo..] ]))
 
@@ -46,16 +50,17 @@ module TxPriorityQueue =
 
     /// Create an empty queue with the given ordering. (TxPriorityQueue.empty)
     let empty (order: Order<'a>) : Effect<TxPriorityQueue<'a>, 'E, 'R> =
-        TxRef.make (Chunk.empty: Chunk<'a>) |> Effect.map (fun ref -> { Ref = ref; Order = order })
+        TxRef.make (Chunk.empty: Chunk<'a>)
+        |> Effect.map (fun ref -> { Ref = ref; Order = order })
 
     /// Create a queue from an iterable of elements. (TxPriorityQueue.fromIterable)
     let fromIterable (order: Order<'a>) (xs: seq<'a>) : Effect<TxPriorityQueue<'a>, 'E, 'R> =
-        TxRef.make (sorted order xs) |> Effect.map (fun ref -> { Ref = ref; Order = order })
+        TxRef.make (sorted order xs)
+        |> Effect.map (fun ref -> { Ref = ref; Order = order })
 
     /// Create a queue from a list of elements. (TxPriorityQueue.make — upstream's
     /// variadic constructor; F# takes an explicit list.)
-    let make (order: Order<'a>) (elements: 'a list) : Effect<TxPriorityQueue<'a>, 'E, 'R> =
-        fromIterable order elements
+    let make (order: Order<'a>) (elements: 'a list) : Effect<TxPriorityQueue<'a>, 'E, 'R> = fromIterable order elements
 
     // --- getters ---
 
@@ -64,10 +69,12 @@ module TxPriorityQueue =
         TxRef.atomically (TxRef.get self.Ref) |> Effect.map Chunk.size
 
     /// `true` if the queue is empty. (TxPriorityQueue.isEmpty)
-    let isEmpty (self: TxPriorityQueue<'a>) : Effect<bool, 'E, 'R> = size self |> Effect.map (fun n -> n = 0)
+    let isEmpty (self: TxPriorityQueue<'a>) : Effect<bool, 'E, 'R> =
+        size self |> Effect.map (fun n -> n = 0)
 
     /// `true` if the queue has at least one element. (TxPriorityQueue.isNonEmpty)
-    let isNonEmpty (self: TxPriorityQueue<'a>) : Effect<bool, 'E, 'R> = size self |> Effect.map (fun n -> n > 0)
+    let isNonEmpty (self: TxPriorityQueue<'a>) : Effect<bool, 'E, 'R> =
+        size self |> Effect.map (fun n -> n > 0)
 
     /// Observe the smallest element without removing it, retrying while empty.
     /// (TxPriorityQueue.peek)
@@ -143,4 +150,5 @@ module TxPriorityQueue =
 
     /// All elements in priority order, without removing them. (TxPriorityQueue.toArray)
     let toList (self: TxPriorityQueue<'a>) : Effect<'a list, 'E, 'R> =
-        TxRef.atomically (TxRef.get self.Ref) |> Effect.map (Chunk.toArray >> List.ofArray)
+        TxRef.atomically (TxRef.get self.Ref)
+        |> Effect.map (Chunk.toArray >> List.ofArray)

@@ -32,7 +32,9 @@ let ``number is deterministic and handles specials`` () =
 
 [<Fact>]
 let ``array hashes equal sequences equally and is order-insensitive (XOR)`` () =
-    let h xs = Hash.array (xs |> List.map (fun n -> Hash.number (float n)))
+    let h xs =
+        Hash.array (xs |> List.map (fun n -> Hash.number (float n)))
+
     Assert.Equal(h [ 1; 2; 3 ], h [ 1; 2; 3 ])
     // XOR fold => reordered inputs collide (documented gotcha).
     Assert.Equal(h [ 1; 2; 3 ], h [ 3; 2; 1 ])

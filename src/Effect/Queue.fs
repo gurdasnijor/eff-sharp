@@ -26,7 +26,6 @@ open System.Collections.Generic
 /// Interruption note: a fiber blocked in `Deferred.await` (a real task await) is
 /// not cancelled by the cooperative `Fiber.interrupt`, so the upstream
 /// "offerAll can be interrupted" behavior is not reproduced.
-
 /// Overflow behavior when a bounded queue is full.
 type QueueStrategy =
     | Suspend
@@ -35,11 +34,11 @@ type QueueStrategy =
 
 /// End-of-input completion marker (upstream `Cause.Done`). Detect with
 /// `Queue.isDone`.
-type QueueDone =
-    private
-    | QueueDone
+type QueueDone = private | QueueDone
 
-type internal Offerer<'A> = { Items: ResizeArray<'A>; Resume: Deferred<'A list, obj> }
+type internal Offerer<'A> =
+    { Items: ResizeArray<'A>
+      Resume: Deferred<'A list, obj> }
 
 /// An asynchronous queue handle (both producer and consumer end).
 type Queue<'A> =
@@ -161,7 +160,11 @@ module Queue =
                                 Choice1Of2 true
                             else
                                 let d = Deferred.makeUnsafe<'A list, obj> ()
-                                q.Offerers.Add { Items = ResizeArray<'A>([ message ]); Resume = d }
+
+                                q.Offerers.Add
+                                    { Items = ResizeArray<'A>([ message ])
+                                      Resume = d }
+
                                 signalAll q
                                 Choice2Of2 d
                         | Dropping ->
@@ -173,7 +176,9 @@ module Queue =
                                 Choice1Of2 false
                         | Sliding ->
                             if q.Capacity > 0 then
-                                if q.Buffer.Count >= q.Capacity then q.Buffer.RemoveAt 0
+                                if q.Buffer.Count >= q.Capacity then
+                                    q.Buffer.RemoveAt 0
+
                                 q.Buffer.Add message
                                 signalAll q
 
@@ -207,7 +212,11 @@ module Queue =
                                 Choice1Of2 []
                             else
                                 let d = Deferred.makeUnsafe<'A list, obj> ()
-                                q.Offerers.Add { Items = ResizeArray<'A>(rest); Resume = d }
+
+                                q.Offerers.Add
+                                    { Items = ResizeArray<'A>(rest)
+                                      Resume = d }
+
                                 Choice2Of2 d
                         | Dropping ->
                             let mutable rest = messages
@@ -221,7 +230,9 @@ module Queue =
                         | Sliding ->
                             if q.Capacity > 0 then
                                 for m in messages do
-                                    if q.Buffer.Count >= q.Capacity then q.Buffer.RemoveAt 0
+                                    if q.Buffer.Count >= q.Capacity then
+                                        q.Buffer.RemoveAt 0
+
                                     q.Buffer.Add m
 
                                 signalAll q
@@ -240,7 +251,9 @@ module Queue =
             | Some _ -> false
             | None ->
                 q.Terminal <- Some cause
-                if clearBuffer then q.Buffer.Clear()
+
+                if clearBuffer then
+                    q.Buffer.Clear()
 
                 for off in q.Offerers do
                     Deferred.doneUnsafe off.Resume (Effect.succeed (List.ofSeq off.Items)) |> ignore
@@ -251,7 +264,8 @@ module Queue =
 
     /// Signal normal end-of-input. Pending/future takes drain the buffer, then
     /// fail with the `Done` marker. (Queue.end)
-    let endQueue (q: Queue<'A>) : Effect<bool, 'F, 'R> = Effect.sync (fun () -> complete q doneCause false)
+    let endQueue (q: Queue<'A>) : Effect<bool, 'F, 'R> =
+        Effect.sync (fun () -> complete q doneCause false)
 
     /// Fail the queue with a (boxed) error. Buffered values are drained before
     /// takers see the failure. (Queue.fail / failCause)
@@ -371,8 +385,10 @@ module Queue =
         Effect.suspend (fun () ->
             let outcome =
                 lock q.Lock (fun () ->
-                    if q.Buffer.Count > 0 then Choice1Of3 q.Buffer.[0]
-                    elif q.Offerers.Count > 0 then Choice1Of3 q.Offerers.[0].Items.[0]
+                    if q.Buffer.Count > 0 then
+                        Choice1Of3 q.Buffer.[0]
+                    elif q.Offerers.Count > 0 then
+                        Choice1Of3 q.Offerers.[0].Items.[0]
                     else
                         match q.Terminal with
                         | Some c -> Choice2Of3 c
@@ -392,13 +408,13 @@ module Queue =
         let rec loop (acc: 'A list) : Effect<'A list, obj, 'R> =
             takeAll q
             |> Effect.flatMap (fun batch -> loop (acc @ batch))
-            |> Effect.catchAll (fun (err: obj) ->
-                if isDone err then Effect.succeed acc else Effect.fail err)
+            |> Effect.catchAll (fun (err: obj) -> if isDone err then Effect.succeed acc else Effect.fail err)
 
         loop []
 
     /// The number of buffered messages. (Queue.size)
-    let size (q: Queue<'A>) : Effect<int, 'F, 'R> = Effect.sync (fun () -> lock q.Lock (fun () -> q.Buffer.Count))
+    let size (q: Queue<'A>) : Effect<int, 'F, 'R> =
+        Effect.sync (fun () -> lock q.Lock (fun () -> q.Buffer.Count))
 
     /// Wait for the queue to complete with no remaining buffered messages.
     /// Succeeds on normal end; fails with the error/interruption otherwise.
@@ -409,7 +425,10 @@ module Queue =
                 lock q.Lock (fun () ->
                     match q.Terminal with
                     | Some c when q.Buffer.Count = 0 && q.Offerers.Count = 0 ->
-                        if isDoneCause c then Choice1Of2(Effect.succeed ()) else Choice1Of2(Effect.failCause c)
+                        if isDoneCause c then
+                            Choice1Of2(Effect.succeed ())
+                        else
+                            Choice1Of2(Effect.failCause c)
                     | _ ->
                         let d = Deferred.makeUnsafe<unit, obj> ()
                         q.Awaiters.Add d

@@ -15,7 +15,6 @@ open System.Collections.Generic
 /// `run`/`set` await the replaced fiber so callers observe its finalizers;
 /// `join` awaits all members and surfaces the first typed failure. Dropped:
 /// `runtime`/`*Promise`, `propagateInterruption`, the `deferred` field, `TypeId`.
-
 /// A supervised, keyed set of fibers.
 type FiberMap<'K, 'A, 'E> when 'K: equality =
     internal
@@ -30,7 +29,11 @@ module FiberMap =
 
     /// Drop completed entries (caller holds the lock).
     let private prune (self: FiberMap<'K, 'A, 'E>) : unit =
-        let dead = [ for kv in self.Fibers do if not (isLive kv.Value) then kv.Key ]
+        let dead =
+            [ for kv in self.Fibers do
+                  if not (isLive kv.Value) then
+                      kv.Key ]
+
         for k in dead do
             self.Fibers.Remove k |> ignore
 
@@ -39,7 +42,9 @@ module FiberMap =
 
     /// Create an empty map outside the `Effect` context. (FiberMap.makeUnsafe)
     let makeUnsafe<'K, 'A, 'E when 'K: equality> () : FiberMap<'K, 'A, 'E> =
-        { Fibers = Dictionary<'K, Fiber<'A, 'E>>(); Closed = false; Gate = System.Object() }
+        { Fibers = Dictionary<'K, Fiber<'A, 'E>>()
+          Closed = false
+          Gate = System.Object() }
 
     let private closeEffect (self: FiberMap<'K, 'A, 'E>) : Effect<unit, 'E2, 'R> =
         Effect.suspend (fun () ->

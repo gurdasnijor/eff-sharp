@@ -20,7 +20,6 @@ namespace Effect
 ///   * The `live` console is best-effort: log/info/debug → stdout,
 ///     warn/error/trace → stderr, group prints its label; count/time/table/dir
 ///     are no-ops (no host console counters/timers in .NET).
-
 /// The console service. Mirrors upstream's `Console` interface (variadic args
 /// are `obj[]`).
 type Console =
@@ -55,10 +54,16 @@ module Console =
 
     /// The live, best-effort console over `System.Console`.
     let live: Console =
-        let toOut (args: obj[]) = System.Console.Out.WriteLine(render args)
-        let toErr (args: obj[]) = System.Console.Error.WriteLine(render args)
+        let toOut (args: obj[]) =
+            System.Console.Out.WriteLine(render args)
 
-        { Assert = fun condition args -> if not condition then toErr (Array.append [| box "Assertion failed:" |] args)
+        let toErr (args: obj[]) =
+            System.Console.Error.WriteLine(render args)
+
+        { Assert =
+            fun condition args ->
+                if not condition then
+                    toErr (Array.append [| box "Assertion failed:" |] args)
           Clear = fun () -> ()
           Count = fun _ -> ()
           CountReset = fun _ -> ()
@@ -96,18 +101,32 @@ module Console =
     let assertLog (condition: bool) (args: obj[]) : Effect<unit, 'E, Context> =
         consoleWith (fun c -> Effect.sync (fun () -> c.Assert condition args))
 
-    let clear<'E> : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync c.Clear)
-    let count (label: string option) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Count label))
+    let clear<'E> : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync c.Clear)
+
+    let count (label: string option) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Count label))
 
     let countReset (label: string option) : Effect<unit, 'E, Context> =
         consoleWith (fun c -> Effect.sync (fun () -> c.CountReset label))
 
-    let debug (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Debug args))
-    let dir (item: obj) (options: obj option) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Dir item options))
-    let dirxml (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Dirxml args))
-    let error (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Error args))
-    let info (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Info args))
-    let log (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Log args))
+    let debug (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Debug args))
+
+    let dir (item: obj) (options: obj option) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Dir item options))
+
+    let dirxml (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Dirxml args))
+
+    let error (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Error args))
+
+    let info (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Info args))
+
+    let log (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Log args))
 
     let table (data: obj) (properties: string[] option) : Effect<unit, 'E, Context> =
         consoleWith (fun c -> Effect.sync (fun () -> c.Table data properties))
@@ -115,8 +134,11 @@ module Console =
     let timeLog (label: string option) (args: obj[]) : Effect<unit, 'E, Context> =
         consoleWith (fun c -> Effect.sync (fun () -> c.TimeLog label args))
 
-    let trace (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Trace args))
-    let warn (args: obj[]) : Effect<unit, 'E, Context> = consoleWith (fun c -> Effect.sync (fun () -> c.Warn args))
+    let trace (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Trace args))
+
+    let warn (args: obj[]) : Effect<unit, 'E, Context> =
+        consoleWith (fun c -> Effect.sync (fun () -> c.Warn args))
 
     // --- scoped helpers (explicit Scope) ---
 
@@ -131,10 +153,8 @@ module Console =
     /// Start a console timer, ending it when `scope` closes. (Console.time)
     let time (scope: Scope<'E, Context>) (label: string option) : Effect<unit, 'E, Context> =
         consoleWith (fun c ->
-            Scope.acquireRelease
-                scope
-                (Effect.sync (fun () -> c.Time label))
-                (fun () _ -> Effect.sync (fun () -> c.TimeEnd label)))
+            Scope.acquireRelease scope (Effect.sync (fun () -> c.Time label)) (fun () _ ->
+                Effect.sync (fun () -> c.TimeEnd label)))
 
     // --- effect-wrapping helpers ---
 
@@ -149,7 +169,5 @@ module Console =
     /// Run `self` inside a console timer. (Console.withTime)
     let withTime (label: string option) (self: Effect<'A, 'E, Context>) : Effect<'A, 'E, Context> =
         consoleWith (fun c ->
-            Effect.acquireUseRelease
-                (Effect.sync (fun () -> c.Time label))
-                (fun () -> self)
-                (fun () _ -> Effect.sync (fun () -> c.TimeEnd label)))
+            Effect.acquireUseRelease (Effect.sync (fun () -> c.Time label)) (fun () -> self) (fun () _ ->
+                Effect.sync (fun () -> c.TimeEnd label)))

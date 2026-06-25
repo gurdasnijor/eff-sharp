@@ -40,10 +40,14 @@ let private resourceLookup (acquired: int ref) (released: int ref) =
 let ``get - miss invokes lookup, hit serves from cache (lookup runs once)`` () =
     let time = ref 0L
     let count = ref 0
+
     let cache: ScopedCache<string, int, string> =
-        get time (ScopedCache.make 10 (fun (k: string) (_: Scope<string, Context>) -> Effect.sync (fun () ->
-            count.Value <- count.Value + 1
-            k.Length)))
+        get
+            time
+            (ScopedCache.make 10 (fun (k: string) (_: Scope<string, Context>) ->
+                Effect.sync (fun () ->
+                    count.Value <- count.Value + 1
+                    k.Length)))
 
     Assert.Equal<Exit<int, string>>(Exit.succeed 5, run time (ScopedCache.get cache "hello"))
     Assert.Equal<Exit<int, string>>(Exit.succeed 5, run time (ScopedCache.get cache "hello"))
@@ -52,6 +56,7 @@ let ``get - miss invokes lookup, hit serves from cache (lookup runs once)`` () =
 [<Fact>]
 let ``getOption / has / size`` () =
     let time = ref 0L
+
     let cache: ScopedCache<string, int, string> =
         get time (ScopedCache.make 10 (fun (k: string) (_: Scope<string, Context>) -> Effect.succeed k.Length))
 
@@ -71,6 +76,7 @@ let ``invalidate - releases the entry's scoped resource`` () =
     let time = ref 0L
     let acquired = ref 0
     let released = ref 0
+
     let cache: ScopedCache<string, int, string> =
         get time (ScopedCache.make 10 (resourceLookup acquired released))
 
@@ -87,6 +93,7 @@ let ``invalidateAll - releases every entry's scope`` () =
     let time = ref 0L
     let acquired = ref 0
     let released = ref 0
+
     let cache: ScopedCache<string, int, string> =
         get time (ScopedCache.make 10 (resourceLookup acquired released))
 
@@ -104,6 +111,7 @@ let ``refresh - releases the old scope and re-acquires`` () =
     let time = ref 0L
     let acquired = ref 0
     let released = ref 0
+
     let cache: ScopedCache<string, int, string> =
         get time (ScopedCache.make 10 (resourceLookup acquired released))
 
@@ -120,6 +128,7 @@ let ``capacity eviction - releases the evicted entry's scope`` () =
     let time = ref 0L
     let acquired = ref 0
     let released = ref 0
+
     let cache: ScopedCache<string, int, string> =
         get time (ScopedCache.make 1 (resourceLookup acquired released))
 

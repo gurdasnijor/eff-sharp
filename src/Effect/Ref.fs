@@ -33,7 +33,8 @@ module Ref =
     let makeUnsafe (value: 'A) : Ref<'A> = { Cell = MutableRef.make value }
 
     /// Creates a `Ref` holding `value`, wrapped in an `Effect`. (Ref.make)
-    let make (value: 'A) : Effect<Ref<'A>, 'E, 'R> = Effect.sync (fun () -> makeUnsafe value)
+    let make (value: 'A) : Effect<Ref<'A>, 'E, 'R> =
+        Effect.sync (fun () -> makeUnsafe value)
 
     // --- getters ---
 
@@ -41,7 +42,8 @@ module Ref =
     let getUnsafe (self: Ref<'A>) : 'A = self.Cell.Current
 
     /// Reads the current value. (Ref.get)
-    let get (self: Ref<'A>) : Effect<'A, 'E, 'R> = Effect.sync (fun () -> self.Cell.Current)
+    let get (self: Ref<'A>) : Effect<'A, 'E, 'R> =
+        Effect.sync (fun () -> self.Cell.Current)
 
     // --- setters / mutations ---
 

@@ -22,8 +22,7 @@ module Fiber =
     let interrupt (self: Fiber<'A, 'E>) : Effect<unit, 'E2, 'R> = Effect.interrupt self
 
     /// Await every fiber, collecting their `Exit`s in order. (Fiber.awaitAll)
-    let awaitAll (fibers: seq<Fiber<'A, 'E>>) : Effect<Exit<'A, 'E> list, 'E2, 'R> =
-        Effect.forEach fibers Effect.await
+    let awaitAll (fibers: seq<Fiber<'A, 'E>>) : Effect<Exit<'A, 'E> list, 'E2, 'R> = Effect.forEach fibers Effect.await
 
     /// Join every fiber, collecting their values; the first failure
     /// short-circuits. (Fiber.joinAll)
@@ -36,4 +35,8 @@ module Fiber =
     /// Non-blocking peek: `Some exit` if the fiber has completed, else `None`.
     /// (Fiber.pollUnsafe, lifted into an effect.)
     let poll (self: Fiber<'A, 'E>) : Effect<Exit<'A, 'E> option, 'E2, 'R> =
-        Effect.sync (fun () -> if self.Task.IsCompleted then Some self.Task.Result else None)
+        Effect.sync (fun () ->
+            if self.Task.IsCompleted then
+                Some self.Task.Result
+            else
+                None)

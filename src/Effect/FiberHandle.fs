@@ -20,7 +20,6 @@ namespace Effect
 ///   * `join` waits for the current fiber and surfaces its first typed failure.
 ///   * Dropped: `makeRuntime`/`runtime`/`*Promise` (need `runForkWith`/the JS
 ///     runtime), `propagateInterruption`, the `deferred` field, `TypeId`.
-
 /// A handle managing at most one fiber.
 type FiberHandle<'A, 'E> =
     internal
@@ -38,7 +37,9 @@ module FiberHandle =
 
     /// Create an empty handle outside the `Effect` context. (FiberHandle.makeUnsafe)
     let makeUnsafe<'A, 'E> () : FiberHandle<'A, 'E> =
-        { Current = None; Closed = false; Gate = System.Object() }
+        { Current = None
+          Closed = false
+          Gate = System.Object() }
 
     /// Interrupt the current fiber and close the handle (the scope finalizer).
     let private closeEffect (self: FiberHandle<'A, 'E>) : Effect<unit, 'E2, 'R> =
@@ -69,8 +70,7 @@ module FiberHandle =
             | _ -> None)
 
     /// The current (live) fiber, or `None`. (FiberHandle.get)
-    let get (self: FiberHandle<'A, 'E>) : Effect<Fiber<'A, 'E> option, 'E2, 'R> =
-        Effect.sync (fun () -> getUnsafe self)
+    let get (self: FiberHandle<'A, 'E>) : Effect<Fiber<'A, 'E> option, 'E2, 'R> = Effect.sync (fun () -> getUnsafe self)
 
     /// Install `fiber`, interrupting (flag-only) the one it replaces unless
     /// `onlyIfMissing`. (FiberHandle.setUnsafe)

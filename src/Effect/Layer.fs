@@ -11,7 +11,9 @@ namespace Effect
 /// is a runtime-keyed map, so we drop `ROut` — a `Layer<'E,'RIn>` provides services
 /// checked at runtime by `Tag`. Memoization (`MemoMap`) and the Stream-based layer
 /// features are deferred (the core DI surface needs neither).
-type Layer<'E, 'RIn> = internal { Build: Scope<'E, 'RIn> -> Effect<Context, 'E, 'RIn> }
+type Layer<'E, 'RIn> =
+    internal
+        { Build: Scope<'E, 'RIn> -> Effect<Context, 'E, 'RIn> }
 
 [<RequireQualifiedAccess>]
 module Layer =

@@ -15,12 +15,14 @@ namespace Effect
 ///     `combineAll`, e.g. short-circuiting). This is more idiomatic than an
 ///     `option` argument.
 type Reducer<'A> =
-    { /// Combines two values into a new value.
-      combine: 'A -> 'A -> 'A
-      /// Neutral starting value (combining with it changes nothing).
-      initialValue: 'A
-      /// Combines all values in the collection, starting from `initialValue`.
-      combineAll: seq<'A> -> 'A }
+    {
+        /// Combines two values into a new value.
+        combine: 'A -> 'A -> 'A
+        /// Neutral starting value (combining with it changes nothing).
+        initialValue: 'A
+        /// Combines all values in the collection, starting from `initialValue`.
+        combineAll: seq<'A> -> 'A
+    }
 
 [<RequireQualifiedAccess>]
 module Reducer =
@@ -34,12 +36,10 @@ module Reducer =
 
     /// Creates a `Reducer` with an explicit `combineAll` (e.g. one that
     /// short-circuits on an absorbing element). It replaces the default fold.
-    let makeWith
-        (combine: 'a -> 'a -> 'a)
-        (initialValue: 'a)
-        (combineAll: seq<'a> -> 'a)
-        : Reducer<'a> =
-        { combine = combine; initialValue = initialValue; combineAll = combineAll }
+    let makeWith (combine: 'a -> 'a -> 'a) (initialValue: 'a) (combineAll: seq<'a> -> 'a) : Reducer<'a> =
+        { combine = combine
+          initialValue = initialValue
+          combineAll = combineAll }
 
     /// Reverses the argument order of a reducer's `combine`. `initialValue` is
     /// preserved; `combineAll` is re-derived from the flipped `combine`.

@@ -58,7 +58,8 @@ module SynchronizedRef =
 
     /// Creates a `SynchronizedRef` holding `value`, wrapped in an `Effect`.
     /// (SynchronizedRef.make)
-    let make (value: 'A) : Effect<SynchronizedRef<'A>, 'E, 'R> = Effect.sync (fun () -> makeUnsafe value)
+    let make (value: 'A) : Effect<SynchronizedRef<'A>, 'E, 'R> =
+        Effect.sync (fun () -> makeUnsafe value)
 
     // --- getters (bypass the permit, like upstream) ---
 
@@ -137,10 +138,7 @@ module SynchronizedRef =
 
     /// Runs an effectful conditional update under the permit, returning the
     /// previous value. (SynchronizedRef.getAndUpdateSomeEffect)
-    let getAndUpdateSomeEffect
-        (self: SynchronizedRef<'A>)
-        (pf: 'A -> Effect<'A option, 'E, 'R>)
-        : Effect<'A, 'E, 'R> =
+    let getAndUpdateSomeEffect (self: SynchronizedRef<'A>) (pf: 'A -> Effect<'A option, 'E, 'R>) : Effect<'A, 'E, 'R> =
         withPermit
             self.Semaphore
             (Effect.sync (fun () -> getUnsafe self)
@@ -168,10 +166,7 @@ module SynchronizedRef =
     /// Runs an effectful conditional modification under the permit; `Some` stores
     /// the new value, `None` leaves it unchanged. Returns the computed result.
     /// (SynchronizedRef.modifySomeEffect)
-    let modifySomeEffect
-        (self: SynchronizedRef<'A>)
-        (pf: 'A -> Effect<'B * 'A option, 'E, 'R>)
-        : Effect<'B, 'E, 'R> =
+    let modifySomeEffect (self: SynchronizedRef<'A>) (pf: 'A -> Effect<'B * 'A option, 'E, 'R>) : Effect<'B, 'E, 'R> =
         withPermit
             self.Semaphore
             (Effect.sync (fun () -> getUnsafe self)
@@ -219,10 +214,7 @@ module SynchronizedRef =
 
     /// Runs an effectful conditional update under the permit, returning the
     /// resulting current value. (SynchronizedRef.updateSomeAndGetEffect)
-    let updateSomeAndGetEffect
-        (self: SynchronizedRef<'A>)
-        (pf: 'A -> Effect<'A option, 'E, 'R>)
-        : Effect<'A, 'E, 'R> =
+    let updateSomeAndGetEffect (self: SynchronizedRef<'A>) (pf: 'A -> Effect<'A option, 'E, 'R>) : Effect<'A, 'E, 'R> =
         withPermit
             self.Semaphore
             (Effect.sync (fun () -> getUnsafe self)

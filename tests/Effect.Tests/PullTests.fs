@@ -7,7 +7,9 @@ open Effect
 // file exists; these Facts assert the documented behavior). A Pull's error
 // channel is `obj`; a `Done<'L>` marker in a `Fail` reason signals completion.
 
-let private doneCause: Cause<obj> = { Reasons = [ Reason.Fail(box { Leftover = 42 }) ] }
+let private doneCause: Cause<obj> =
+    { Reasons = [ Reason.Fail(box { Leftover = 42 }) ] }
+
 let private errCause: Cause<obj> = { Reasons = [ Reason.Fail(box "boom") ] }
 let private emptyCause: Cause<obj> = Cause.empty
 
@@ -31,6 +33,7 @@ let ``filterDone extracts the Done marker or fails with the cause`` () =
     match Pull.filterDone doneCause with
     | Ok marker -> Assert.Equal(42, (marker :?> Done<int>).Leftover)
     | Error _ -> Assert.True(false, "expected Ok")
+
     Assert.Equal(Error errCause, Pull.filterDone errCause)
     Assert.Equal(Error emptyCause, Pull.filterDone emptyCause)
 
@@ -39,6 +42,7 @@ let ``filterDoneLeftover extracts the leftover value`` () =
     match Pull.filterDoneLeftover doneCause with
     | Ok leftover -> Assert.Equal(42, unbox<int> leftover)
     | Error _ -> Assert.True(false, "expected Ok")
+
     Assert.Equal(Error errCause, Pull.filterDoneLeftover errCause)
 
 [<Fact>]
@@ -51,6 +55,7 @@ let ``doneExitFromCause maps done to success and others to failure`` () =
     match Pull.doneExitFromCause doneCause with
     | Success v -> Assert.Equal(42, unbox<int> v)
     | Failure _ -> Assert.True(false, "expected Success")
+
     match Pull.doneExitFromCause errCause with
     | Failure c -> Assert.Equal(errCause, c)
     | Success _ -> Assert.True(false, "expected Failure")
@@ -82,10 +87,12 @@ let ``halt signals completion with a leftover`` () =
 let ``catchDone recovers completion but leaves ordinary failures`` () =
     let recovered: Pull.Pull<int, unit> =
         Pull.halt 7 |> Pull.catchDone (fun l -> Effect.succeed (unbox<int> l + 1))
+
     Assert.Equal(Success 8, Effect.runSync () recovered)
 
     let notRecovered: Pull.Pull<int, unit> =
         Effect.failCause errCause |> Pull.catchDone (fun _ -> Effect.succeed 0)
+
     match Effect.runSync () notRecovered with
     | Failure cause -> Assert.False(Pull.isDoneCause cause)
     | Success _ -> Assert.True(false, "ordinary failure should not be recovered")

@@ -41,7 +41,7 @@ module Data =
         inherit Error(message)
         new(tag: string) = TaggedError(tag, "")
         /// The discriminator tag (effect's `_tag`).
-        member _.Tag : string = tag
+        member _.Tag: string = tag
 
     /// Structural equality — delegates to F#'s built-in structural equality,
     /// which is precisely what effect's `Data` adds to plain JS objects.
@@ -53,6 +53,7 @@ module Data =
     /// it is the runtime type name.
     let tagOf (value: 'a) : string =
         let t = typeof<'a>
+
         if FSharpType.IsUnion(t, true) then
             let case, _ = FSharpValue.GetUnionFields(value, t, true)
             case.Name

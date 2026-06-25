@@ -91,7 +91,9 @@ let ``union keeps values from both sets`` () =
 
 [<Fact>]
 let ``intersection keeps only shared values`` () =
-    let result = HashSet.intersection (HashSet.make [ "a"; "b"; "c" ]) (HashSet.make [ "b"; "c"; "d" ])
+    let result =
+        HashSet.intersection (HashSet.make [ "a"; "b"; "c" ]) (HashSet.make [ "b"; "c"; "d" ])
+
     Assert.Equal(2, HashSet.size result)
     Assert.True(HashSet.has result "b")
     Assert.True(HashSet.has result "c")
@@ -99,7 +101,9 @@ let ``intersection keeps only shared values`` () =
 
 [<Fact>]
 let ``difference removes values found in the second set`` () =
-    let result = HashSet.difference (HashSet.make [ "a"; "b"; "c" ]) (HashSet.make [ "b"; "d" ])
+    let result =
+        HashSet.difference (HashSet.make [ "a"; "b"; "c" ]) (HashSet.make [ "b"; "d" ])
+
     Assert.Equal(2, HashSet.size result)
     Assert.True(HashSet.has result "a")
     Assert.True(HashSet.has result "c")
@@ -127,7 +131,9 @@ let ``map transforms every value`` () =
 
 [<Fact>]
 let ``map removes duplicate transformed values`` () =
-    let lengths = HashSet.map (HashSet.make [ "apple"; "banana"; "cherry" ]) String.length
+    let lengths =
+        HashSet.map (HashSet.make [ "apple"; "banana"; "cherry" ]) String.length
+
     Assert.Equal(2, HashSet.size lengths) // apple=5, banana=cherry=6
     Assert.True(HashSet.has lengths 5)
     Assert.True(HashSet.has lengths 6)

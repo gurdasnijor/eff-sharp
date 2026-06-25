@@ -41,12 +41,18 @@ module Latch =
     /// (Latch.makeUnsafe)
     let makeUnsafe (isOpen: bool) : Latch =
         let gate = newGate ()
-        if isOpen then gate.SetResult()
-        { State = isOpen; Gate = gate; Lock = obj () }
+
+        if isOpen then
+            gate.SetResult()
+
+        { State = isOpen
+          Gate = gate
+          Lock = obj () }
 
     /// Allocate a `Latch` inside an `Effect`. Starts closed unless `isOpen` is
     /// true. (Latch.make)
-    let make (isOpen: bool) : Effect<Latch, 'E, 'R> = Effect.sync (fun () -> makeUnsafe isOpen)
+    let make (isOpen: bool) : Effect<Latch, 'E, 'R> =
+        Effect.sync (fun () -> makeUnsafe isOpen)
 
     // --- synchronous state transitions ---
 
@@ -83,7 +89,8 @@ module Latch =
 
     /// Close the latch so future waiters suspend again. Succeeds with `true` iff
     /// this changed it from open to closed. (Latch.close)
-    let close (self: Latch) : Effect<bool, 'E, 'R> = Effect.sync (fun () -> closeUnsafe self)
+    let close (self: Latch) : Effect<bool, 'E, 'R> =
+        Effect.sync (fun () -> closeUnsafe self)
 
     /// Release the currently-suspended waiters **without** opening the latch;
     /// future waiters still suspend. Succeeds with `true` iff the latch was
@@ -106,7 +113,10 @@ module Latch =
             async {
                 let task =
                     lock self.Lock (fun () ->
-                        if self.State then Task.CompletedTask else self.Gate.Task :> Task)
+                        if self.State then
+                            Task.CompletedTask
+                        else
+                            self.Gate.Task :> Task)
 
                 do! Async.AwaitTask task
                 return Success()

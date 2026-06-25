@@ -42,9 +42,11 @@ let ``await blocks until another thread completes the deferred`` () =
     let observed = TxRef.makeUnsafe -1
 
     let waiter =
-        Thread(ThreadStart(fun () ->
-            let v = run (TxDeferred.await d)
-            run (TxRef.atomically (TxRef.set observed v))))
+        Thread(
+            ThreadStart(fun () ->
+                let v = run (TxDeferred.await d)
+                run (TxRef.atomically (TxRef.set observed v)))
+        )
 
     waiter.Start()
     Thread.Sleep 250

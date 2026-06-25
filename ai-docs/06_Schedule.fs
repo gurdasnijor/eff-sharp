@@ -22,6 +22,7 @@ open EffSharp.AiDocs.Demo
 /// F# pattern matching, not a `Schedule.match` combinator.
 let private drive (maxSteps: int) (input: 'In) (sched: Schedule<'Out, 'In>) : ('Out * Duration) list =
     let step = Schedule.toStep sched
+
     let rec loop now n acc =
         if n >= maxSteps then
             List.rev acc
@@ -29,10 +30,13 @@ let private drive (maxSteps: int) (input: 'In) (sched: Schedule<'Out, 'In>) : ('
             match step now input with
             | Continue(out, delay) -> loop (now + Duration.toMillis delay) (n + 1) ((out, delay) :: acc)
             | Done out -> List.rev ((out, Duration.zero) :: acc)
+
     loop 0.0 0 []
 
 let private show label rows =
-    printfn "  %-22s %s" label
+    printfn
+        "  %-22s %s"
+        label
         (rows
          |> List.map (fun (o, d) -> sprintf "%A@%s" o (Duration.format d))
          |> String.concat "  ")
@@ -53,14 +57,20 @@ let run () : unit =
     // `jitteredWith` scales each delay to 80–120% of its value, spreading retries
     // to avoid thundering herds. We inject a deterministic 0.5 source (→ exactly
     // 100%) so the demo is reproducible; production code uses `Schedule.jittered`.
-    show "spaced+jitter(0.5):"
+    show
+        "spaced+jitter(0.5):"
         (drive 3 () (Schedule.spaced (Duration.seconds 1.0) |> Schedule.jitteredWith (fun () -> 0.5)))
 
     // `intersect` recurs only while BOTH policies want to — using the MAXIMUM of
     // the two delays. This is "exponential backoff, but capped at 2 attempts":
     // the `recurs 2` side stops the whole thing.
-    show "expo ∩ recurs 2:"
-        (drive 6 () (Schedule.exponential (Duration.millis 100.0) |> Schedule.intersect (Schedule.recurs 2)))
+    show
+        "expo ∩ recurs 2:"
+        (drive
+            6
+            ()
+            (Schedule.exponential (Duration.millis 100.0)
+             |> Schedule.intersect (Schedule.recurs 2)))
 
     // `collectOutputs` folds every output into a growing list — handy for
     // recording what a retry loop actually did.

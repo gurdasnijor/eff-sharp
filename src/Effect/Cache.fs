@@ -23,7 +23,6 @@ namespace Effect
 ///     `Dictionary` backing, eviction order after deletions is best-effort
 ///     (insertion order is not guaranteed once slots are freed) — noted.
 ///   * JS-runtime machinery (`TypeId`, `Pipeable`, `toJSON`) is dropped.
-
 /// A low-level cache entry: the shared `Deferred` lookup result, its resolved
 /// `Exit` (once complete), and an optional expiry timestamp (epoch millis).
 type CacheEntry<'A, 'E> =
@@ -64,6 +63,7 @@ module Cache =
         Effect(fun fib r ->
             async {
                 let! exit = run fib r
+
                 match exit with
                 | Success a -> return Success a
                 | Failure c ->
@@ -78,15 +78,23 @@ module Cache =
 
     let private checkCapacity (self: Cache<'Key, 'A, 'E>) : unit =
         let diff = MutableHashMap.size self.Map - self.Capacity
+
         if diff > 0 then
             // MutableHashMap preserves insertion order, so the front entries are oldest.
-            let oldest = MutableHashMap.toSeq self.Map |> Seq.truncate diff |> Seq.map fst |> Seq.toList
+            let oldest =
+                MutableHashMap.toSeq self.Map |> Seq.truncate diff |> Seq.map fst |> Seq.toList
+
             for k in oldest do
                 MutableHashMap.remove self.Map k |> ignore
 
     /// Look up a live (non-expired) entry, removing it if expired. `isRead` bumps
     /// LRU recency. (Cache.getImpl)
-    let private getImpl (self: Cache<'Key, 'A, 'E>) (key: 'Key) (now: int64) (isRead: bool) : CacheEntry<'A, 'E> option =
+    let private getImpl
+        (self: Cache<'Key, 'A, 'E>)
+        (key: 'Key)
+        (now: int64)
+        (isRead: bool)
+        : CacheEntry<'A, 'E> option =
         match MutableHashMap.get self.Map key with
         | None -> None
         | Some entry ->
@@ -101,11 +109,15 @@ module Cache =
                 Some entry
 
     let private expiryFromTtl (now: int64) (ttl: Duration) : int64 option =
-        if Duration.isFinite ttl then Some(now + int64 (Duration.toMillis ttl)) else None
+        if Duration.isFinite ttl then
+            Some(now + int64 (Duration.toMillis ttl))
+        else
+            None
 
     // --- constructors ---
 
-    let private defaultTimeToLive : Exit<'A, 'E> -> 'Key -> Duration = fun _ _ -> Duration.infinity
+    let private defaultTimeToLive: Exit<'A, 'E> -> 'Key -> Duration =
+        fun _ _ -> Duration.infinity
 
     /// Creates a cache with dynamic time-to-live computed from the lookup `Exit`
     /// and key. (Cache.makeWith)
@@ -141,6 +153,7 @@ module Cache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match MutableHashMap.get self.Map key with
                 | Some entry when not (hasExpired entry now) ->
                     MutableHashMap.remove self.Map key |> ignore
@@ -148,15 +161,22 @@ module Cache =
                     Deferred.await entry.Deferred
                 | _ ->
                     let deferred = Deferred.makeUnsafe ()
-                    let entry = { ExpiresAt = None; Deferred = deferred; Result = None }
+
+                    let entry =
+                        { ExpiresAt = None
+                          Deferred = deferred
+                          Result = None }
+
                     MutableHashMap.set self.Map key entry |> ignore
                     checkCapacity self
+
                     self.Lookup key
                     |> onExit (fun exit ->
                         Effect.sync (fun () ->
                             Deferred.doneUnsafe deferred (ofExit exit) |> ignore
                             entry.Result <- Some exit
                             let ttl = self.TimeToLive exit key
+
                             if Duration.isFinite ttl then
                                 entry.ExpiresAt <- expiryFromTtl (clock.CurrentTimeMillisUnsafe()) ttl
                             elif Duration.isZero ttl then
@@ -168,6 +188,7 @@ module Cache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match getImpl self key now true with
                 | Some entry -> Deferred.await entry.Deferred |> Effect.map Some
                 | None -> Effect.succeed None))
@@ -178,6 +199,7 @@ module Cache =
         Clock.clockWith (fun clock ->
             Effect.sync (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match getImpl self key now false with
                 | Some entry ->
                     match entry.Result with
@@ -191,22 +213,31 @@ module Cache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let deferred = Deferred.makeUnsafe ()
-                let entry = { ExpiresAt = None; Deferred = deferred; Result = None }
+
+                let entry =
+                    { ExpiresAt = None
+                      Deferred = deferred
+                      Result = None }
+
                 let now = clock.CurrentTimeMillisUnsafe()
                 let existing = (getImpl self key now false).IsSome
+
                 if not existing then
                     MutableHashMap.set self.Map key entry |> ignore
                     checkCapacity self
+
                 self.Lookup key
                 |> onExit (fun exit ->
                     Effect.sync (fun () ->
                         Deferred.doneUnsafe deferred (ofExit exit) |> ignore
                         entry.Result <- Some exit
                         let ttl = self.TimeToLive exit key
+
                         if Duration.isZero ttl then
                             MutableHashMap.remove self.Map key |> ignore
                         else
                             entry.ExpiresAt <- expiryFromTtl (clock.CurrentTimeMillisUnsafe()) ttl
+
                             if existing then
                                 MutableHashMap.set self.Map key entry |> ignore))))
 
@@ -220,6 +251,7 @@ module Cache =
                 let deferred = Deferred.makeUnsafe ()
                 Deferred.doneUnsafe deferred (ofExit exit) |> ignore
                 let ttl = self.TimeToLive exit key
+
                 if Duration.isZero ttl then
                     MutableHashMap.remove self.Map key |> ignore
                 else
@@ -227,6 +259,7 @@ module Cache =
                         { ExpiresAt = expiryFromTtl (clock.CurrentTimeMillisUnsafe()) ttl
                           Deferred = deferred
                           Result = Some exit }
+
                     MutableHashMap.set self.Map key entry |> ignore
                     checkCapacity self))
 
@@ -250,9 +283,11 @@ module Cache =
             Effect.sync (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
                 let all = MutableHashMap.toSeq self.Map |> Seq.toList
+
                 for (k, e) in all do
                     if hasExpired e now then
                         MutableHashMap.remove self.Map k |> ignore
+
                 all |> List.choose (fun (k, e) -> if hasExpired e now then None else Some k)))
 
     /// All resolved-successful, non-expired key/value pairs; expired entries are
@@ -262,9 +297,11 @@ module Cache =
             Effect.sync (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
                 let all = MutableHashMap.toSeq self.Map |> Seq.toList
+
                 for (k, e) in all do
                     if hasExpired e now then
                         MutableHashMap.remove self.Map k |> ignore
+
                 all
                 |> List.choose (fun (k, e) ->
                     if hasExpired e now then
@@ -291,6 +328,7 @@ module Cache =
         Clock.clockWith (fun clock ->
             Effect.suspend (fun () ->
                 let now = clock.CurrentTimeMillisUnsafe()
+
                 match getImpl self key now false with
                 | None -> Effect.succeed false
                 | Some entry ->

@@ -18,7 +18,11 @@ open EffSharp.AiDocs.Shared
 // Domain model (records/DUs) + a tagged-style error.
 // ---------------------------------------------------------------------------
 
-type Todo = { Id: int; Title: string; Completed: bool }
+type Todo =
+    { Id: int
+      Title: string
+      Completed: bool }
+
 type CreateTodo = { Title: string }
 type TodoError = TodoNotFound of id: int
 
@@ -56,12 +60,20 @@ let repoLayer: Layer<TodoError, unit> =
             let create (payload: CreateTodo) : Effect<Todo, TodoError, Context> =
                 effect {
                     let! id = Ref.getAndUpdate nextId (fun c -> c + 1)
-                    let todo = { Id = id; Title = payload.Title; Completed = false }
+
+                    let todo =
+                        { Id = id
+                          Title = payload.Title
+                          Completed = false }
+
                     store.[id] <- todo
                     return todo
                 }
 
-            return { GetAll = getAll; GetById = getById; Create = create }
+            return
+                { GetAll = getAll
+                  GetById = getById
+                  Create = create }
         })
 
 // ---------------------------------------------------------------------------
@@ -98,12 +110,12 @@ let createSchema: Schema<CreateTodo> =
 let handleCreate (rt: Runtime) (body: Json) : Result<Todo, string> =
     match Schema.decode createSchema body with
     | Error issue -> Error(Schema.format issue) // -> HTTP 400
-    | Ok payload ->
-        Ok(Runtime.runSync rt (Effect.service repoTag |> Effect.flatMap (fun repo -> repo.Create payload)))
+    | Ok payload -> Ok(Runtime.runSync rt (Effect.service repoTag |> Effect.flatMap (fun repo -> repo.Create payload)))
 
 /// GET /todos/:id — run for the full Exit so we can map a typed miss to 404.
 let handleGet (rt: Runtime) (id: int) : Result<Todo, string> =
-    let exit = Runtime.runSyncExit rt (Effect.service repoTag |> Effect.flatMap (fun repo -> repo.GetById id))
+    let exit =
+        Runtime.runSyncExit rt (Effect.service repoTag |> Effect.flatMap (fun repo -> repo.GetById id))
 
     match exit with
     | Success todo -> Ok todo

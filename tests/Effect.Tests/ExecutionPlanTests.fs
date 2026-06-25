@@ -38,7 +38,11 @@ let ``retries within a step up to attempts`` () =
             svc
             (Effect.suspend (fun () ->
                 incr counter
-                if counter.Value < 3 then Effect.fail "flaky" else Effect.succeed 7))
+
+                if counter.Value < 3 then
+                    Effect.fail "flaky"
+                else
+                    Effect.succeed 7))
 
     let plan = ExecutionPlan.make [ ExecutionPlan.stepWith flaky 3 ]
     Assert.Equal(7, run (ExecutionPlan.withExecutionPlan plan eff))

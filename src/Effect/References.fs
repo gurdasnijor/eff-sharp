@@ -19,10 +19,12 @@ module Reference =
 module References =
 
     /// Below this level, logs are dropped. (References.MinimumLogLevel)
-    let MinimumLogLevel: Reference<LogLevel> = Reference.make "effect/References/MinimumLogLevel" LogLevel.Info
+    let MinimumLogLevel: Reference<LogLevel> =
+        Reference.make "effect/References/MinimumLogLevel" LogLevel.Info
 
     /// The level of the currently-running log call. (References.CurrentLogLevel)
-    let CurrentLogLevel: Reference<LogLevel> = Reference.make "effect/References/CurrentLogLevel" LogLevel.Info
+    let CurrentLogLevel: Reference<LogLevel> =
+        Reference.make "effect/References/CurrentLogLevel" LogLevel.Info
 
     /// Default concurrency for `Effect.forEach`/`all` — `None` = unbounded.
     /// (References.CurrentConcurrency)
@@ -38,7 +40,8 @@ module References =
         Reference.make "effect/References/CurrentLogSpans" []
 
     /// Whether tracing spans are recorded. (References.TracerEnabled)
-    let TracerEnabled: Reference<bool> = Reference.make "effect/References/TracerEnabled" true
+    let TracerEnabled: Reference<bool> =
+        Reference.make "effect/References/TracerEnabled" true
 
     /// The level used for unhandled (defect) logging. (References.UnhandledLogLevel)
     let UnhandledLogLevel: Reference<LogLevel option> =

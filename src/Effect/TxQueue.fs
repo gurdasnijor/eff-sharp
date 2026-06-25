@@ -64,17 +64,20 @@ module TxQueue =
         }
 
     /// Bounded queue: offers retry (block) while full. (TxQueue.bounded)
-    let bounded (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> = makeWith TxQueueStrategy.Bounded capacity
+    let bounded (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Bounded capacity
 
     /// Unbounded queue: offers always accept. (TxQueue.unbounded)
     let unbounded () : Effect<TxQueue<'A, 'E>, 'Err, 'R> =
         makeWith TxQueueStrategy.Unbounded System.Int32.MaxValue
 
     /// Dropping queue: offers return `false` when full. (TxQueue.dropping)
-    let dropping (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> = makeWith TxQueueStrategy.Dropping capacity
+    let dropping (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Dropping capacity
 
     /// Sliding queue: offers evict the oldest item when full. (TxQueue.sliding)
-    let sliding (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> = makeWith TxQueueStrategy.Sliding capacity
+    let sliding (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> =
+        makeWith TxQueueStrategy.Sliding capacity
 
     // --- composable Stm cores (also used by TxPubSub) ---
 
@@ -88,7 +91,11 @@ module TxQueue =
     let isFullStm (self: TxQueue<'A, 'E>) : Stm<bool> =
         match self.Strategy with
         | TxQueueStrategy.Unbounded -> stm { return false }
-        | _ -> stm { let! n = sizeStm self in return n >= self.Capacity }
+        | _ ->
+            stm {
+                let! n = sizeStm self
+                return n >= self.Capacity
+            }
 
     /// Offer a value, returning whether it was accepted. Bounded-full retries.
     /// (TxQueue.offer core)
@@ -251,8 +258,7 @@ module TxQueue =
             | Error cause -> Effect.failCause cause)
 
     /// Offer an item; `true` if accepted. (TxQueue.offer)
-    let offer (self: TxQueue<'A, 'E>) (value: 'A) : Effect<bool, 'Err, 'R> =
-        TxRef.atomically (offerStm self value)
+    let offer (self: TxQueue<'A, 'E>) (value: 'A) : Effect<bool, 'Err, 'R> = TxRef.atomically (offerStm self value)
 
     /// Offer every item in one transaction, returning those rejected.
     /// (TxQueue.offerAll) — `stm { }` has no `for`, so this folds by recursion.
@@ -311,19 +317,30 @@ module TxQueue =
     // --- state predicates ---
 
     let private stateIs (self: TxQueue<'A, 'E>) (pred: TxQueueState<'E> -> bool) : Effect<bool, 'Err, 'R> =
-        TxRef.atomically (stm { let! s = TxRef.get self.StateRef in return pred s })
+        TxRef.atomically (
+            stm {
+                let! s = TxRef.get self.StateRef
+                return pred s
+            }
+        )
 
     /// (TxQueue.isOpen)
     let isOpen (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
-        stateIs self (function Open -> true | _ -> false)
+        stateIs self (function
+            | Open -> true
+            | _ -> false)
 
     /// (TxQueue.isClosing)
     let isClosing (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
-        stateIs self (function Closing _ -> true | _ -> false)
+        stateIs self (function
+            | Closing _ -> true
+            | _ -> false)
 
     /// (TxQueue.isDone)
     let isDone (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
-        stateIs self (function Done _ -> true | _ -> false)
+        stateIs self (function
+            | Done _ -> true
+            | _ -> false)
 
     /// (TxQueue.isShutdown — alias of isDone)
     let isShutdown (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> = isDone self

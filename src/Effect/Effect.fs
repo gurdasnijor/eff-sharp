@@ -52,7 +52,8 @@ module Effect =
         | _ -> ex
 
     let private retagDefects (cause: Cause<'E>) : Cause<'E2> =
-        cause |> Cause.map (fun _ -> failwith "retagDefects: unexpected Fail reason in a defect-only cause")
+        cause
+        |> Cause.map (fun _ -> failwith "retagDefects: unexpected Fail reason in a defect-only cause")
 
     /// Should a pending interrupt be honored right now? (set AND not masked)
     let inline private interruptible (fib: FiberRuntime) = fib.Interrupted && fib.Mask = 0
@@ -62,9 +63,14 @@ module Effect =
 
     // --- constructors ---
 
-    let succeed (value: 'A) : Effect<'A, 'E, 'R> = Effect(fun _ _ -> async { return Success value })
-    let fail (error: 'E) : Effect<'A, 'E, 'R> = Effect(fun _ _ -> async { return Exit.fail error })
-    let failCause (cause: Cause<'E>) : Effect<'A, 'E, 'R> = Effect(fun _ _ -> async { return Failure cause })
+    let succeed (value: 'A) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ -> async { return Success value })
+
+    let fail (error: 'E) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ -> async { return Exit.fail error })
+
+    let failCause (cause: Cause<'E>) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ -> async { return Failure cause })
 
     let sync (thunk: unit -> 'A) : Effect<'A, 'E, 'R> =
         Effect(fun _ _ ->
@@ -76,7 +82,13 @@ module Effect =
             })
 
     let fromResult (result: Result<'A, 'E>) : Effect<'A, 'E, 'R> =
-        Effect(fun _ _ -> async { return (match result with Ok a -> Success a | Error e -> Exit.fail e) })
+        Effect(fun _ _ ->
+            async {
+                return
+                    (match result with
+                     | Ok a -> Success a
+                     | Error e -> Exit.fail e)
+            })
 
     let promise (f: unit -> Task<'A>) : Effect<'A, 'E, 'R> =
         Effect(fun _ _ ->
@@ -95,8 +107,11 @@ module Effect =
                     return Exit.die (box (unwrap ex))
             })
 
-    let environment<'R, 'E> : Effect<'R, 'E, 'R> = Effect(fun _ r -> async { return Success r })
-    let environmentWith (f: 'R -> 'A) : Effect<'A, 'E, 'R> = Effect(fun _ r -> async { return Success(f r) })
+    let environment<'R, 'E> : Effect<'R, 'E, 'R> =
+        Effect(fun _ r -> async { return Success r })
+
+    let environmentWith (f: 'R -> 'A) : Effect<'A, 'E, 'R> =
+        Effect(fun _ r -> async { return Success(f r) })
 
     // --- combinators ---
 
@@ -104,14 +119,22 @@ module Effect =
         Effect(fun fib r ->
             async {
                 let! exit = run fib r
-                return (match exit with Success a -> Success(f a) | Failure c -> Failure c)
+
+                return
+                    (match exit with
+                     | Success a -> Success(f a)
+                     | Failure c -> Failure c)
             })
 
     let mapError (f: 'E -> 'E2) (Effect run) : Effect<'A, 'E2, 'R> =
         Effect(fun fib r ->
             async {
                 let! exit = run fib r
-                return (match exit with Success a -> Success a | Failure cause -> Failure(Cause.map f cause))
+
+                return
+                    (match exit with
+                     | Success a -> Success a
+                     | Failure cause -> Failure(Cause.map f cause))
             })
 
     /// Sequence a dependent effect. A yield point: between the two steps a pending
@@ -195,7 +218,11 @@ module Effect =
                 fib.Mask <- fib.Mask + 1
                 let! exit = run fib r
                 fib.Mask <- fib.Mask - 1
-                if interruptible fib then return Failure interruptedCause else return exit
+
+                if interruptible fib then
+                    return Failure interruptedCause
+                else
+                    return exit
             })
 
     /// A cancellable delay — a yield point that honors interruption. (Effect.sleep)
@@ -206,7 +233,10 @@ module Effect =
                 let mutable interrupted = false
 
                 while sw.ElapsedMilliseconds < int64 milliseconds && not interrupted do
-                    if interruptible fib then interrupted <- true else do! Async.Sleep 5
+                    if interruptible fib then
+                        interrupted <- true
+                    else
+                        do! Async.Sleep 5
 
                 return (if interrupted then Failure interruptedCause else Success())
             })
@@ -225,11 +255,25 @@ module Effect =
     let ensuring (finalizer: Effect<unit, 'E, 'R>) (Effect run) : Effect<'A, 'E, 'R> =
         Effect(fun fib r ->
             async {
-                let! exit = async { try return! run fib r with ex -> return Exit.die (box (unwrap ex)) }
+                let! exit =
+                    async {
+                        try
+                            return! run fib r
+                        with ex ->
+                            return Exit.die (box (unwrap ex))
+                    }
 
                 fib.Mask <- fib.Mask + 1
                 let (Effect runFin) = finalizer
-                let! finExit = async { try return! runFin fib r with ex -> return Exit.die (box (unwrap ex)) }
+
+                let! finExit =
+                    async {
+                        try
+                            return! runFin fib r
+                        with ex ->
+                            return Exit.die (box (unwrap ex))
+                    }
+
                 fib.Mask <- fib.Mask - 1
 
                 return
@@ -259,7 +303,10 @@ module Effect =
                         | Success b -> results.Add b
                         | Failure c -> failure <- Some c
 
-                return (match failure with Some c -> Failure c | None -> Success(List.ofSeq results))
+                return
+                    (match failure with
+                     | Some c -> Failure c
+                     | None -> Success(List.ofSeq results))
             })
 
     let whileLoop (guard: unit -> bool) (body: Effect<unit, 'E, 'R>) : Effect<unit, 'E, 'R> =
@@ -293,7 +340,12 @@ module Effect =
                 match exit with
                 | Success a -> return Success a
                 | Failure cause ->
-                    match cause.Reasons |> List.tryPick (function Reason.Die(:? exn as ex) -> Some ex | _ -> None) with
+                    match
+                        cause.Reasons
+                        |> List.tryPick (function
+                            | Reason.Die(:? exn as ex) -> Some ex
+                            | _ -> None)
+                    with
                     | Some ex ->
                         let (Effect run2) = handler ex
                         return! run2 fib r
@@ -324,7 +376,15 @@ module Effect =
 
                     fib.Mask <- fib.Mask + 1
                     let (Effect runRel) = release a useExit
-                    let! relExit = async { try return! runRel fib r with ex -> return Exit.die (box (unwrap ex)) }
+
+                    let! relExit =
+                        async {
+                            try
+                                return! runRel fib r
+                            with ex ->
+                                return Exit.die (box (unwrap ex))
+                        }
+
                     fib.Mask <- fib.Mask - 1
 
                     return
@@ -346,7 +406,11 @@ module Effect =
                 | None ->
                     return
                         Exit.die (
-                            box (System.Collections.Generic.KeyNotFoundException(sprintf "Service not found: %s" tag.Key))
+                            box (
+                                System.Collections.Generic.KeyNotFoundException(
+                                    sprintf "Service not found: %s" tag.Key
+                                )
+                            )
                         )
             })
 
@@ -379,7 +443,8 @@ module Effect =
                 | _ -> return raise (EffectFailureException(box cause, Cause.render cause))
         }
 
-    let runSync (env: 'R) (eff: Effect<'A, 'E, 'R>) : Exit<'A, 'E> = runExit env eff |> Async.RunSynchronously
+    let runSync (env: 'R) (eff: Effect<'A, 'E, 'R>) : Exit<'A, 'E> =
+        runExit env eff |> Async.RunSynchronously
 
 /// Computation-expression builder: the `effect { ... }` do-notation.
 type EffectBuilder() =
@@ -401,9 +466,11 @@ type EffectBuilder() =
     member _.TryFinally(body: Effect<'A, 'E, 'R>, compensation: unit -> unit) : Effect<'A, 'E, 'R> =
         Effect.ensuring (Effect.sync compensation) body
 
-    member _.Using(resource: 'T when 'T :> System.IDisposable, body: 'T -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
+    member _.Using(resource: 'T :> System.IDisposable, body: 'T -> Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
         Effect.ensuring
-            (Effect.sync (fun () -> if not (obj.ReferenceEquals(resource, null)) then resource.Dispose()))
+            (Effect.sync (fun () ->
+                if not (obj.ReferenceEquals(resource, null)) then
+                    resource.Dispose()))
             (body resource)
 
 [<AutoOpen>]

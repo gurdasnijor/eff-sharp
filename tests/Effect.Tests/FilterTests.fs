@@ -15,7 +15,9 @@ let ``fromPredicate passes or fails with the input`` () =
 
 [<Fact>]
 let ``fromPredicateOption passes the Some value, fails with the input`` () =
-    let firstChar = Filter.fromPredicateOption (fun (s: string) -> if s.Length > 0 then Some s.[0] else None)
+    let firstChar =
+        Filter.fromPredicateOption (fun (s: string) -> if s.Length > 0 then Some s.[0] else None)
+
     Assert.Equal(Ok 'h', firstChar "hi")
     Assert.Equal(Error "", firstChar "")
 
@@ -40,13 +42,19 @@ let ``tryCatch passes the result or fails with the input on throw`` () =
 
 [<Fact>]
 let ``mapFail transforms only the failure value`` () =
-    let f = Filter.fromPredicate (fun n -> n > 0) |> Filter.mapFail (fun n -> sprintf "bad:%d" n)
+    let f =
+        Filter.fromPredicate (fun n -> n > 0)
+        |> Filter.mapFail (fun n -> sprintf "bad:%d" n)
+
     Assert.Equal(Ok 5, f 5)
     Assert.Equal(Error "bad:-1", f -1)
 
 [<Fact>]
 let ``orElse falls back to the right filter`` () =
-    let f = Filter.fromPredicate (fun n -> n > 10) |> Filter.orElse (Filter.fromPredicate (fun n -> n < 0))
+    let f =
+        Filter.fromPredicate (fun n -> n > 10)
+        |> Filter.orElse (Filter.fromPredicate (fun n -> n < 0))
+
     Assert.Equal(Ok 20, f 20)
     Assert.Equal(Ok -5, f -5)
     Assert.Equal(Error 3, f 3)

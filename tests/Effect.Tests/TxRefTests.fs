@@ -25,7 +25,10 @@ let ``single-tx increment`` () =
 [<Fact>]
 let ``modify returns a result and stores the new value`` () =
     let counter = TxRef.makeUnsafe 10
-    let result = run (TxRef.atomically (TxRef.modify counter (fun n -> (sprintf "was %d" n, n * 2))))
+
+    let result =
+        run (TxRef.atomically (TxRef.modify counter (fun n -> (sprintf "was %d" n, n * 2))))
+
     Assert.Equal("was 10", result)
     Assert.Equal(20, TxRef.getUnsafe counter)
 
@@ -51,7 +54,8 @@ let ``all-or-nothing: a multi-write commit applies every write`` () =
             stm {
                 do! TxRef.set a 1
                 do! TxRef.set b 2
-            })
+            }
+        )
     )
 
     Assert.Equal(1, TxRef.getUnsafe a)
@@ -101,18 +105,21 @@ let ``retry blocks until another transaction writes the awaited TxRef`` () =
     let observed = TxRef.makeUnsafe 0
 
     let waiter =
-        Thread(ThreadStart(fun () ->
-            run (
-                TxRef.atomically (
-                    stm {
-                        let! ready = TxRef.get flag
+        Thread(
+            ThreadStart(fun () ->
+                run (
+                    TxRef.atomically (
+                        stm {
+                            let! ready = TxRef.get flag
 
-                        if not ready then
-                            return! TxRef.retry
-                        else
-                            do! TxRef.set observed 42
-                    })
-            )))
+                            if not ready then
+                                return! TxRef.retry
+                            else
+                                do! TxRef.set observed 42
+                        }
+                    )
+                ))
+        )
 
     waiter.Start()
     Thread.Sleep 250
@@ -129,11 +136,7 @@ let ``orElse takes the second branch when the first retries`` () =
     let a = TxRef.makeUnsafe 0
 
     let chosen =
-        run (
-            TxRef.atomically (
-                TxRef.orElse (stm { return! TxRef.retry }) (stm { return 7 })
-            )
-        )
+        run (TxRef.atomically (TxRef.orElse (stm { return! TxRef.retry }) (stm { return 7 })))
 
     Assert.Equal(7, chosen)
     Assert.Equal(0, TxRef.getUnsafe a)

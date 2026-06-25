@@ -20,12 +20,19 @@ let ``unprepend on a single element yields empty rest`` () =
 
 [<Fact>]
 let ``unprepend works over any seq`` () =
-    let first, rest = NonEmptyIterable.unprepend (seq { 10; 20; 30 })
+    let first, rest =
+        NonEmptyIterable.unprepend (
+            seq {
+                10
+                20
+                30
+            }
+        )
+
     Assert.Equal(10, first)
     Assert.Equal<int list>([ 20; 30 ], List.ofSeq rest)
 
 [<Fact>]
 let ``unprepend throws on empty`` () =
-    Assert.Throws<System.Exception>(fun () ->
-        NonEmptyIterable.unprepend (Seq.empty<int>) |> ignore)
+    Assert.Throws<System.Exception>(fun () -> NonEmptyIterable.unprepend (Seq.empty<int>) |> ignore)
     |> ignore

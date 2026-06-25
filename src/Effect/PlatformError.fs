@@ -74,10 +74,12 @@ module Reason =
         | SystemErrorReason s ->
             // F# DU ToString renders a nullary case as its case name (the `_tag`).
             let tag = string s.Tag
+
             let path =
                 match s.PathOrDescriptor with
                 | Some p -> sprintf " (%O)" p
                 | None -> ""
+
             sprintf "%s: %s.%s%s%s" tag s.Module s.Method path (describe s.Description)
 
     /// The preserved cause of a reason, if any.
@@ -90,31 +92,31 @@ module Reason =
 /// failures through a single error channel. (`PlatformError`)
 [<Sealed>]
 type PlatformError(reason: Reason) =
-    inherit Exception(
-        Reason.message reason,
-        (match Reason.cause reason with
-         | Some (:? exn as e) -> e
-         | _ -> null))
+    inherit
+        Exception(
+            Reason.message reason,
+            (match Reason.cause reason with
+             | Some(:? exn as e) -> e
+             | _ -> null)
+        )
 
     /// The discriminator tag (effect's `_tag`).
-    member _.Tag : string = "PlatformError"
+    member _.Tag: string = "PlatformError"
 
     /// The underlying `BadArgument` or `SystemError`. (`reason`)
-    member _.Reason : Reason = reason
+    member _.Reason: Reason = reason
 
     /// The preserved cause, if the reason carried one. (`cause`)
-    member _.Cause : obj option = Reason.cause reason
+    member _.Cause: obj option = Reason.cause reason
 
-    override _.Message : string = Reason.message reason
+    override _.Message: string = Reason.message reason
 
 [<RequireQualifiedAccess>]
 module PlatformError =
 
 
     /// Create a `PlatformError` whose reason is a `SystemError`. (`systemError`)
-    let systemError (error: SystemError) : PlatformError =
-        PlatformError(SystemErrorReason error)
+    let systemError (error: SystemError) : PlatformError = PlatformError(SystemErrorReason error)
 
     /// Create a `PlatformError` whose reason is a `BadArgument`. (`badArgument`)
-    let badArgument (error: BadArgument) : PlatformError =
-        PlatformError(BadArgumentReason error)
+    let badArgument (error: BadArgument) : PlatformError = PlatformError(BadArgumentReason error)

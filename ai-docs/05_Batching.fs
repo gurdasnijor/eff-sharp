@@ -31,7 +31,7 @@ let private lengthLookup (key: string) : Effect<int, string, Context> =
 
 /// Authored with the `effect { }` CE — `let!` binds each effect's success, so
 /// the cache wiring reads like straight-line code (vs. nested `flatMap`s).
-let cacheProgram : Effect<int * int * int * int, string, Context> =
+let cacheProgram: Effect<int * int * int * int, string, Context> =
     effect {
         let! cache = Cache.make 100 lengthLookup // capacity 100, entries never expire
 
@@ -56,19 +56,18 @@ let cacheProgram : Effect<int * int * int * int, string, Context> =
 /// `Request.tagged`/`Class`). `Request<Success, Error, Services>`.
 type UserById =
     { Id: int }
+
     interface Request<string, string, unit>
 
 /// A resolver completes a pending `Entry` by calling one of `Request.succeed` /
 /// `fail` / `complete`. Here we capture the outcome into a mutable cell and then
 /// match the resulting `Exit` natively.
 let completionDemo () : string =
-    let mutable outcome : Exit<string, string> = Exit.fail "unset"
+    let mutable outcome: Exit<string, string> = Exit.fail "unset"
+
     let entry =
-        Request.makeEntry
-            ({ Id = 1 } :> Request<string, string, unit>)
-            Context.empty
-            false
-            (fun exit -> outcome <- exit)
+        Request.makeEntry ({ Id = 1 } :> Request<string, string, unit>) Context.empty false (fun exit ->
+            outcome <- exit)
 
     // The resolver decided this user resolves to "Ada".
     Request.succeed entry "Ada" |> runUnit

@@ -40,12 +40,15 @@ module MutableList =
           mutable Length: int }
 
     let private mkBucket (items: ResizeArray<'A>) : Bucket<'A> =
-        { Items = items; Offset = 0; Next = None }
+        { Items = items
+          Offset = 0
+          Next = None }
 
     // --- constructors ---
 
     /// Creates an empty mutable list. (MutableList.make)
-    let make<'A> () : MutableList<'A> = { Head = None; Tail = None; Length = 0 }
+    let make<'A> () : MutableList<'A> =
+        { Head = None; Tail = None; Length = 0 }
 
     // --- mutations ---
 
@@ -65,12 +68,17 @@ module MutableList =
                 self.Head <- Some b
                 self.Tail <- Some b
                 b
+
         tail.Items.Add message
         self.Length <- self.Length + 1
 
     /// Prepends one element to the front. (MutableList.prepend)
     let prepend (self: MutableList<'A>) (message: 'A) : unit =
-        let b = { Items = ResizeArray([ message ]); Offset = 0; Next = self.Head }
+        let b =
+            { Items = ResizeArray([ message ])
+              Offset = 0
+              Next = self.Head }
+
         self.Head <- Some b
         self.Length <- self.Length + 1
 
@@ -81,6 +89,7 @@ module MutableList =
             0
         else
             let chunk = mkBucket (ResizeArray(messages))
+
             match self.Head with
             | Some _ ->
                 (Option.get self.Tail).Next <- Some chunk
@@ -88,6 +97,7 @@ module MutableList =
             | None ->
                 self.Head <- Some chunk
                 self.Tail <- Some chunk
+
             self.Length <- self.Length + messages.Length
             messages.Length
 
@@ -99,7 +109,11 @@ module MutableList =
     /// Prepends all elements of an array to the front. (MutableList.prependAllUnsafe)
     let prependAllUnsafe (self: MutableList<'A>) (messages: 'A[]) : unit =
         if messages.Length <> 0 then
-            let chunk = { Items = ResizeArray(messages); Offset = 0; Next = self.Head }
+            let chunk =
+                { Items = ResizeArray(messages)
+                  Offset = 0
+                  Next = self.Head }
+
             self.Head <- Some chunk
             self.Length <- self.Length + messages.Length
 
@@ -119,19 +133,30 @@ module MutableList =
             let mutable index = 0
             let mutable chunk = self.Head
             let mutable returned = false
+
             while not returned && chunk.IsSome do
                 let c = chunk.Value
+
                 while not returned && c.Offset < c.Items.Count do
                     out.[index] <- c.Items.[c.Offset]
                     index <- index + 1
                     c.Offset <- c.Offset + 1
+
                     if index = n then
                         self.Head <- Some c
                         self.Length <- self.Length - n
-                        if self.Length = 0 then clear self
+
+                        if self.Length = 0 then
+                            clear self
+
                         returned <- true
-                if not returned then chunk <- c.Next
-            if not returned then clear self
+
+                if not returned then
+                    chunk <- c.Next
+
+            if not returned then
+                clear self
+
             out
 
     /// Removes up to `n` elements from the front without returning them.
@@ -149,10 +174,12 @@ module MutableList =
             let message = h.Items.[h.Offset]
             h.Offset <- h.Offset + 1
             self.Length <- self.Length - 1
+
             if h.Offset = h.Items.Count then
                 match h.Next with
                 | Some next -> self.Head <- Some next
                 | None -> clear self
+
             Some message
 
     /// Copies up to `n` front elements into a new array without mutating.
@@ -162,14 +189,18 @@ module MutableList =
         let out = Array.zeroCreate<'A> length
         let mutable index = 0
         let mutable bucket = self.Head
+
         while bucket.IsSome && index < length do
             let b = bucket.Value
             let mutable i = b.Offset
+
             while i < b.Items.Count && index < length do
                 out.[index] <- b.Items.[i]
                 index <- index + 1
                 i <- i + 1
+
             bucket <- b.Next
+
         out
 
     /// Copies all current elements into a new array without mutating.
@@ -181,11 +212,16 @@ module MutableList =
     let filter (self: MutableList<'A>) (f: 'A -> int -> bool) : unit =
         let array = ResizeArray<'A>()
         let mutable chunk = self.Head
+
         while chunk.IsSome do
             let c = chunk.Value
+
             for i in c.Offset .. c.Items.Count - 1 do
-                if f c.Items.[i] i then array.Add c.Items.[i]
+                if f c.Items.[i] i then
+                    array.Add c.Items.[i]
+
             chunk <- c.Next
+
         let b = mkBucket array
         self.Head <- Some b
         self.Tail <- Some b

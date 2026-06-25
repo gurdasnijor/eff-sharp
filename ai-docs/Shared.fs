@@ -24,8 +24,10 @@ module Shared =
     /// A doc-only assertion. Stands in for `Assert.Equal` / vitest `assert` so the
     /// testing examples don't drag a test framework into the docs project.
     let check (label: string) (condition: bool) : unit =
-        if condition then printfn "    PASS  %s" label
-        else failwithf "    FAIL  %s" label
+        if condition then
+            printfn "    PASS  %s" label
+        else
+            failwithf "    FAIL  %s" label
 
     /// Print a section banner.
     let banner (title: string) : unit =

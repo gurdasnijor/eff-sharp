@@ -25,7 +25,6 @@ open System.Text.RegularExpressions
 ///     nanosecond divisor is not integer-convertible — this matches the upstream
 ///     *test* (`throws(() => divideUnsafe(nanos(1n), 0.5))`).
 ///   * `Reducer`/`Combiner` lower to small records exposing `Combine`/`Initial`.
-
 /// Tagged representation of a duration value.
 type DurationValue =
     | Millis of millis: float
@@ -76,7 +75,8 @@ type DurationParts =
       Nanos: float }
 
 /// A binary combiner over durations.
-type DurationCombiner = { Combine: Duration -> Duration -> Duration }
+type DurationCombiner =
+    { Combine: Duration -> Duration -> Duration }
 
 /// A combiner with an identity element.
 type DurationReducer =
@@ -94,32 +94,50 @@ module Duration =
     let private bigint1e9 = BigInteger 1_000_000_000
 
     let private durationRegex =
-        Regex(@"^(-?\d+(?:\.\d+)?)\s+(nanos?|micros?|millis?|seconds?|minutes?|hours?|days?|weeks?)$", RegexOptions.Compiled)
+        Regex(
+            @"^(-?\d+(?:\.\d+)?)\s+(nanos?|micros?|millis?|seconds?|minutes?|hours?|days?|weeks?)$",
+            RegexOptions.Compiled
+        )
 
     let private roundTiesAwayFromZero (input: float) : bigint =
         BigInteger(System.Math.Round(input, System.MidpointRounding.AwayFromZero))
 
-    let private roundMillisToNanos (millis: float) : bigint = roundTiesAwayFromZero (millis * 1_000_000.0)
+    let private roundMillisToNanos (millis: float) : bigint =
+        roundTiesAwayFromZero (millis * 1_000_000.0)
 
     let private parseNanos (input: string) (scaleB: bigint) : bigint =
-        if input.Contains "." then roundTiesAwayFromZero (System.Double.Parse(input, inv) * float scaleB)
-        else BigInteger.Parse(input, inv) * scaleB
+        if input.Contains "." then
+            roundTiesAwayFromZero (System.Double.Parse(input, inv) * float scaleB)
+        else
+            BigInteger.Parse(input, inv) * scaleB
 
     let private nanosToHrTime (nanos: bigint) : float * float =
-        let s = if nanos < BigInteger.Zero then BigInteger.MinusOne else BigInteger.One
+        let s =
+            if nanos < BigInteger.Zero then
+                BigInteger.MinusOne
+            else
+                BigInteger.One
+
         let absolute = if nanos < BigInteger.Zero then -nanos else nanos
         float (s * (absolute / bigint1e9)), float (s * (absolute % bigint1e9))
 
     // --- core constructors ---
 
     let private makeFromNumber (input: float) : Duration =
-        if System.Double.IsNaN input || input = 0.0 then { Value = Millis 0.0 }
-        elif not (System.Double.IsFinite input) then { Value = (if input > 0.0 then Infinity else NegativeInfinity) }
-        elif not (System.Double.IsInteger input) then { Value = Nanos(roundMillisToNanos input) }
-        else { Value = Millis input }
+        if System.Double.IsNaN input || input = 0.0 then
+            { Value = Millis 0.0 }
+        elif not (System.Double.IsFinite input) then
+            { Value = (if input > 0.0 then Infinity else NegativeInfinity) }
+        elif not (System.Double.IsInteger input) then
+            { Value = Nanos(roundMillisToNanos input) }
+        else
+            { Value = Millis input }
 
     let private makeFromBigInt (input: bigint) : Duration =
-        if input = BigInteger.Zero then { Value = Millis 0.0 } else { Value = Nanos input }
+        if input = BigInteger.Zero then
+            { Value = Millis 0.0 }
+        else
+            { Value = Nanos input }
 
     /// Creates a duration from nanoseconds.
     let nanos (nanos: bigint) : Duration = makeFromBigInt nanos
@@ -145,9 +163,9 @@ module Duration =
     /// Creates a duration from weeks.
     let weeks (weeks: float) : Duration = makeFromNumber (weeks * 604_800_000.0)
 
-    let zero : Duration = makeFromNumber 0.0
-    let infinity : Duration = { Value = Infinity }
-    let negativeInfinity : Duration = { Value = NegativeInfinity }
+    let zero: Duration = makeFromNumber 0.0
+    let infinity: Duration = { Value = Infinity }
+    let negativeInfinity: Duration = { Value = NegativeInfinity }
 
     // --- input decoding ---
 
@@ -157,32 +175,50 @@ module Duration =
         | FromMillisNumber n -> millis n
         | FromNanosBigInt b -> nanos b
         | FromString s ->
-            if s = "Infinity" then infinity
-            elif s = "-Infinity" then negativeInfinity
+            if s = "Infinity" then
+                infinity
+            elif s = "-Infinity" then
+                negativeInfinity
             else
                 let m = durationRegex.Match s
-                if not m.Success then raise (System.Exception(sprintf "Invalid Input: %s" s))
+
+                if not m.Success then
+                    raise (System.Exception(sprintf "Invalid Input: %s" s))
                 else
                     let valueStr = m.Groups.[1].Value
                     let unit = m.Groups.[2].Value
+
                     match unit with
-                    | "nano" | "nanos" -> nanos (parseNanos valueStr BigInteger.One)
-                    | "micro" | "micros" -> nanos (parseNanos valueStr bigint1e3)
+                    | "nano"
+                    | "nanos" -> nanos (parseNanos valueStr BigInteger.One)
+                    | "micro"
+                    | "micros" -> nanos (parseNanos valueStr bigint1e3)
                     | _ ->
                         let value = System.Double.Parse(valueStr, inv)
+
                         match unit with
-                        | "milli" | "millis" -> millis value
-                        | "second" | "seconds" -> seconds value
-                        | "minute" | "minutes" -> minutes value
-                        | "hour" | "hours" -> hours value
-                        | "day" | "days" -> days value
-                        | "week" | "weeks" -> weeks value
+                        | "milli"
+                        | "millis" -> millis value
+                        | "second"
+                        | "seconds" -> seconds value
+                        | "minute"
+                        | "minutes" -> minutes value
+                        | "hour"
+                        | "hours" -> hours value
+                        | "day"
+                        | "days" -> days value
+                        | "week"
+                        | "weeks" -> weeks value
                         | _ -> raise (System.Exception(sprintf "Invalid Input: %s" s))
         | FromHrTime(a, b) ->
-            if System.Double.IsNaN a || System.Double.IsNaN b then zero
-            elif a = System.Double.NegativeInfinity || b = System.Double.NegativeInfinity then negativeInfinity
-            elif a = System.Double.PositiveInfinity || b = System.Double.PositiveInfinity then infinity
-            else makeFromBigInt (roundTiesAwayFromZero (a * 1_000_000_000.0 + b))
+            if System.Double.IsNaN a || System.Double.IsNaN b then
+                zero
+            elif a = System.Double.NegativeInfinity || b = System.Double.NegativeInfinity then
+                negativeInfinity
+            elif a = System.Double.PositiveInfinity || b = System.Double.PositiveInfinity then
+                infinity
+            else
+                makeFromBigInt (roundTiesAwayFromZero (a * 1_000_000_000.0 + b))
         | FromObject obj ->
             let truthy (o: float option) =
                 match o with
@@ -198,11 +234,21 @@ module Duration =
             ms <- ms + truthy obj.Milliseconds
             let hasMicros = truthy obj.Microseconds <> 0.0
             let hasNanos = truthy obj.Nanoseconds <> 0.0
-            if not hasMicros && not hasNanos then makeFromNumber ms
-            else makeFromBigInt (roundTiesAwayFromZero (ms * 1_000_000.0 + truthy obj.Microseconds * 1_000.0 + truthy obj.Nanoseconds))
+
+            if not hasMicros && not hasNanos then
+                makeFromNumber ms
+            else
+                makeFromBigInt (
+                    roundTiesAwayFromZero (
+                        ms * 1_000_000.0 + truthy obj.Microseconds * 1_000.0 + truthy obj.Nanoseconds
+                    )
+                )
 
     let fromInput (input: Input) : Duration option =
-        try Some(fromInputUnsafe input) with _ -> None
+        try
+            Some(fromInputUnsafe input)
+        with _ ->
+            None
 
     // --- guards ---
 
@@ -356,11 +402,17 @@ module Duration =
             | _ -> 1
         else
             match self.Value, that.Value with
-            | Millis a, Millis b -> if a < b then -1 elif a > b then 1 else 0
+            | Millis a, Millis b ->
+                if a < b then -1
+                elif a > b then 1
+                else 0
             | _ ->
                 let a = toNanosUnsafe self
                 let b = toNanosUnsafe that
-                if a < b then -1 elif a > b then 1 else 0
+
+                if a < b then -1
+                elif a > b then 1
+                else 0
 
     /// Numeric equivalence (scale-insensitive across `Millis`/`Nanos`).
     let equivalence (self: Duration) (that: Duration) : bool =
@@ -377,8 +429,11 @@ module Duration =
     let isGreaterThan (self: Duration) (that: Duration) : bool = order self that > 0
     let isGreaterThanOrEqualTo (self: Duration) (that: Duration) : bool = order self that >= 0
 
-    let min (self: Duration) (that: Duration) : Duration = if order self that <= 0 then self else that
-    let max (self: Duration) (that: Duration) : Duration = if order self that >= 0 then self else that
+    let min (self: Duration) (that: Duration) : Duration =
+        if order self that <= 0 then self else that
+
+    let max (self: Duration) (that: Duration) : Duration =
+        if order self that >= 0 then self else that
 
     let clamp (minimum: Duration) (maximum: Duration) (self: Duration) : Duration =
         if order self minimum < 0 then minimum
@@ -391,15 +446,22 @@ module Duration =
     // --- arithmetic ---
 
     let private tryBigIntOfFloat (x: float) : bigint option =
-        if System.Double.IsInteger x then Some(BigInteger x) else None
+        if System.Double.IsInteger x then
+            Some(BigInteger x)
+        else
+            None
 
     let private bigIntOfFloatExn (x: float) : bigint =
-        if System.Double.IsInteger x then BigInteger x
-        else raise (System.Exception(sprintf "Cannot convert %f to a BigInt" x))
+        if System.Double.IsInteger x then
+            BigInteger x
+        else
+            raise (System.Exception(sprintf "Cannot convert %f to a BigInt" x))
 
     let divide (self: Duration) (by: float) : Duration option =
-        if not (System.Double.IsFinite by) then None
-        elif by = 0.0 then None
+        if not (System.Double.IsFinite by) then
+            None
+        elif by = 0.0 then
+            None
         else
             match self.Value with
             | Millis m -> Some(millis (m / by))
@@ -423,27 +485,52 @@ module Duration =
                     else
                         let positiveNanos = n > BigInteger.Zero
                         let positiveZero = not (System.Double.IsNegative by)
-                        if positiveNanos = positiveZero then infinity else negativeInfinity
+
+                        if positiveNanos = positiveZero then
+                            infinity
+                        else
+                            negativeInfinity
                 else
                     nanos (n / bigIntOfFloatExn by)
-            | Infinity -> if by > 0.0 then infinity elif by < 0.0 then negativeInfinity else zero
-            | NegativeInfinity -> if by > 0.0 then negativeInfinity elif by < 0.0 then infinity else zero
+            | Infinity ->
+                if by > 0.0 then infinity
+                elif by < 0.0 then negativeInfinity
+                else zero
+            | NegativeInfinity ->
+                if by > 0.0 then negativeInfinity
+                elif by < 0.0 then infinity
+                else zero
 
     let times (self: Duration) (factor: float) : Duration =
         match self.Value with
         | Millis m -> millis (m * factor)
         | Nanos n -> nanos (n * bigIntOfFloatExn factor)
-        | Infinity -> if factor > 0.0 then infinity elif factor < 0.0 then negativeInfinity else zero
-        | NegativeInfinity -> if factor > 0.0 then negativeInfinity elif factor < 0.0 then infinity else zero
+        | Infinity ->
+            if factor > 0.0 then infinity
+            elif factor < 0.0 then negativeInfinity
+            else zero
+        | NegativeInfinity ->
+            if factor > 0.0 then negativeInfinity
+            elif factor < 0.0 then infinity
+            else zero
 
     let subtract (self: Duration) (that: Duration) : Duration =
         match self.Value, that.Value with
         | (Infinity | NegativeInfinity), _
         | _, (Infinity | NegativeInfinity) ->
             match self.Value with
-            | Infinity -> (match that.Value with | Infinity -> zero | _ -> infinity)
-            | NegativeInfinity -> (match that.Value with | NegativeInfinity -> zero | _ -> negativeInfinity)
-            | _ -> (match that.Value with | Infinity -> negativeInfinity | _ -> infinity)
+            | Infinity ->
+                (match that.Value with
+                 | Infinity -> zero
+                 | _ -> infinity)
+            | NegativeInfinity ->
+                (match that.Value with
+                 | NegativeInfinity -> zero
+                 | _ -> negativeInfinity)
+            | _ ->
+                (match that.Value with
+                 | Infinity -> negativeInfinity
+                 | _ -> infinity)
         | Millis a, Millis b -> millis (a - b)
         | _ -> nanos (toNanosUnsafe self - toNanosUnsafe that)
 
@@ -468,10 +555,22 @@ module Duration =
         match self.Value with
         | Infinity ->
             let inf = System.Double.PositiveInfinity
-            { Days = inf; Hours = inf; Minutes = inf; Seconds = inf; Millis = inf; Nanos = inf }
+
+            { Days = inf
+              Hours = inf
+              Minutes = inf
+              Seconds = inf
+              Millis = inf
+              Nanos = inf }
         | NegativeInfinity ->
             let ninf = System.Double.NegativeInfinity
-            { Days = ninf; Hours = ninf; Minutes = ninf; Seconds = ninf; Millis = ninf; Nanos = ninf }
+
+            { Days = ninf
+              Hours = ninf
+              Minutes = ninf
+              Seconds = ninf
+              Millis = ninf
+              Nanos = ninf }
         | _ ->
             let n = toNanosUnsafe self
             let neg = n < BigInteger.Zero
@@ -482,6 +581,7 @@ module Duration =
             let hr = mn / bigint60
             let d = hr / bigint24
             let s = if neg then -1.0 else 1.0
+
             { Days = s * float d
               Hours = s * float (hr % bigint24)
               Minutes = s * float (mn % bigint60)
@@ -495,12 +595,18 @@ module Duration =
         | Infinity -> "Infinity"
         | NegativeInfinity -> "-Infinity"
         | _ ->
-            if isZero self then "0"
-            elif isNegative self then "-" + format (abs self)
+            if isZero self then
+                "0"
+            elif isNegative self then
+                "-" + format (abs self)
             else
                 let f = parts self
+
                 let piece (v: float) (suffix: string) =
-                    if v <> 0.0 then Some(sprintf "%d%s" (int64 v) suffix) else None
+                    if v <> 0.0 then
+                        Some(sprintf "%d%s" (int64 v) suffix)
+                    else
+                        None
 
                 [ piece f.Days "d"
                   piece f.Hours "h"
@@ -521,6 +627,6 @@ module Duration =
 
     // --- reducers / combiners ---
 
-    let ReducerSum : DurationReducer = { Combine = sum; Initial = zero }
-    let CombinerMax : DurationCombiner = { Combine = max }
-    let CombinerMin : DurationCombiner = { Combine = min }
+    let ReducerSum: DurationReducer = { Combine = sum; Initial = zero }
+    let CombinerMax: DurationCombiner = { Combine = max }
+    let CombinerMin: DurationCombiner = { Combine = min }

@@ -31,8 +31,10 @@ module MutableHashSet =
     /// (MutableHashSet.fromIterable)
     let fromIterable (values: seq<'V>) : MutableHashSet<'V> =
         let self = empty ()
+
         for v in values do
             add self v |> ignore
+
         self
 
     /// Creates a set from explicit values, de-duplicating. (MutableHashSet.make)

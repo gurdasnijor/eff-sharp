@@ -15,13 +15,15 @@ namespace Effect
 /// the `Done`/`Leftover` type parameters, chunking, and combinators like
 /// `pipeTo`/`mergeAll`/`concatMap` are NOT ported — use `Stream`/`Sink`.
 type Channel<'Out, 'E, 'R> =
-    internal { Run: ('Out -> Effect<unit, 'E, 'R>) -> Effect<unit, 'E, 'R> }
+    internal
+        { Run: ('Out -> Effect<unit, 'E, 'R>) -> Effect<unit, 'E, 'R> }
 
 [<RequireQualifiedAccess>]
 module Channel =
 
     /// A channel that writes nothing. (Channel.empty)
-    let empty<'Out, 'E, 'R> : Channel<'Out, 'E, 'R> = { Run = fun _ -> Effect.succeed () }
+    let empty<'Out, 'E, 'R> : Channel<'Out, 'E, 'R> =
+        { Run = fun _ -> Effect.succeed () }
 
     /// Write a single output element. (Channel.write)
     let write (value: 'Out) : Channel<'Out, 'E, 'R> = { Run = fun emit -> emit value }

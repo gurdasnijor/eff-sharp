@@ -45,7 +45,15 @@ module TxHashSet =
         TxRef.update self.Ref (fun s -> HashSet.remove s value)
 
     /// Number of elements. (TxHashSet.size)
-    let size (self: TxHashSet<'v>) : Stm<int> = stm { let! s = TxRef.get self.Ref in return HashSet.size s }
+    let size (self: TxHashSet<'v>) : Stm<int> =
+        stm {
+            let! s = TxRef.get self.Ref
+            return HashSet.size s
+        }
 
     /// Whether the set is empty. (TxHashSet.isEmpty)
-    let isEmpty (self: TxHashSet<'v>) : Stm<bool> = stm { let! s = TxRef.get self.Ref in return HashSet.isEmpty s }
+    let isEmpty (self: TxHashSet<'v>) : Stm<bool> =
+        stm {
+            let! s = TxRef.get self.Ref
+            return HashSet.isEmpty s
+        }

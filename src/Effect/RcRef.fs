@@ -44,7 +44,11 @@ module RcRef =
         : Effect<RcRef<'A, 'E, 'R>, 'E, 'R> =
         Effect.suspend (fun () ->
             let self =
-                { State = SynchronizedRef.makeUnsafe { Count = 0; Cached = None; Closed = false }
+                { State =
+                    SynchronizedRef.makeUnsafe
+                        { Count = 0
+                          Cached = None
+                          Closed = false }
                   Acquire = acquire }
 
             // On owner close: release any cached resource and mark closed.
@@ -74,7 +78,10 @@ module RcRef =
 
                     self.Acquire resScope
                     |> Effect.map (fun value ->
-                        (value, { st with Count = st.Count + 1; Cached = Some(value, resScope) })))
+                        (value,
+                         { st with
+                             Count = st.Count + 1
+                             Cached = Some(value, resScope) })))
         |> Effect.flatMap (fun value ->
             // Register the release for this borrowed reference.
             let release =
@@ -100,5 +107,6 @@ module RcRef =
         SynchronizedRef.modifyEffect self.State (fun st ->
             match st.Cached with
             | Some(_, scope) when st.Count = 0 ->
-                Scope.close scope voidExit |> Effect.map (fun () -> ((), { st with Cached = None }))
+                Scope.close scope voidExit
+                |> Effect.map (fun () -> ((), { st with Cached = None }))
             | _ -> Effect.succeed ((), st))

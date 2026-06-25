@@ -26,9 +26,14 @@ let private drain (eff: Effect<'A, 'E, unit>) : unit = Effect.runSync () eff |> 
 
 [<Fact>]
 let ``counters with the same id and attributes share state`` () =
-    let counter1 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") attrs) 1.0
-    let counter2 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") attrs) 1.0
-    let counter3 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") [ "z", "c" ]) 1.0
+    let counter1 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") attrs) 1.0
+
+    let counter2 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") attrs) 1.0
+
+    let counter3 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "rt") [ "z", "c" ]) 1.0
 
     run (Metric.track (Effect.succeed 0.0) counter1)
     run (Metric.track (Effect.succeed 0.0) counter2)
@@ -43,9 +48,16 @@ let ``counters with the same id and attributes share state`` () =
 [<Fact>]
 let ``dump renders the registry`` () =
     Metric.resetUnsafe ()
-    let counter1 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") attrs) 1.0
-    let counter2 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") attrs) 1.0
-    let counter3 = Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") [ "z", "c" ]) 1.0
+
+    let counter1 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") attrs) 1.0
+
+    let counter2 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") attrs) 1.0
+
+    let counter3 =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "counter") [ "z", "c" ]) 1.0
+
     run (Metric.track (Effect.succeed 0.0) counter1)
     run (Metric.track (Effect.succeed 0.0) counter2)
     run (Metric.track (Effect.succeed 0.0) counter3)
@@ -67,7 +79,9 @@ let ``counter increments with value`` () =
 
 [<Fact>]
 let ``counter increments with constant`` () =
-    let counter = Metric.withConstantInput (Metric.withAttributes (Metric.counter "c-ic") attrs) 1.0
+    let counter =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "c-ic") attrs) 1.0
+
     run (Metric.trackSuccesses (Effect.succeed 1.0) counter)
     run (Metric.trackSuccesses (Effect.succeed 2.0) counter)
     Assert.Equal({ Count = 2.0; Incremental = false }, run (Metric.value counter))
@@ -81,14 +95,18 @@ let ``counter decrements with value`` () =
 
 [<Fact>]
 let ``counter decrements with constant`` () =
-    let counter = Metric.withConstantInput (Metric.withAttributes (Metric.counter "c-dc") attrs) -1.0
+    let counter =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counter "c-dc") attrs) -1.0
+
     run (Metric.trackSuccesses (Effect.succeed -1.0) counter)
     run (Metric.trackSuccesses (Effect.succeed -2.0) counter)
     Assert.Equal({ Count = -2.0; Incremental = false }, run (Metric.value counter))
 
 [<Fact>]
 let ``incremental counter ignores decrements`` () =
-    let counter = Metric.withConstantInput (Metric.withAttributes (Metric.counterIncremental "c-inc") attrs) -1.0
+    let counter =
+        Metric.withConstantInput (Metric.withAttributes (Metric.counterIncremental "c-inc") attrs) -1.0
+
     run (Metric.trackSuccesses (Effect.succeed -1.0) counter)
     run (Metric.trackSuccesses (Effect.succeed -2.0) counter)
     Assert.Equal({ Count = 0.0; Incremental = true }, run (Metric.value counter))
@@ -104,7 +122,9 @@ let ``gauge sets with value`` () =
 
 [<Fact>]
 let ``gauge sets with constant`` () =
-    let gauge = Metric.withConstantInput (Metric.withAttributes (Metric.gauge "g-c") attrs) 1.0
+    let gauge =
+        Metric.withConstantInput (Metric.withAttributes (Metric.gauge "g-c") attrs) 1.0
+
     run (Metric.trackSuccesses (Effect.succeed 1.0) gauge)
     run (Metric.trackSuccesses (Effect.succeed 2.0) gauge)
     Assert.Equal({ GaugeState.Value = 1.0 }, run (Metric.value gauge))
@@ -127,7 +147,9 @@ let ``frequency counts occurrences`` () =
 
 [<Fact>]
 let ``frequency with constant input`` () =
-    let frequency = Metric.withConstantInput (Metric.withAttributes (Metric.frequency "f-c") attrs) "constant"
+    let frequency =
+        Metric.withConstantInput (Metric.withAttributes (Metric.frequency "f-c") attrs) "constant"
+
     run (Metric.trackSuccesses (Effect.succeed "foo") frequency)
     run (Metric.trackSuccesses (Effect.succeed "bar") frequency)
     Assert.Equal({ Occurrences = Map.ofList [ "constant", 2 ] }, run (Metric.value frequency))
@@ -162,7 +184,10 @@ let ``histogram observes with value`` () =
 [<Fact>]
 let ``histogram observes with constant`` () =
     let boundaries = Metric.linearBoundaries 0.0 1.0 10
-    let histogram = Metric.withConstantInput (Metric.withAttributes (Metric.histogram "h-c" boundaries) attrs) 1.0
+
+    let histogram =
+        Metric.withConstantInput (Metric.withAttributes (Metric.histogram "h-c" boundaries) attrs) 1.0
+
     run (Metric.trackSuccesses (Effect.succeed 1.0) histogram)
     run (Metric.trackSuccesses (Effect.succeed 3.0) histogram)
     let result = run (Metric.value histogram)
@@ -175,14 +200,15 @@ let ``histogram preserves precision of boundary values`` () =
     let boundaries = [ 0.005; 0.01; 0.025; 0.05; 0.075; 0.1 ]
     let histogram = Metric.histogram "h-precision" boundaries
     let result = run (Metric.value histogram)
-    boundaries
-    |> List.iteri (fun i b -> Assert.Equal(b, fst result.Buckets.[i]))
+    boundaries |> List.iteri (fun i b -> Assert.Equal(b, fst result.Buckets.[i]))
 
 // --- Summary ---
 
 [<Fact>]
 let ``summary observes with value`` () =
-    let summary = Metric.withAttributes (Metric.summary "s-v" 60000.0 10 [ 0.0; 0.1; 0.9 ]) attrs
+    let summary =
+        Metric.withAttributes (Metric.summary "s-v" 60000.0 10 [ 0.0; 0.1; 0.9 ]) attrs
+
     run (Metric.trackSuccesses (Effect.succeed 1.0) summary)
     run (Metric.trackSuccesses (Effect.succeed 3.0) summary)
     let result = run (Metric.value summary)

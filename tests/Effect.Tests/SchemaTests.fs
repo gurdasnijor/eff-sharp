@@ -89,6 +89,7 @@ let ``filters: minLength / between / matches`` () =
 let ``literalMap decodes and encodes an enum DU`` () =
     Assert.Equal(Ok Admin, Schema.decode roleSchema (JString "admin"))
     Assert.Equal(JString "guest", Schema.encode roleSchema Guest)
+
     match Schema.decode roleSchema (JString "nope") with
     | Error { Issue = InvalidValue _ } -> ()
     | other -> failwithf "unexpected %A" other
@@ -97,33 +98,49 @@ let ``literalMap decodes and encodes an enum DU`` () =
 
 [<Fact>]
 let ``struct decodes a valid object`` () =
-    let json = JObject(Map [ "name", JString "Alice"; "age", JNumber 30.0; "role", JString "member" ])
-    Assert.Equal({ Name = "Alice"; Age = 30; Role = Member }, okOrFail (Schema.decode personSchema json))
+    let json =
+        JObject(Map [ "name", JString "Alice"; "age", JNumber 30.0; "role", JString "member" ])
+
+    Assert.Equal(
+        { Name = "Alice"
+          Age = 30
+          Role = Member },
+        okOrFail (Schema.decode personSchema json)
+    )
 
 [<Fact>]
 let ``struct accumulates ALL field errors`` () =
-    let json = JObject(Map [ "name", JString ""; "age", JNumber 200.0; "role", JString "x" ])
+    let json =
+        JObject(Map [ "name", JString ""; "age", JNumber 200.0; "role", JString "x" ])
+
     match Schema.decode personSchema json with
     | Error e ->
         // one issue per bad field, each pointed at its key
         Assert.Equal(3, List.length (issues e))
+
         let keys =
             issues e
-            |> List.choose (function Pointer([ k ], _) -> Some k | _ -> None)
+            |> List.choose (function
+                | Pointer([ k ], _) -> Some k
+                | _ -> None)
             |> List.sort
+
         Assert.Equal<string list>([ "age"; "name"; "role" ], keys)
     | Ok _ -> failwith "expected failure"
 
 [<Fact>]
 let ``struct reports a missing required key`` () =
     let json = JObject(Map [ "name", JString "A"; "role", JString "guest" ]) // no age
+
     match Schema.decode personSchema json with
     | Error e -> Assert.Contains(MissingKey "age", issues e)
     | Ok _ -> failwith "expected failure"
 
 [<Fact>]
 let ``nested struct error carries a Pointer path`` () =
-    let json = JObject(Map [ "name", JString "A"; "addr", JObject(Map [ "zip", JString "12" ]) ])
+    let json =
+        JObject(Map [ "name", JString "A"; "addr", JObject(Map [ "zip", JString "12" ]) ])
+
     match Schema.decode custSchema json with
     | Error e ->
         // path renders as ["addr"]["zip"]
@@ -140,7 +157,11 @@ let ``non-object decoded by a struct -> InvalidType object`` () =
 
 [<Fact>]
 let ``array decodes elements and points at the failing index`` () =
-    Assert.Equal(Ok [ 1; 2; 3 ], Schema.decode (Schema.array Schema.int) (JArray [ JNumber 1.0; JNumber 2.0; JNumber 3.0 ]))
+    Assert.Equal(
+        Ok [ 1; 2; 3 ],
+        Schema.decode (Schema.array Schema.int) (JArray [ JNumber 1.0; JNumber 2.0; JNumber 3.0 ])
+    )
+
     match Schema.decode (Schema.array Schema.int) (JArray [ JNumber 1.0; JString "x"; JNumber 3.0 ]) with
     | Error e ->
         match issues e with
@@ -152,9 +173,12 @@ let ``array decodes elements and points at the failing index`` () =
 
 [<Fact>]
 let ``union picks the first matching member, else AnyOf`` () =
-    let u = Schema.union [ Schema.string |> Schema.minLength 3; Schema.string |> Schema.matches "^x" ]
+    let u =
+        Schema.union [ Schema.string |> Schema.minLength 3; Schema.string |> Schema.matches "^x" ]
+
     Assert.Equal(Ok "abcd", Schema.decode u (JString "abcd")) // member 1
     Assert.Equal(Ok "xy", Schema.decode u (JString "xy")) // member 2
+
     match Schema.decode u (JNumber 1.0) with
     | Error { Issue = AnyOf members } -> Assert.Equal(2, List.length members)
     | other -> failwithf "unexpected %A" other
@@ -163,9 +187,17 @@ let ``union picks the first matching member, else AnyOf`` () =
 
 [<Fact>]
 let ``round-trip: decode (encode x) = Ok x`` () =
-    let p = { Name = "Alice"; Age = 30; Role = Member }
+    let p =
+        { Name = "Alice"
+          Age = 30
+          Role = Member }
+
     Assert.Equal(Ok p, Schema.decode personSchema (Schema.encode personSchema p))
-    let c = { Name = "Bob"; Addr = { Zip = "90210" } }
+
+    let c =
+        { Name = "Bob"
+          Addr = { Zip = "90210" } }
+
     Assert.Equal(Ok c, Schema.decode custSchema (Schema.encode custSchema c))
 
 // -- decodeExit / Cause / Exit ----------------------------------------------
@@ -196,6 +228,7 @@ let ``validate returns unit on success and error otherwise`` () =
 let ``decodeEffect lifts the result into the Effect channel`` () =
     let ok = Schema.decodeEffect Schema.int (JNumber 9.0) |> Effect.runSync ()
     Assert.Equal(Success 9, ok)
+
     match Schema.decodeEffect Schema.int (JString "x") |> Effect.runSync () with
     | Failure _ -> ()
     | Success _ -> failwith "expected failure"
@@ -216,6 +249,7 @@ let ``derive builds a record codec keyed by field name`` () =
 [<Fact>]
 let ``derive accumulates record field errors`` () =
     let s = Schema.derive<Point> ()
+
     match Schema.decode s (JObject(Map [ "X", JString "a" ])) with // bad X, missing Y
     | Error e -> Assert.Equal(2, List.length (issues e))
     | Ok _ -> failwith "expected failure"

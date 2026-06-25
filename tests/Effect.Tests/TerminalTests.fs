@@ -30,12 +30,16 @@ let private run (ctx: Context) (eff: Effect<'A, 'E, Context>) : 'A =
 
 [<Fact>]
 let ``columns reads the provided terminal dimensions`` () =
-    let ctx = Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 132)
+    let ctx =
+        Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 132)
+
     Assert.Equal(132, run ctx Terminal.columns)
 
 [<Fact>]
 let ``rows reads the provided terminal dimensions`` () =
-    let ctx = Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 80)
+    let ctx =
+        Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 80)
+
     Assert.Equal(24, run ctx Terminal.rows)
 
 [<Fact>]
@@ -54,7 +58,8 @@ let ``display writes text to the terminal`` () =
 
 [<Fact>]
 let ``readLine returns queued lines in order`` () =
-    let ctx = Context.make Terminal.tag (testTerminal [ "first"; "second" ] (System.Text.StringBuilder()) 80)
+    let ctx =
+        Context.make Terminal.tag (testTerminal [ "first"; "second" ] (System.Text.StringBuilder()) 80)
 
     let program =
         effect {
@@ -67,7 +72,9 @@ let ``readLine returns queued lines in order`` () =
 
 [<Fact>]
 let ``readLine fails with QuitError at end of input`` () =
-    let ctx = Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 80)
+    let ctx =
+        Context.make Terminal.tag (testTerminal [] (System.Text.StringBuilder()) 80)
+
     Assert.Equal<Exit<string, QuitError>>(Exit.fail QuitError, runExit ctx Terminal.readLine)
 
 [<Fact>]
@@ -77,7 +84,8 @@ let ``isQuitError narrows a QuitError`` () =
 
 [<Fact>]
 let ``readLine then quit surfaces QuitError through a program`` () =
-    let ctx = Context.make Terminal.tag (testTerminal [ "only" ] (System.Text.StringBuilder()) 80)
+    let ctx =
+        Context.make Terminal.tag (testTerminal [ "only" ] (System.Text.StringBuilder()) 80)
 
     let program =
         effect {
@@ -87,10 +95,7 @@ let ``readLine then quit surfaces QuitError through a program`` () =
 
     match runExit ctx program with
     | Failure c ->
-        Assert.True(
-            Cause.failures c |> List.exists (fun e -> Terminal.isQuitError (box e)),
-            "expected a QuitError"
-        )
+        Assert.True(Cause.failures c |> List.exists (fun e -> Terminal.isQuitError (box e)), "expected a QuitError")
     | Success v -> Assert.Fail(sprintf "expected QuitError, got %s" v)
 
 [<Fact>]

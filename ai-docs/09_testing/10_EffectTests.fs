@@ -26,7 +26,9 @@ let private expectFailure (label: string) (eff: Effect<'A, 'E, unit>) =
     | Success _ -> check label false
 
 // --- a tiny clock service so time-dependent logic is testable ---------------
-type Clock = { Millis: Effect<int64, string, Context> }
+type Clock =
+    { Millis: Effect<int64, string, Context> }
+
 let clockTag: Tag<Clock> = Tag.make<Clock> "test/Clock"
 
 /// Production logic that reads the wall clock through the service.

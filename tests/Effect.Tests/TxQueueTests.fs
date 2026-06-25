@@ -100,9 +100,11 @@ let ``empty take blocks until another thread offers`` () =
     let observed = TxRef.makeUnsafe -1
 
     let consumer =
-        Thread(ThreadStart(fun () ->
-            let v = run (TxQueue.take q)
-            run (TxRef.atomically (TxRef.set observed v))))
+        Thread(
+            ThreadStart(fun () ->
+                let v = run (TxQueue.take q)
+                run (TxRef.atomically (TxRef.set observed v)))
+        )
 
     consumer.Start()
     Thread.Sleep 250
@@ -121,9 +123,11 @@ let ``full bounded offer blocks until another thread takes`` () =
     let produced = TxRef.makeUnsafe false
 
     let producer =
-        Thread(ThreadStart(fun () ->
-            run (TxQueue.offer q 3) |> ignore // blocks until space
-            run (TxRef.atomically (TxRef.set produced true))))
+        Thread(
+            ThreadStart(fun () ->
+                run (TxQueue.offer q 3) |> ignore // blocks until space
+                run (TxRef.atomically (TxRef.set produced true)))
+        )
 
     producer.Start()
     Thread.Sleep 250

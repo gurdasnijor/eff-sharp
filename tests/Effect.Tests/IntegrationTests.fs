@@ -21,8 +21,10 @@ let ``async core + Context + Ref + Deferred + effect CE compose end-to-end`` () 
         effect {
             let! cfg = Effect.service tag // dependency injection
             let! counter = Ref.make 0 // mutable state in the effect
+
             for i in 1..5 do
                 do! Ref.update counter (fun n -> n + i) // CE `for` loop
+
             let! sum = Ref.get counter // 1+2+3+4+5 = 15
             return sum * cfg.Factor
         }

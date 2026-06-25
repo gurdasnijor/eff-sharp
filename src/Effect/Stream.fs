@@ -13,7 +13,9 @@ namespace Effect
 /// with backpressure/concurrency. This v1 is element-at-a-time and single-consumer;
 /// chunking, `Sink`/`Channel`, and concurrent operators are deferred. Early
 /// termination (`take`) uses an internal stop signal caught at the run boundary.
-type Stream<'A, 'E, 'R> = internal { Run: ('A -> Effect<unit, 'E, 'R>) -> Effect<unit, 'E, 'R> }
+type Stream<'A, 'E, 'R> =
+    internal
+        { Run: ('A -> Effect<unit, 'E, 'R>) -> Effect<unit, 'E, 'R> }
 
 [<RequireQualifiedAccess>]
 module Stream =
@@ -38,7 +40,8 @@ module Stream =
     let range (lo: int) (hi: int) : Stream<int, 'E, 'R> = fromIterable (seq { lo..hi })
 
     /// A stream from an effect's success. (Stream.fromEffect)
-    let fromEffect (eff: Effect<'A, 'E, 'R>) : Stream<'A, 'E, 'R> = { Run = fun emit -> eff |> Effect.flatMap emit }
+    let fromEffect (eff: Effect<'A, 'E, 'R>) : Stream<'A, 'E, 'R> =
+        { Run = fun emit -> eff |> Effect.flatMap emit }
 
     // --- combinators ---
 

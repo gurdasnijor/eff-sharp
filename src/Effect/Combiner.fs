@@ -12,8 +12,10 @@ namespace Effect
 ///   * `combine` is curried (`'A -> 'A -> 'A`) rather than tupled, matching the
 ///     rest of the port (cf. `Order`).
 type Combiner<'A> =
-    { /// Combines two values into a new value.
-      combine: 'A -> 'A -> 'A }
+    {
+        /// Combines two values into a new value.
+        combine: 'A -> 'A -> 'A
+    }
 
 [<RequireQualifiedAccess>]
 module Combiner =

@@ -18,12 +18,14 @@ let private dummyTag = Tag.make<unit> "LayerMapTest/dummy"
 
 /// A layer that records acquisition/release of `key` on its build scope (the
 /// service it provides is irrelevant; the resource lifecycle is what we observe).
-let private makeLayer (acquired: ResizeArray<string>) (released: ResizeArray<string>) (key: string) : Layer<string, unit> =
+let private makeLayer
+    (acquired: ResizeArray<string>)
+    (released: ResizeArray<string>)
+    (key: string)
+    : Layer<string, unit> =
     Layer.scoped dummyTag (fun scope ->
-        Scope.acquireRelease
-            scope
-            (Effect.sync (fun () -> acquired.Add key))
-            (fun _ _ -> Effect.sync (fun () -> released.Add key)))
+        Scope.acquireRelease scope (Effect.sync (fun () -> acquired.Add key)) (fun _ _ ->
+            Effect.sync (fun () -> released.Add key)))
 
 let private getScoped (lm: LayerMap<string, string>) (key: string) : Effect<unit, string, unit> =
     Scope.scoped (fun caller -> LayerMap.contextEffect lm key caller |> Effect.map ignore)
@@ -32,7 +34,12 @@ let private getScoped (lm: LayerMap<string, string>) (key: string) : Effect<unit
 let ``make supports per-key idle time-to-live`` () =
     let acquired = ResizeArray<string>()
     let released = ResizeArray<string>()
-    let idleTTL (key: string) = if key.StartsWith "short" then Duration.millis 50.0 else Duration.millis 300.0
+
+    let idleTTL (key: string) =
+        if key.StartsWith "short" then
+            Duration.millis 50.0
+        else
+            Duration.millis 300.0
 
     let program: Effect<unit, string, unit> =
         effect {
@@ -40,9 +47,12 @@ let ``make supports per-key idle time-to-live`` () =
             let! lm = LayerMap.make mapScope idleTTL (makeLayer acquired released)
             do! getScoped lm "short:a"
             do! getScoped lm "long:b"
-            do! Effect.sync (fun () ->
-                Assert.Equal<string list>([ "short:a"; "long:b" ], List.ofSeq acquired)
-                Assert.Empty released)
+
+            do!
+                Effect.sync (fun () ->
+                    Assert.Equal<string list>([ "short:a"; "long:b" ], List.ofSeq acquired)
+                    Assert.Empty released)
+
             do! Effect.sleep 150
             do! Effect.sync (fun () -> Assert.Equal<string list>([ "short:a" ], List.ofSeq released))
             do! Effect.sleep 400
@@ -58,9 +68,15 @@ let ``fromRecord supports per-key idle time-to-live`` () =
     let released = ResizeArray<string>()
 
     let layers =
-        Map.ofList [ "short", makeLayer acquired released "short"; "long", makeLayer acquired released "long" ]
+        Map.ofList
+            [ "short", makeLayer acquired released "short"
+              "long", makeLayer acquired released "long" ]
 
-    let idleTTL (key: string) = if key = "short" then Duration.millis 50.0 else Duration.millis 300.0
+    let idleTTL (key: string) =
+        if key = "short" then
+            Duration.millis 50.0
+        else
+            Duration.millis 300.0
 
     let program: Effect<unit, string, unit> =
         effect {
@@ -93,9 +109,11 @@ let ``a key is built once and shared by concurrent borrowers`` () =
                     effect {
                         let! _ = LayerMap.contextEffect lm "k" outer
                         let! _ = LayerMap.contextEffect lm "k" outer
-                        do! Effect.sync (fun () ->
-                            Assert.Equal<string list>([ "k" ], List.ofSeq acquired)
-                            Assert.Empty released)
+
+                        do!
+                            Effect.sync (fun () ->
+                                Assert.Equal<string list>([ "k" ], List.ofSeq acquired)
+                                Assert.Empty released)
                     })
 
             // both references released -> immediate release (zero TTL)
@@ -116,9 +134,12 @@ let ``invalidate releases an idle entry immediately`` () =
             // a long TTL so the entry would not auto-evict during the test
             let! lm = LayerMap.make mapScope (fun _ -> Duration.millis 10_000.0) (makeLayer acquired released)
             do! getScoped lm "k"
-            do! Effect.sync (fun () ->
-                Assert.Equal<string list>([ "k" ], List.ofSeq acquired)
-                Assert.Empty released)
+
+            do!
+                Effect.sync (fun () ->
+                    Assert.Equal<string list>([ "k" ], List.ofSeq acquired)
+                    Assert.Empty released)
+
             do! LayerMap.invalidate lm "k"
             do! Effect.sync (fun () -> Assert.Equal<string list>([ "k" ], List.ofSeq released))
             do! Scope.close mapScope voidExit

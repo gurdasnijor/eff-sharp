@@ -14,11 +14,15 @@ open Effect
 // A concrete request implementing the marker interface.
 type private GetNameById =
     { Id: int }
+
     interface Request<string, string, unit>
 
 let private makeCapturingEntry (request: Request<'A, 'E, 'R>) =
     let captured = ref None
-    let entry = Request.makeEntry request Context.empty false (fun exit -> captured.Value <- Some exit)
+
+    let entry =
+        Request.makeEntry request Context.empty false (fun exit -> captured.Value <- Some exit)
+
     entry, captured
 
 let private run (eff: Effect<unit, 'E, unit>) = Effect.runSync () eff

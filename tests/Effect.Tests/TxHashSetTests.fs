@@ -22,7 +22,8 @@ let ``add then has within a transaction`` () =
                 stm {
                     do! TxHashSet.add s 1
                     return! TxHashSet.has s 1
-                })
+                }
+            )
         )
 
     Assert.True(present)
@@ -43,7 +44,8 @@ let ``duplicate adds do not grow the set`` () =
             stm {
                 do! TxHashSet.add s 5
                 do! TxHashSet.add s 5
-            })
+            }
+        )
     )
 
     Assert.Equal(1, run (TxRef.atomically (TxHashSet.size s)))

@@ -83,7 +83,9 @@ let ``isLessThan is strict`` () =
 
 [<Fact>]
 let ``isLessThanOrEqualTo`` () =
-    let lte a b = Order.isLessThanOrEqualTo Order.Number a b
+    let lte a b =
+        Order.isLessThanOrEqualTo Order.Number a b
+
     Assert.True(lte 0.0 1.0)
     Assert.True(lte 1.0 1.0)
     Assert.False(lte 2.0 1.0)
@@ -97,7 +99,9 @@ let ``isGreaterThan is strict`` () =
 
 [<Fact>]
 let ``isGreaterThanOrEqualTo`` () =
-    let gte a b = Order.isGreaterThanOrEqualTo Order.Number a b
+    let gte a b =
+        Order.isGreaterThanOrEqualTo Order.Number a b
+
     Assert.False(gte 0.0 1.0)
     Assert.True(gte 1.0 1.0)
     Assert.True(gte 2.0 1.0)

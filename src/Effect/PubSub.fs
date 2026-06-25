@@ -105,7 +105,9 @@ module PubSub =
             | Sliding ->
                 if self.Capacity > 0 then
                     for sub in self.Subscribers do
-                        if sub.Queue.Count >= self.Capacity then sub.Queue.Dequeue() |> ignore
+                        if sub.Queue.Count >= self.Capacity then
+                            sub.Queue.Dequeue() |> ignore
+
                         sub.Queue.Enqueue value
                         wakeTakers sub
 
@@ -184,8 +186,10 @@ module PubSub =
                 while go do
                     let action =
                         lock self.Lock (fun () ->
-                            if self.IsShutdown then Choice1Of2 false
-                            elif tryEnqueueUnsafe self value then Choice1Of2 true
+                            if self.IsShutdown then
+                                Choice1Of2 false
+                            elif tryEnqueueUnsafe self value then
+                                Choice1Of2 true
                             else
                                 let tcs = newGate ()
                                 self.PublishWaiters.Add tcs

@@ -15,7 +15,6 @@ namespace Effect
 ///     (F#'s static types make it dead weight).
 ///   * `Reference` (a key with a built-in default) is not ported in this slice;
 ///     `Tag` + `Effect.service` cover the required surface.
-
 /// A typed key identifying a service of type `'Service` stored in a `Context`.
 /// The `'Service` parameter is phantom (it only tracks the value type at compile
 /// time); identity at runtime is the unique `Key` string, mirroring upstream's
@@ -60,8 +59,7 @@ module Context =
     let unsafeGet (tag: Tag<'Service>) (ctx: Context) : 'Service = get tag ctx
 
     /// Whether a service is present. (Context.has)
-    let contains (tag: Tag<'Service>) (ctx: Context) : bool =
-        ctx.Services |> Map.containsKey tag.Key
+    let contains (tag: Tag<'Service>) (ctx: Context) : bool = ctx.Services |> Map.containsKey tag.Key
 
     /// Merge two contexts; on key conflict the services in `b` win. (Context.merge)
     let merge (a: Context) (b: Context) : Context =

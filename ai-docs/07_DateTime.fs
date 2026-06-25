@@ -22,7 +22,13 @@ open EffSharp.AiDocs.Demo
 let epoch = DateTime.makeUnsafe (InputEpochMillis 0L)
 
 let independenceDay =
-    DateTime.makeUnsafe (InputParts { DateTimeParts.Empty with Year = Some 1776; Month = Some 7; Day = Some 4 })
+    DateTime.makeUnsafe (
+        InputParts
+            { DateTimeParts.Empty with
+                Year = Some 1776
+                Month = Some 7
+                Day = Some 4 }
+    )
 
 // ───────────────────────────────────────────────────────────────────────────
 // 2. Calendar arithmetic & distance
@@ -31,7 +37,12 @@ let independenceDay =
 /// `add` takes signed amounts (a `DateTimeMath` record) and respects the real
 /// calendar — adding 1 month to Jan 31 lands correctly, leap years included.
 let nextMilestone =
-    independenceDay |> DateTime.add { DateTimeMath.Zero with Years = 250; Months = 0; Days = 0 }
+    independenceDay
+    |> DateTime.add
+        { DateTimeMath.Zero with
+            Years = 250
+            Months = 0
+            Days = 0 }
 
 /// `distance` is the `Duration` between two instants — pure, total, signed.
 let sinceEpoch = DateTime.distance epoch independenceDay
@@ -43,8 +54,10 @@ let sinceEpoch = DateTime.distance epoch independenceDay
 let timeout = Duration.seconds 30.0
 let elapsed = Duration.millis 27_500.0
 let withinBudget = Duration.isLessThanOrEqualTo elapsed timeout
+
 /// `clamp` keeps a duration inside an inclusive range.
-let clamped = Duration.clamp (Duration.seconds 1.0) (Duration.seconds 10.0) (Duration.minutes 5.0)
+let clamped =
+    Duration.clamp (Duration.seconds 1.0) (Duration.seconds 10.0) (Duration.minutes 5.0)
 
 // ───────────────────────────────────────────────────────────────────────────
 // 4. F# FLEX — model the domain with records/DUs + a NATIVE match on parts
@@ -57,7 +70,8 @@ type Event = { Name: string; At: DateTime }
 /// just F# pattern matching with guards over the `DateTimePartsUtc` record.
 let dayKind (dt: DateTime) : string =
     match DateTime.toPartsUtc dt with
-    | { WeekDay = 0 } | { WeekDay = 6 } -> "weekend"
+    | { WeekDay = 0 }
+    | { WeekDay = 6 } -> "weekend"
     | { Hour = h } when h < 9 || h >= 17 -> "off-hours weekday"
     | _ -> "business hours"
 
@@ -65,16 +79,19 @@ let dayKind (dt: DateTime) : string =
 // 5. F# FLEX — units of measure: typed time arithmetic, checked by the compiler
 // ───────────────────────────────────────────────────────────────────────────
 
-[<Measure>] type s   // seconds
-[<Measure>] type ms  // milliseconds
+[<Measure>]
+type s // seconds
+
+[<Measure>]
+type ms // milliseconds
 
 /// A conversion that *carries its units*. `requestTimeout` below is `float<s>`;
 /// passing it where `float<ms>` is wanted is a COMPILE ERROR — the kind of bug
 /// (seconds-vs-millis) that silently ships in untyped code.
-let secondsToMillis (x: float<s>) : float<ms> = x * 1000.0<ms/s>
+let secondsToMillis (x: float<s>) : float<ms> = x * 1000.0<ms / s>
 
 let requestTimeout = 30.0<s>
-let requestTimeoutMs : float<ms> = secondsToMillis requestTimeout
+let requestTimeoutMs: float<ms> = secondsToMillis requestTimeout
 
 let run () : unit =
     section "07 DateTime & Duration"
@@ -87,11 +104,14 @@ let run () : unit =
     printfn "elapsed ≤ timeout: %b   (clamp 5min→[1s,10s] = %s)" withinBudget (Duration.format clamped)
 
     let events =
-        [ { Name = "Sat brunch"; At = DateTime.makeUnsafe (InputString "2026-06-20T11:00:00Z") }
-          { Name = "Standup"; At = DateTime.makeUnsafe (InputString "2026-06-22T09:30:00Z") }
-          { Name = "Late deploy"; At = DateTime.makeUnsafe (InputString "2026-06-22T22:00:00Z") } ]
+        [ { Name = "Sat brunch"
+            At = DateTime.makeUnsafe (InputString "2026-06-20T11:00:00Z") }
+          { Name = "Standup"
+            At = DateTime.makeUnsafe (InputString "2026-06-22T09:30:00Z") }
+          { Name = "Late deploy"
+            At = DateTime.makeUnsafe (InputString "2026-06-22T22:00:00Z") } ]
+
     for e in events do
         printfn "  %-12s %s -> %s" e.Name (DateTime.formatIso e.At) (dayKind e.At)
 
-    printfn "units of measure : %.1f s = %.1f ms (compiler-checked)"
-        (float requestTimeout) (float requestTimeoutMs)
+    printfn "units of measure : %.1f s = %.1f ms (compiler-checked)" (float requestTimeout) (float requestTimeoutMs)

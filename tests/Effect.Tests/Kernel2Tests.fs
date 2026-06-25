@@ -48,10 +48,14 @@ let ``Fiber.awaitAll collects each fiber's Exit`` () =
 let ``Fiber.poll is None while running, Some once completed`` () =
     let prog: Effect<bool * bool, string, unit> =
         effect {
-            let! f = Effect.fork (effect {
-                                      do! Effect.sleep 1000
-                                      return 7
-                                  })
+            let! f =
+                Effect.fork (
+                    effect {
+                        do! Effect.sleep 1000
+                        return 7
+                    }
+                )
+
             let! p1 = Fiber.poll f // still running
             do! Effect.interrupt f
             let! p2 = Fiber.poll f // completed (interrupted)

@@ -25,7 +25,6 @@ open System.Text.RegularExpressions
 /// `formatIso`, `toPartsUtc`/`getPartUtc`, `setPartsUtc`/`setParts`, `add`/
 /// `subtract`/`addDuration`/`subtractDuration`, `startOf`/`endOf`/`nearest`,
 /// `mutate`, `removeTime`, `distance`, `Order`/`Equivalence`/comparisons.
-
 /// An instant (the upstream `Utc` variant), stored as epoch milliseconds.
 type DateTime = { EpochMillis: int64 }
 
@@ -42,8 +41,14 @@ type DateTimeParts =
       Millisecond: int option }
 
     static member Empty =
-        { Year = None; Month = None; Day = None; WeekDay = None
-          Hour = None; Minute = None; Second = None; Millisecond = None }
+        { Year = None
+          Month = None
+          Day = None
+          WeekDay = None
+          Hour = None
+          Minute = None
+          Second = None
+          Millisecond = None }
 
 /// The fully-resolved UTC parts of a `DateTime` (month is 1-based, weekDay 0=Sun).
 type DateTimePartsUtc =
@@ -68,8 +73,14 @@ type DateTimeMath =
       Milliseconds: int }
 
     static member Zero =
-        { Years = 0; Months = 0; Weeks = 0; Days = 0
-          Hours = 0; Minutes = 0; Seconds = 0; Milliseconds = 0 }
+        { Years = 0
+          Months = 0
+          Weeks = 0
+          Days = 0
+          Hours = 0
+          Minutes = 0
+          Seconds = 0
+          Milliseconds = 0 }
 
 /// Accepted inputs to `makeUnsafe`/`make` (UTC subset of upstream `Input`).
 type DateTimeInput =
@@ -117,43 +128,53 @@ module DateTime =
 
     /// Length of month `m0` (0-based) in `year`, via the BCL calendar
     /// (`System.DateTime.DaysInMonth` already encodes the leap-year rule).
-    let private monthLen (year: int64) (m0: int) : int64 = int64 (System.DateTime.DaysInMonth(int year, m0 + 1))
+    let private monthLen (year: int64) (m0: int) : int64 =
+        int64 (System.DateTime.DaysInMonth(int year, m0 + 1))
 
     /// Day number (days since 1970-01-01) of Jan 1 of the given year.
     let private daysFromYear (y: int64) : int64 =
-        365L * (y - 1970L)
-        + floorDiv (y - 1969L) 4L
-        - floorDiv (y - 1901L) 100L
+        365L * (y - 1970L) + floorDiv (y - 1969L) 4L - floorDiv (y - 1901L) 100L
         + floorDiv (y - 1601L) 400L
 
     /// Decompose an instant into (year, month0, date).
     let private ymdFromTime (t: int64) : int64 * int * int =
         let dayN = floorDiv t msPerDay
         let mutable y = 1970L + floorDiv dayN 366L
+
         while daysFromYear (y + 1L) <= dayN do
             y <- y + 1L
+
         while daysFromYear y > dayN do
             y <- y - 1L
+
         let doy = dayN - daysFromYear y
         let mutable m = 0
         let mutable rem = doy
+
         while rem >= monthLen y m do
             rem <- rem - monthLen y m
             m <- m + 1
+
         y, m, int rem + 1
 
-    let private hoursOf (t: int64) : int = int (floorMod (floorDiv t 3_600_000L) 24L)
+    let private hoursOf (t: int64) : int =
+        int (floorMod (floorDiv t 3_600_000L) 24L)
+
     let private minutesOf (t: int64) : int = int (floorMod (floorDiv t 60_000L) 60L)
     let private secondsOf (t: int64) : int = int (floorMod (floorDiv t 1_000L) 60L)
     let private msOf (t: int64) : int = int (floorMod t 1_000L)
-    let private weekDayOf (t: int64) : int = int (floorMod (floorDiv t msPerDay + 4L) 7L)
+
+    let private weekDayOf (t: int64) : int =
+        int (floorMod (floorDiv t msPerDay + 4L) 7L)
 
     let private makeDay (year: int64) (month: int64) (date: int64) : int64 =
         let y = year + floorDiv month 12L
         let m = floorMod month 12L
         let mutable dayNum = daysFromYear y
+
         for i in 0 .. int m - 1 do
             dayNum <- dayNum + monthLen y i
+
         dayNum + date - 1L
 
     let private makeTime (h: int64) (m: int64) (s: int64) (ms: int64) : int64 =
@@ -216,14 +237,18 @@ module DateTime =
 
     // --- parsing ---
 
-    let private hasZoneRegex = Regex(@"Z|GMT|[+-]\d{2}$|[+-]\d{2}:?\d{2}$|\]$", RegexOptions.Compiled)
+    let private hasZoneRegex =
+        Regex(@"Z|GMT|[+-]\d{2}$|[+-]\d{2}:?\d{2}$|\]$", RegexOptions.Compiled)
 
     let private isoRegex =
-        Regex(@"^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?\s*(Z|GMT|[+-]\d{2}:?\d{2})?$",
-              RegexOptions.Compiled)
+        Regex(
+            @"^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?\s*(Z|GMT|[+-]\d{2}:?\d{2})?$",
+            RegexOptions.Compiled
+        )
 
     let private parseZoneOffset (z: string) : int64 =
-        if z = "" || z = "Z" || z = "GMT" then 0L
+        if z = "" || z = "Z" || z = "GMT" then
+            0L
         else
             let sign = if z.[0] = '-' then -1L else 1L
             let digits = z.Substring(1).Replace(":", "")
@@ -236,11 +261,14 @@ module DateTime =
     let private parseInstant (input: string) : int64 =
         let s = input.Trim()
         let m = isoRegex.Match s
+
         if m.Success then
             let group (i: int) = m.Groups.[i]
+
             let geti (i: int) dflt =
                 let g = group i
                 if g.Success && g.Value <> "" then int64 g.Value else dflt
+
             let y = int64 (group 1).Value
             let mo = int64 (group 2).Value - 1L
             let d = int64 (group 3).Value
@@ -248,7 +276,13 @@ module DateTime =
             let mi = geti 5 0L
             let sec = geti 6 0L
             let msStr = (group 7).Value
-            let ms = if msStr = "" then 0L else int64 ((msStr + "000").Substring(0, 3))
+
+            let ms =
+                if msStr = "" then
+                    0L
+                else
+                    int64 ((msStr + "000").Substring(0, 3))
+
             let baseEpoch = makeDate (makeDay y mo d) (makeTime h mi sec ms)
             baseEpoch - parseZoneOffset (group 8).Value
         else
@@ -261,16 +295,37 @@ module DateTime =
     let private makeUtc (epochMillis: int64) : DateTime = { EpochMillis = epochMillis }
 
     let private setPartsDate (date: JsDate) (parts: DateTimeParts) : unit =
-        match parts.Year with Some y -> date.SetUTCFullYear y | None -> ()
-        match parts.Month with Some mo -> date.SetUTCMonth(mo - 1) | None -> ()
-        match parts.Day with Some d -> date.SetUTCDate d | None -> ()
+        match parts.Year with
+        | Some y -> date.SetUTCFullYear y
+        | None -> ()
+
+        match parts.Month with
+        | Some mo -> date.SetUTCMonth(mo - 1)
+        | None -> ()
+
+        match parts.Day with
+        | Some d -> date.SetUTCDate d
+        | None -> ()
+
         match parts.WeekDay with
         | Some wd -> date.SetUTCDate(date.Date + (wd - date.Day))
         | None -> ()
-        match parts.Hour with Some h -> date.SetUTCHours h | None -> ()
-        match parts.Minute with Some mi -> date.SetUTCMinutes mi | None -> ()
-        match parts.Second with Some s -> date.SetUTCSeconds s | None -> ()
-        match parts.Millisecond with Some ms -> date.SetUTCMilliseconds ms | None -> ()
+
+        match parts.Hour with
+        | Some h -> date.SetUTCHours h
+        | None -> ()
+
+        match parts.Minute with
+        | Some mi -> date.SetUTCMinutes mi
+        | None -> ()
+
+        match parts.Second with
+        | Some s -> date.SetUTCSeconds s
+        | None -> ()
+
+        match parts.Millisecond with
+        | Some ms -> date.SetUTCMilliseconds ms
+        | None -> ()
 
     /// Decode an input to a UTC `DateTime`, throwing on invalid input.
     let makeUnsafe (input: DateTimeInput) : DateTime =
@@ -285,7 +340,10 @@ module DateTime =
 
     /// Decode an input to a UTC `DateTime`, returning `None` on invalid input.
     let make (input: DateTimeInput) : DateTime option =
-        try Some(makeUnsafe input) with _ -> None
+        try
+            Some(makeUnsafe input)
+        with _ ->
+            None
 
     /// Whether a date string already carries zone information.
     let hasZone (input: string) : bool = hasZoneRegex.IsMatch input
@@ -298,7 +356,9 @@ module DateTime =
     let toUtc (self: DateTime) : DateTime = self
 
     let toPartsUtc (self: DateTime) : DateTimePartsUtc =
-        let dt = System.DateTimeOffset.FromUnixTimeMilliseconds(self.EpochMillis).UtcDateTime
+        let dt =
+            System.DateTimeOffset.FromUnixTimeMilliseconds(self.EpochMillis).UtcDateTime
+
         { Year = dt.Year
           Month = dt.Month
           Day = dt.Day
@@ -310,6 +370,7 @@ module DateTime =
 
     let getPartUtc (part: DateTimePart) (self: DateTime) : int =
         let p = toPartsUtc self
+
         match part with
         | PartMillisecond -> p.Millisecond
         | PartSecond -> p.Second
@@ -358,10 +419,14 @@ module DateTime =
 
     let equivalence (a: DateTime) (b: DateTime) : bool = a = b
 
-    let order (self: DateTime) (that: DateTime) : int = sign (compare self.EpochMillis that.EpochMillis)
+    let order (self: DateTime) (that: DateTime) : int =
+        sign (compare self.EpochMillis that.EpochMillis)
 
-    let min (self: DateTime) (that: DateTime) : DateTime = if order self that <= 0 then self else that
-    let max (self: DateTime) (that: DateTime) : DateTime = if order self that >= 0 then self else that
+    let min (self: DateTime) (that: DateTime) : DateTime =
+        if order self that <= 0 then self else that
+
+    let max (self: DateTime) (that: DateTime) : DateTime =
+        if order self that >= 0 then self else that
 
     let clamp (minimum: DateTime) (maximum: DateTime) (self: DateTime) : DateTime =
         if order self minimum < 0 then minimum
@@ -391,21 +456,38 @@ module DateTime =
     let add (parts: DateTimeMath) (self: DateTime) : DateTime =
         mutate
             (fun date ->
-                if parts.Milliseconds <> 0 then date.SetTime(date.GetTime() + int64 parts.Milliseconds)
-                if parts.Seconds <> 0 then date.SetTime(date.GetTime() + int64 parts.Seconds * 1_000L)
-                if parts.Minutes <> 0 then date.SetTime(date.GetTime() + int64 parts.Minutes * 60_000L)
-                if parts.Hours <> 0 then date.SetTime(date.GetTime() + int64 parts.Hours * 3_600_000L)
-                if parts.Days <> 0 then date.SetUTCDate(date.Date + parts.Days)
-                if parts.Weeks <> 0 then date.SetUTCDate(date.Date + parts.Weeks * 7)
+                if parts.Milliseconds <> 0 then
+                    date.SetTime(date.GetTime() + int64 parts.Milliseconds)
+
+                if parts.Seconds <> 0 then
+                    date.SetTime(date.GetTime() + int64 parts.Seconds * 1_000L)
+
+                if parts.Minutes <> 0 then
+                    date.SetTime(date.GetTime() + int64 parts.Minutes * 60_000L)
+
+                if parts.Hours <> 0 then
+                    date.SetTime(date.GetTime() + int64 parts.Hours * 3_600_000L)
+
+                if parts.Days <> 0 then
+                    date.SetUTCDate(date.Date + parts.Days)
+
+                if parts.Weeks <> 0 then
+                    date.SetUTCDate(date.Date + parts.Weeks * 7)
+
                 if parts.Months <> 0 then
                     let day = date.Date
                     date.SetUTCMonth(date.Month0 + parts.Months + 1, 0)
-                    if day < date.Date then date.SetUTCDate day
+
+                    if day < date.Date then
+                        date.SetUTCDate day
+
                 if parts.Years <> 0 then
                     let day = date.Date
                     let month = date.Month0
                     date.SetUTCFullYear(date.Year + parts.Years, month + 1, 0)
-                    if day < date.Date then date.SetUTCDate day)
+
+                    if day < date.Date then
+                        date.SetUTCDate day)
             self
 
     let subtract (parts: DateTimeMath) (self: DateTime) : DateTime =
@@ -477,5 +559,9 @@ module DateTime =
                     let endMillis = endD.GetTime() + 1L
                     let diffStart = millis - startMillis
                     let diffEnd = endMillis - millis
-                    if diffStart < diffEnd then date.SetTime startMillis else date.SetTime endMillis)
+
+                    if diffStart < diffEnd then
+                        date.SetTime startMillis
+                    else
+                        date.SetTime endMillis)
             self

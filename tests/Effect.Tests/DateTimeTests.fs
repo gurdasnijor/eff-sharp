@@ -18,11 +18,23 @@ let private M = DateTimeMath.Zero
 
 [<Fact>]
 let ``add clamps to the last valid day when changing months`` () =
-    let jan = parts { E with Year = Some 2023; Month = Some 1; Day = Some 31 }
+    let jan =
+        parts
+            { E with
+                Year = Some 2023
+                Month = Some 1
+                Day = Some 31 }
+
     let feb = DateTime.add { M with Months = 1 } jan
     Assert.Equal("2023-02-28T00:00:00.000Z", DateTime.toJSON feb)
 
-    let mar = parts { E with Year = Some 2023; Month = Some 3; Day = Some 31 }
+    let mar =
+        parts
+            { E with
+                Year = Some 2023
+                Month = Some 3
+                Day = Some 31 }
+
     let feb2 = DateTime.subtract { M with Months = 1 } mar
     Assert.Equal("2023-02-28T00:00:00.000Z", DateTime.toJSON feb2)
 
@@ -127,7 +139,13 @@ let ``nearest second down`` () =
 
 [<Fact>]
 let ``fromParts partial`` () =
-    let date = parts { E with Year = Some 2024; Month = Some 12; Day = Some 25 }
+    let date =
+        parts
+            { E with
+                Year = Some 2024
+                Month = Some 12
+                Day = Some 25 }
+
     Assert.Equal("2024-12-25T00:00:00.000Z", DateTime.toJSON date)
 
 [<Fact>]
@@ -139,15 +157,40 @@ let ``fromParts month is set correctly`` () =
 
 [<Fact>]
 let ``setPartsUtc partial`` () =
-    let date = parts { E with Year = Some 2024; Month = Some 12; Day = Some 25 }
+    let date =
+        parts
+            { E with
+                Year = Some 2024
+                Month = Some 12
+                Day = Some 25 }
+
     Assert.Equal("2024-12-25T00:00:00.000Z", DateTime.toJSON date)
-    let updated = DateTime.setPartsUtc { E with Year = Some 2023; Month = Some 1 } date
+
+    let updated =
+        DateTime.setPartsUtc
+            { E with
+                Year = Some 2023
+                Month = Some 1 }
+            date
+
     Assert.Equal("2023-01-25T00:00:00.000Z", DateTime.toJSON updated)
 
 [<Fact>]
 let ``setParts partial`` () =
-    let date = parts { E with Year = Some 2024; Month = Some 12; Day = Some 25 }
-    let updated = DateTime.setParts { E with Year = Some 2023; Month = Some 1 } date
+    let date =
+        parts
+            { E with
+                Year = Some 2024
+                Month = Some 12
+                Day = Some 25 }
+
+    let updated =
+        DateTime.setParts
+            { E with
+                Year = Some 2023
+                Month = Some 1 }
+            date
+
     Assert.Equal("2023-01-25T00:00:00.000Z", DateTime.toJSON updated)
 
 // --- formatIso ---

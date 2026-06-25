@@ -13,10 +13,14 @@ let private run (eff: Effect<'A, 'E, unit>) : 'A =
     | Success a -> a
     | Failure c -> failwithf "unexpected failure: %s" (Cause.render c)
 
-type private Counter = { Acquired: Ref<int>; Released: Ref<int> }
+type private Counter =
+    { Acquired: Ref<int>
+      Released: Ref<int> }
 
 let private makeCounter: Effect<Counter, string, unit> =
-    Effect.sync (fun () -> { Acquired = Ref.makeUnsafe 0; Released = Ref.makeUnsafe 0 })
+    Effect.sync (fun () ->
+        { Acquired = Ref.makeUnsafe 0
+          Released = Ref.makeUnsafe 0 })
 
 let private acquire (c: Counter) (scope: Scope<string, unit>) : Effect<int, string, unit> =
     Ref.update c.Acquired (fun n -> n + 1)

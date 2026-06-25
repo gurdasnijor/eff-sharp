@@ -15,16 +15,23 @@ open Effect
 
 // --- pure clock-simulating runners (analogues of runCollect / runDelays) ---
 
-let private runCollectFrom (action: float) (schedule: Schedule<'Out, 'In>) (inputs: 'In list) (start: float) : 'Out list =
+let private runCollectFrom
+    (action: float)
+    (schedule: Schedule<'Out, 'In>)
+    (inputs: 'In list)
+    (start: float)
+    : 'Out list =
     let step = Schedule.toStep schedule
     let mutable now = start
     let out = ResizeArray<'Out>()
     let mutable rest = inputs
     let mutable go = true
+
     while go && not (List.isEmpty rest) do
         let input = List.head rest
         rest <- List.tail rest
         now <- now + action
+
         match step now input with
         | Continue(o, d) ->
             out.Add o
@@ -32,11 +39,17 @@ let private runCollectFrom (action: float) (schedule: Schedule<'Out, 'In>) (inpu
         | Done o ->
             out.Add o
             go <- false
+
     List.ofSeq out
 
 let private runCollect schedule inputs = runCollectFrom 0.0 schedule inputs 0.0
-let private runDelays schedule inputs = runCollect (Schedule.delays schedule) inputs
-let private runDelaysAction action schedule inputs = runCollectFrom action (Schedule.delays schedule) inputs 0.0
+
+let private runDelays schedule inputs =
+    runCollect (Schedule.delays schedule) inputs
+
+let private runDelaysAction action schedule inputs =
+    runCollectFrom action (Schedule.delays schedule) inputs 0.0
+
 let private runLast schedule inputs = runCollect schedule inputs |> List.last
 
 let private units n : unit list = List.replicate n ()
@@ -103,14 +116,20 @@ let ``tap - provides full metadata`` () =
 
 [<Fact>]
 let ``andThenResult - executes schedules sequentially to completion`` () =
-    let left = Schedule.``fixed`` (Duration.millis 500.0) |> Schedule.``while`` (fun m -> m.Attempt <= 3)
+    let left =
+        Schedule.``fixed`` (Duration.millis 500.0)
+        |> Schedule.``while`` (fun m -> m.Attempt <= 3)
+
     let right = Schedule.``fixed`` (Duration.seconds 1.0)
     let schedule = Schedule.andThenResult left right
     Assert.Equal<float list>([ 500.0; 500.0; 500.0; 1000.0; 1000.0; 1000.0 ], ms (runDelays schedule (units 6)))
 
 [<Fact>]
 let ``andThenResult - emits right completion when right schedule is finite`` () =
-    let left = Schedule.``fixed`` (Duration.millis 500.0) |> Schedule.``while`` (fun m -> m.Attempt <= 2)
+    let left =
+        Schedule.``fixed`` (Duration.millis 500.0)
+        |> Schedule.``while`` (fun m -> m.Attempt <= 2)
+
     let right = Schedule.duration (Duration.seconds 1.0)
     let schedule = Schedule.andThenResult left right
     Assert.Equal<float list>([ 500.0; 500.0; 1000.0; 0.0 ], ms (runDelays schedule (units 5)))
@@ -126,12 +145,14 @@ let ``cron - recurs on interval matching cron expression`` () =
     let step = Schedule.toStep schedule
     let mutable now = start
     let out = ResizeArray<string>()
+
     for _ in 1..4 do
         match step now () with
         | Continue(_, d) ->
             now <- now + Duration.toMillis d
             out.Add(formatUtc now)
         | Done _ -> ()
+
     Assert.Equal<string list>(
         [ "Mon Jan 01 2024 00:02:00"
           "Mon Jan 01 2024 00:04:00"
@@ -147,12 +168,14 @@ let ``cron - recurs on interval matching cron expression (second granularity)`` 
     let step = Schedule.toStep schedule
     let mutable now = start
     let out = ResizeArray<string>()
+
     for _ in 1..10 do
         match step now () with
         | Continue(_, d) ->
             now <- now + Duration.toMillis d
             out.Add(formatUtc now)
         | Done _ -> ()
+
     Assert.Equal<string list>(
         [ "Mon Jan 01 2024 00:00:03"
           "Mon Jan 01 2024 00:00:06"
@@ -178,7 +201,10 @@ let ``duration - recurs once after the provided duration`` () =
 
 [<Fact>]
 let ``reduce - accumulates state with synchronous combine`` () =
-    let schedule = Schedule.forever |> Schedule.reduce (fun () -> 0) (fun state output -> state + output)
+    let schedule =
+        Schedule.forever
+        |> Schedule.reduce (fun () -> 0) (fun state output -> state + output)
+
     Assert.Equal<int list>([ 0; 1; 3; 6; 10 ], runCollect schedule (units 5))
 
 // ----------------------------------------------------------------------------
@@ -188,14 +214,20 @@ let ``reduce - accumulates state with synchronous combine`` () =
 [<Fact>]
 let ``jittered - keeps delays within 80%-120% of the original`` () =
     let rng = System.Random(1234)
-    let schedule = Schedule.jitteredWith (fun () -> rng.NextDouble()) (Schedule.spaced (Duration.seconds 1.0))
+
+    let schedule =
+        Schedule.jitteredWith (fun () -> rng.NextDouble()) (Schedule.spaced (Duration.seconds 1.0))
+
     let output = runDelays schedule (units 20) |> ms
     Assert.True(output |> List.forall (fun millis -> millis >= 800.0 && millis <= 1200.0))
 
 [<Fact>]
 let ``jittered - does not change completion output`` () =
     let rng = System.Random(99)
-    let schedule = Schedule.jitteredWith (fun () -> rng.NextDouble()) (Schedule.duration (Duration.seconds 1.0))
+
+    let schedule =
+        Schedule.jitteredWith (fun () -> rng.NextDouble()) (Schedule.duration (Duration.seconds 1.0))
+
     let output = runDelays schedule (units 5) |> ms
     Assert.Equal(2, output.Length)
     Assert.InRange(output.[0], 800.0, 1200.0)
@@ -221,14 +253,19 @@ let ``fixed - constant delays`` () =
 
 [<Fact>]
 let ``fixed - delays until the nearest window boundary when action is slow`` () =
-    let schedule = Schedule.``fixed`` (Duration.seconds 1.0) |> Schedule.``while`` (fun m -> m.Attempt <= 5)
+    let schedule =
+        Schedule.``fixed`` (Duration.seconds 1.0)
+        |> Schedule.``while`` (fun m -> m.Attempt <= 5)
     // 500ms action each step; the next delay shrinks to realign on the 1s grid.
     let output = runDelaysAction 500.0 schedule (units 6)
     Assert.Equal<float list>([ 1000.0; 500.0; 500.0; 500.0; 500.0; 0.0 ], ms output)
 
 [<Fact>]
 let ``fixed - matches effect v3 when action duration exceeds the interval`` () =
-    let schedule = Schedule.``fixed`` (Duration.seconds 1.0) |> Schedule.``while`` (fun m -> m.Attempt <= 5)
+    let schedule =
+        Schedule.``fixed`` (Duration.seconds 1.0)
+        |> Schedule.``while`` (fun m -> m.Attempt <= 5)
+
     let output = runDelaysAction 1500.0 schedule (units 6)
     Assert.Equal<float list>([ 1000.0; 0.0; 0.0; 0.0; 0.0; 0.0 ], ms output)
 
@@ -243,7 +280,10 @@ let ``windowed - constant delays`` () =
 
 [<Fact>]
 let ``windowed - delays until the nearest window boundary`` () =
-    let schedule = Schedule.windowed (Duration.seconds 1.0) |> Schedule.``while`` (fun m -> m.Attempt <= 5)
+    let schedule =
+        Schedule.windowed (Duration.seconds 1.0)
+        |> Schedule.``while`` (fun m -> m.Attempt <= 5)
+
     let output = runDelaysAction 1500.0 schedule (units 6)
     Assert.Equal<float list>([ 1000.0; 500.0; 500.0; 500.0; 500.0; 0.0 ], ms output)
 
@@ -254,12 +294,17 @@ let ``windowed - delays until the nearest window boundary`` () =
 
 [<Fact>]
 let ``intersect - uses the maximum delay and stops when either stops`` () =
-    let schedule = Schedule.spaced (Duration.seconds 1.0) |> Schedule.intersect (Schedule.recurs 2)
+    let schedule =
+        Schedule.spaced (Duration.seconds 1.0) |> Schedule.intersect (Schedule.recurs 2)
+
     Assert.Equal<float list>([ 1000.0; 1000.0; 0.0 ], ms (runDelays schedule (units 5)))
 
 [<Fact>]
 let ``union - uses the minimum delay while either continues`` () =
-    let schedule = Schedule.spaced (Duration.seconds 1.0) |> Schedule.union (Schedule.spaced (Duration.seconds 2.0))
+    let schedule =
+        Schedule.spaced (Duration.seconds 1.0)
+        |> Schedule.union (Schedule.spaced (Duration.seconds 2.0))
+
     Assert.Equal<float list>([ 1000.0; 1000.0; 1000.0 ], ms (runDelays schedule (units 3)))
 
 // ----------------------------------------------------------------------------

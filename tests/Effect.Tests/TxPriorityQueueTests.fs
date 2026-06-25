@@ -101,7 +101,9 @@ let ``take retries on empty then resumes when another thread offers`` () =
     let pq = run (TxPriorityQueue.empty intOrder)
 
     // Fork a waiter that blocks on the empty queue.
-    let waiter = System.Threading.Tasks.Task.Run(fun () -> run (TxPriorityQueue.take pq))
+    let waiter =
+        System.Threading.Tasks.Task.Run(fun () -> run (TxPriorityQueue.take pq))
+
     Assert.False(waiter.Wait 100)
 
     // Offer unblocks the waiter, which takes the value.

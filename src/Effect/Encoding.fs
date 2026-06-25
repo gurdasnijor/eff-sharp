@@ -56,13 +56,16 @@ module Encoding =
     let decodeBase64 (str: string) : Result<byte[], EncodingError> =
         let stripped = stripCrlf str
         let length = stripped.Length
+
         if length % 4 <> 0 then
             Error(decodeError "Base64" stripped (sprintf "Length must be a multiple of 4, but is %d" length))
         else
             let index = stripped.IndexOf('=')
-            if index <> -1
-               && (index < length - 2
-                   || (index = length - 2 && stripped.[length - 1] <> '=')) then
+
+            if
+                index <> -1
+                && (index < length - 2 || (index = length - 2 && stripped.[length - 1] <> '='))
+            then
                 Error(decodeError "Base64" stripped "Found a '=' character, but it is not at the end")
             else
                 try
@@ -80,10 +83,7 @@ module Encoding =
 
     /// Encode bytes as URL-safe, unpadded Base64. (Encoding.encodeBase64Url)
     let encodeBase64Url (bytes: byte[]) : string =
-        (Convert.ToBase64String bytes)
-            .Replace("=", "")
-            .Replace("+", "-")
-            .Replace("/", "_")
+        (Convert.ToBase64String bytes).Replace("=", "").Replace("+", "-").Replace("/", "_")
 
     /// Encode a UTF-8 string as URL-safe, unpadded Base64.
     let encodeBase64UrlString (s: string) : string = encodeBase64Url (utf8Bytes s)
@@ -103,6 +103,7 @@ module Encoding =
     let decodeBase64Url (str: string) : Result<byte[], EncodingError> =
         let stripped = stripCrlf str
         let length = stripped.Length
+
         if length % 4 = 1 then
             Error(decodeError "Base64Url" stripped (sprintf "Length should be a multiple of 4, but is %d" length))
         elif not (isBase64Url stripped) then
@@ -113,6 +114,7 @@ module Encoding =
                 | 2 -> stripped + "=="
                 | 3 -> stripped + "="
                 | _ -> stripped
+
             let sanitized = padded.Replace("-", "+").Replace("_", "/")
             decodeBase64 sanitized
 
@@ -125,8 +127,7 @@ module Encoding =
     // ----------------------------------------------------------------------
 
     /// Encode bytes as lowercase hexadecimal. (Encoding.encodeHex)
-    let encodeHex (bytes: byte[]) : string =
-        Convert.ToHexStringLower bytes
+    let encodeHex (bytes: byte[]) : string = Convert.ToHexStringLower bytes
 
     /// Encode a UTF-8 string as lowercase hexadecimal.
     let encodeHexString (s: string) : string = encodeHex (utf8Bytes s)
@@ -134,6 +135,7 @@ module Encoding =
     /// Decode a hexadecimal string into bytes. (Encoding.decodeHex)
     let decodeHex (str: string) : Result<byte[], EncodingError> =
         let bytes = utf8Bytes str
+
         if bytes.Length % 2 <> 0 then
             Error(decodeError "Hex" str (sprintf "Length must be a multiple of 2, but is %d" bytes.Length))
         else
@@ -143,5 +145,4 @@ module Encoding =
                 Error(decodeError "Hex" str "Invalid input")
 
     /// Decode a hexadecimal string into UTF-8 text. (Encoding.decodeHexString)
-    let decodeHexString (str: string) : Result<string, EncodingError> =
-        decodeHex str |> Result.map utf8String
+    let decodeHexString (str: string) : Result<string, EncodingError> = decodeHex str |> Result.map utf8String
