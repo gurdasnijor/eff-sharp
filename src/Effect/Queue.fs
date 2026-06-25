@@ -20,8 +20,9 @@ open System.Collections.Generic
 ///   * Upstream's structural `Enqueue`/`Dequeue` read/write views and the
 ///     `isQueue`/`isEnqueue`/`isDequeue` runtime guards are dropped — a single
 ///     `Queue` handle is both ends. `asEnqueue`/`asDequeue` are kept as identity.
-///   * `into`/`takeBetween`/`isFull`/`*Unsafe` variants are omitted as deferred
-///     surface; the tested core is complete.
+///   * `into`/`takeBetween`/`isFull` and most `*Unsafe` variants are omitted as
+///     deferred surface; the tested core is complete. `offerUnsafe` is provided
+///     for raw (non-`Effect`) callbacks that feed a queue.
 ///
 /// Interruption note: a fiber blocked in `Deferred.await` (a real task await) is
 /// not cancelled by the cooperative `Fiber.interrupt`, so the upstream
@@ -187,6 +188,37 @@ module Queue =
             match outcome with
             | Choice1Of2 b -> Effect.succeed b
             | Choice2Of2 d -> Deferred.await d |> Effect.map List.isEmpty)
+
+    /// Synchronously offer a single message, returning whether it was accepted —
+    /// the non-suspending companion to `offer`, for raw callbacks (e.g. a Node
+    /// `'data'` handler that pushes into a queue feeding `Queue.toStream`) which
+    /// cannot run an `Effect`. Never blocks: a full `Suspend` queue rejects
+    /// (`false`) instead of applying backpressure, `Dropping` rejects when full,
+    /// `Sliding` evicts the oldest, and a completed queue rejects. Accepted
+    /// messages wake any blocked takers, exactly like `offer`. (Queue.unsafeOffer)
+    let offerUnsafe (q: Queue<'A>) (message: 'A) : bool =
+        lock q.Lock (fun () ->
+            match q.Terminal with
+            | Some _ -> false
+            | None ->
+                match q.Strategy with
+                | Suspend
+                | Dropping ->
+                    if q.Buffer.Count < q.Capacity then
+                        q.Buffer.Add message
+                        signalAll q
+                        true
+                    else
+                        false
+                | Sliding ->
+                    if q.Capacity > 0 then
+                        if q.Buffer.Count >= q.Capacity then
+                            q.Buffer.RemoveAt 0
+
+                        q.Buffer.Add message
+                        signalAll q
+
+                    true)
 
     /// Offer many messages. Returns the messages that were **not** accepted
     /// (empty for suspend once fully admitted and for sliding; the overflow for

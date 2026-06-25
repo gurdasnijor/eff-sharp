@@ -378,3 +378,98 @@ let ``toStream emits buffered items then ends when the queue is interrupted`` ()
         )
 
     Assert.Equal<int list>([ 1; 2; 3 ], xs)
+
+// --- offerUnsafe (synchronous, non-suspending offer for raw callbacks) ---
+
+[<Fact>]
+let ``offerUnsafe accepts into an unbounded queue and is takeable`` () =
+    let accepted, taken =
+        run (
+            effect {
+                let! q = Queue.unbounded ()
+                let a = Queue.offerUnsafe q 42
+                let! t = Queue.take q
+                return (a, t)
+            }
+        )
+
+    Assert.True(accepted)
+    Assert.Equal(42, taken)
+
+[<Fact>]
+let ``offerUnsafe rejects when a dropping queue is full`` () =
+    let first, full =
+        run (
+            effect {
+                let! q = Queue.make 1 Dropping
+                let a = Queue.offerUnsafe q 1
+                let b = Queue.offerUnsafe q 2
+                return (a, b)
+            }
+        )
+
+    Assert.True(first)
+    Assert.False(full)
+
+[<Fact>]
+let ``offerUnsafe rejects when a suspend queue is full (no backpressure)`` () =
+    let first, full =
+        run (
+            effect {
+                let! q = Queue.bounded 1
+                let a = Queue.offerUnsafe q 1
+                let b = Queue.offerUnsafe q 2
+                return (a, b)
+            }
+        )
+
+    Assert.True(first)
+    Assert.False(full)
+
+[<Fact>]
+let ``offerUnsafe evicts the oldest in a sliding queue`` () =
+    let accepted, taken =
+        run (
+            effect {
+                let! q = Queue.make 2 Sliding
+                let _ = Queue.offerUnsafe q 1
+                let _ = Queue.offerUnsafe q 2
+                let a = Queue.offerUnsafe q 3
+                let! t = Queue.takeAll q
+                return (a, t)
+            }
+        )
+
+    Assert.True(accepted)
+    Assert.Equal<int list>([ 2; 3 ], taken)
+
+[<Fact>]
+let ``offerUnsafe rejects once the queue has completed`` () =
+    let rejected =
+        run (
+            effect {
+                let! q = Queue.unbounded ()
+                let! _ = Queue.endQueue q
+                return Queue.offerUnsafe q 1
+            }
+        )
+
+    Assert.False(rejected)
+
+[<Fact>]
+let ``offerUnsafe feeds a queue consumed via toStream`` () =
+    // The cutover pattern: a raw callback pushes with offerUnsafe; the queue is
+    // ended and drained as a Stream.
+    let xs =
+        run (
+            effect {
+                let! q = Queue.unbounded ()
+                let _ = Queue.offerUnsafe q 1
+                let _ = Queue.offerUnsafe q 2
+                let _ = Queue.offerUnsafe q 3
+                let! _ = Queue.endQueue q
+                return! Stream.runCollect (Queue.toStream q)
+            }
+        )
+
+    Assert.Equal<int list>([ 1; 2; 3 ], xs)
