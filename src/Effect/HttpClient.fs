@@ -1,18 +1,14 @@
 namespace Effect
 
-/// `HttpClient` — a minimal HTTP client service (abstract).
+/// `HttpClient` — an HTTP client service (abstract).
 ///
-/// Port of the slice of effect-smol's `effect/unstable/http/HttpClient` that the
-/// cutover drivers use: a `request`/`get` that performs an HTTP call and yields
-/// the response, failing (typed) on a transport error (e.g. connection refused).
-/// fluent-firegrid's `verification` uses exactly this — `HttpClient.get url` in a
-/// retry loop (`Effect.exit`) to poll a service for readiness. The full request/
-/// response/streaming/`HttpApi` surface is deferred (effect-s2, Phase D).
+/// The service still exposes the legacy string request function used by current
+/// callers, while the module also provides structured request/response helpers
+/// over the unstable/http value substrate.
 ///
 /// Concrete implementations live in the platform package (`NodeHttpClient`),
 /// backed by Node `fetch`.
-/// A response: HTTP status code + the body read as text. (HttpClientResponse,
-/// minimal form.)
+/// A response: HTTP status code + the body read as text.
 type HttpResponse = { Status: int; Body: string }
 
 /// A transport-level failure (the request never produced a response — DNS,
@@ -23,9 +19,12 @@ type HttpClientError =
       Url: string
       Reason: string }
 
-/// The HTTP client service: perform `method` against `url`, yielding the response.
+/// The HTTP client service: execute a structured request. The legacy `Request`
+/// member is retained for current callers and is implemented by platform layers
+/// in terms of `Execute`.
 type HttpClient =
-    { Request: string -> string -> Effect<HttpResponse, HttpClientError, Context> }
+    { Request: string -> string -> Effect<HttpResponse, HttpClientError, Context>
+      Execute: HttpClientRequest -> Effect<HttpClientResponse, HttpClientError, Context> }
 
 [<RequireQualifiedAccess>]
 module HttpClient =
@@ -44,3 +43,7 @@ module HttpClient =
 
     /// A POST request. (HttpClient.post)
     let post (url: string) : Effect<HttpResponse, HttpClientError, Context> = request "POST" url
+
+    /// Execute a structured request through the current service.
+    let execute (req: HttpClientRequest) : Effect<HttpClientResponse, HttpClientError, Context> =
+        Effect.service tag |> Effect.flatMap (fun c -> c.Execute req)

@@ -157,7 +157,12 @@
     <!-- process: Command model + abstract ChildProcessSpawner (impl in Effect.Platform.Node) -->
     <Compile Include="$(EffectSrcDir)ChildProcess.fs" />
     <Compile Include="$(EffectSrcDir)ChildProcessSpawner.fs" />
-    <!-- http: minimal HttpClient service (impl in Effect.Platform.Node) -->
+    <!-- unstable/http: request/response value substrate plus HttpClient service -->
+    <Compile Include="$(EffectSrcDir)Headers.fs" />
+    <Compile Include="$(EffectSrcDir)UrlParams.fs" />
+    <Compile Include="$(EffectSrcDir)HttpBody.fs" />
+    <Compile Include="$(EffectSrcDir)HttpClientRequest.fs" />
+    <Compile Include="$(EffectSrcDir)HttpClientResponse.fs" />
     <Compile Include="$(EffectSrcDir)HttpClient.fs" />
     <!-- unstable/httpapi: declarative API contract metadata and OpenAPI emission -->
     <Compile Include="$(EffectSrcDir)HttpApiSchema.fs" />
