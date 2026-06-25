@@ -80,6 +80,36 @@ describe "HttpApiClient.urlBuilder" (fun () ->
         toBe missing "https://api.example.com/files"
         toBe present "https://api.example.com/files/a%2Fb")
 
+    test "builds relative urls when no base url is configured" (fun () ->
+        let builder = HttpApiClient.urlBuilderRelative api
+
+        let url =
+            builder
+            |> HttpApiClient.endpointUrl
+                "users"
+                "health"
+                { Params = Map.empty
+                  Query = UrlParams.empty }
+
+        toBe url "/health")
+
+    test "builds top-level endpoint urls" (fun () ->
+        let topLevelApi =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.makeTopLevel "top" |> HttpApiGroup.add health)
+            |> HttpApi.prefix "/v1"
+
+        let builder = HttpApiClient.urlBuilder topLevelApi { BaseUrl = "https://api.example.com" }
+
+        let url =
+            builder
+            |> HttpApiClient.topLevelEndpointUrl
+                "health"
+                { Params = Map.empty
+                  Query = UrlParams.empty }
+
+        toBe url "https://api.example.com/v1/health")
+
     test "throws for missing required path parameters" (fun () ->
         let builder = HttpApiClient.urlBuilder api { BaseUrl = "https://api.example.com" }
 
@@ -126,4 +156,31 @@ describe "HttpApiClient.urlBuilder" (fun () ->
             toBe request.Method "GET"
             toBe request.Url "https://api.example.com/users/123?page=1"
             toBe (Headers.get "x-test" request.Headers) (Some "ok")
+        | None -> failwith "expected request capture")
+
+    test "executes top-level endpoints through HttpClient" (fun () ->
+        let topLevelApi =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.makeTopLevel "top" |> HttpApiGroup.add health)
+
+        let mutable captured: HttpClientRequest option = None
+
+        let httpClient =
+            { Request = fun _ _ -> Effect.succeed { Status = 200; Body = "" }
+              Execute =
+                fun request ->
+                    captured <- Some request
+                    Effect.succeed (HttpClientResponse.text request 204 Headers.empty "") }
+
+        let client = HttpApiClient.makeRelative topLevelApi
+
+        let response =
+            client
+            |> HttpApiClient.topLevelEndpoint "health" HttpApiClient.emptyEndpointInput
+            |> Runtime.runSync (Runtime.make (Context.make HttpClient.tag httpClient))
+
+        toBe response.Status 204
+
+        match captured with
+        | Some request -> toBe request.Url "/health"
         | None -> failwith "expected request capture"))

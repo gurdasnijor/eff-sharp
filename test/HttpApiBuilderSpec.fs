@@ -66,4 +66,69 @@ describe "HttpApiBuilder" (fun () ->
                 "todos"
                 (Map.ofList [ "getTodo", fun _ -> Effect.succeed (HttpServerResponse.text "ok") ])
 
-        toThrow (fun () -> HttpApiBuilder.route api [ group ] |> ignore)))
+        toThrow (fun () -> HttpApiBuilder.route api [ group ] |> ignore))
+
+    test "rejects secured endpoints before invoking handlers" (fun () ->
+        let securedEndpoint =
+            HttpApiEndpoint.get "secure" "/secure" HttpApiEndpoint.empty
+            |> HttpApiEndpoint.addSecurity HttpApiSecurity.bearer
+
+        let securedApi =
+            HttpApi.make "SecureApi"
+            |> HttpApi.add (HttpApiGroup.make "secure" |> HttpApiGroup.add securedEndpoint)
+
+        let mutable called = false
+
+        let group =
+            HttpApiBuilder.group
+                securedApi
+                "secure"
+                (Map.ofList
+                    [ "secure",
+                      fun _ ->
+                          called <- true
+                          Effect.succeed (HttpServerResponse.text "ok") ])
+
+        let result =
+            HttpApiBuilder.route securedApi [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/secure" Headers.empty HttpBody.empty)
+            |> Effect.runSync Runtime.defaultRuntime.Context
+
+        match result with
+        | Failure cause ->
+            toBe called false
+
+            match Cause.failures cause with
+            | RequestParseError(_, reason) :: _ -> toBe reason "Missing Authorization header"
+            | other -> failwithf "expected RequestParseError, got %A" other
+        | Success response -> failwithf "expected security failure, got %A" response)
+
+    test "accepts any declared endpoint security alternative" (fun () ->
+        let securedEndpoint =
+            HttpApiEndpoint.get "secure" "/secure" HttpApiEndpoint.empty
+            |> HttpApiEndpoint.addSecurities
+                [ HttpApiSecurity.bearer
+                  HttpApiSecurity.apiKeyHeader "x-api-key" ]
+
+        let securedApi =
+            HttpApi.make "SecureApi"
+            |> HttpApi.add (HttpApiGroup.make "secure" |> HttpApiGroup.add securedEndpoint)
+
+        let group =
+            HttpApiBuilder.group
+                securedApi
+                "secure"
+                (Map.ofList [ "secure", fun _ -> Effect.succeed (HttpServerResponse.text "ok") ])
+
+        let response =
+            HttpApiBuilder.route securedApi [ group ]
+            |> HttpRouter.handle
+                (HttpServerRequest.make
+                    "GET"
+                    "/secure"
+                    (Headers.ofList [ "x-api-key", "secret" ])
+                    HttpBody.empty)
+            |> run
+
+        toBe response.Status 200
+        toBe (HttpBody.asText response.Body) (Some "ok")))

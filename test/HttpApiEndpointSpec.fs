@@ -53,6 +53,14 @@ describe "HttpApiEndpoint streaming success schemas" (fun () ->
         toBe endpoint.Path "/api/resource"
         toEqual (endpoint.Options.Error |> List.map (fun error -> error.Status)) [ 401 ])
 
+    test "addSecurity preserves endpoint security metadata" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get "secure" "/secure" HttpApiEndpoint.empty
+            |> HttpApiEndpoint.addSecurity HttpApiSecurity.bearer
+            |> HttpApiEndpoint.addSecurity (HttpApiSecurity.apiKeyHeader "x-api-key")
+
+        toEqual endpoint.Options.Security [ HttpApiSecurity.bearer; HttpApiSecurity.apiKeyHeader "x-api-key" ])
+
     test "GET endpoint accepts StreamSse success" (fun () ->
         let stream = sse ()
         let endpoint = endpoint [ stream ]

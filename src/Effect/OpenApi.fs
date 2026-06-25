@@ -120,20 +120,68 @@ module OpenApi =
         |> List.map (fun (status, schemas) -> string status, responseForStatus schemas)
         |> Map.ofList
 
+    let private securityIdentifier =
+        function
+        | Http "Bearer" -> "Bearer"
+        | Http scheme -> "Http" + scheme
+        | Basic -> "Basic"
+        | ApiKey(name, location) ->
+            match location with
+            | Header -> "ApiKeyHeader_" + name
+            | Query -> "ApiKeyQuery_" + name
+            | Cookie -> "ApiKeyCookie_" + name
+
+    let private securityRequirement (security: HttpApiSecurity) =
+        jo [ securityIdentifier security, ja [] ]
+
+    let private securityRequirements (endpoint: HttpApiEndpoint) =
+        match endpoint.Options.Security with
+        | [] -> None
+        | securities -> Some("security", ja (securities |> List.map securityRequirement))
+
+    let private securityScheme =
+        function
+        | Http scheme ->
+            securityIdentifier (Http scheme),
+            jo
+                [ "type", js "http"
+                  "scheme", js (scheme.ToLowerInvariant()) ]
+        | Basic ->
+            securityIdentifier Basic,
+            jo
+                [ "type", js "http"
+                  "scheme", js "basic" ]
+        | ApiKey(name, location) ->
+            let locationName =
+                match location with
+                | Header -> "header"
+                | Query -> "query"
+                | Cookie -> "cookie"
+
+            securityIdentifier (ApiKey(name, location)),
+            jo
+                [ "type", js "apiKey"
+                  "name", js name
+                  "in", js locationName ]
+
     let private operationForEndpoint (group: HttpApiGroup) (endpoint: HttpApiEndpoint) =
         [ Some("operationId", js endpoint.Name)
           Some("tags", ja [ js group.Identifier ])
           parameters endpoint
           requestBody endpoint
+          securityRequirements endpoint
           Some("responses", JObject(responses endpoint)) ]
         |> List.choose id
         |> jo
 
     let fromApi (api: HttpApi) : Json =
-        let paths =
+        let endpoints =
             api.Groups
             |> Map.toList
             |> List.collect (fun (_, group) -> group.Endpoints |> Map.toList |> List.map (fun (_, endpoint) -> group, endpoint))
+
+        let paths =
+            endpoints
             |> List.groupBy (fun (_, endpoint) -> endpoint.Path)
             |> List.map (fun (path, endpoints) ->
                 let operations =
@@ -144,7 +192,24 @@ module OpenApi =
                 path, JObject operations)
             |> Map.ofList
 
-        jo
-            [ "openapi", js "3.1.0"
-              "info", jo [ "title", js api.Identifier; "version", js "0.0.1" ]
-              "paths", JObject paths ]
+        let securitySchemes =
+            endpoints
+            |> List.collect (fun (_, endpoint) -> endpoint.Options.Security)
+            |> List.fold
+                (fun acc security ->
+                    let id, scheme = securityScheme security
+                    Map.add id scheme acc)
+                Map.empty
+
+        let components =
+            if Map.isEmpty securitySchemes then
+                None
+            else
+                Some("components", jo [ "securitySchemes", JObject securitySchemes ])
+
+        [ Some("openapi", js "3.1.0")
+          Some("info", jo [ "title", js api.Identifier; "version", js "0.0.1" ])
+          Some("paths", JObject paths)
+          components ]
+        |> List.choose id
+        |> jo
