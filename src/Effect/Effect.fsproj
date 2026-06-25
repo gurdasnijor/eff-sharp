@@ -147,6 +147,8 @@
     <!-- process: Command model + abstract ChildProcessSpawner (impl in Effect.Platform.Node) -->
     <Compile Include="ChildProcess.fs" />
     <Compile Include="ChildProcessSpawner.fs" />
+    <!-- http: minimal HttpClient service (impl in Effect.Platform.Node) -->
+    <Compile Include="HttpClient.fs" />
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="SubscriptionRef.fs" />
     <Compile Include="TxSubscriptionRef.fs" />
