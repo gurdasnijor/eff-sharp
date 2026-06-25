@@ -52,6 +52,12 @@ module Data =
     /// discriminated-union value it is the active case name; for any other type
     /// it is the runtime type name.
     let tagOf (value: 'a) : string =
+#if FABLE_COMPILER
+        // Fable erases generic type info (`typeof<'a>`) and FSharpType reflection,
+        // so the precise union-case discriminator isn't available; fall back to the
+        // runtime value's constructor name.
+        (box value).GetType().Name
+#else
         let t = typeof<'a>
 
         if FSharpType.IsUnion(t, true) then
@@ -59,6 +65,7 @@ module Data =
             case.Name
         else
             (box value).GetType().Name
+#endif
 
     /// Type-guard by tag, mirroring `taggedEnum().$is(tag)`. Prefer a native
     /// `match` when destructuring; this is for the boolean check.
