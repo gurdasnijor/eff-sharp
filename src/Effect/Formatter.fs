@@ -55,11 +55,21 @@ module Formatter =
         date.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture)
 
     let private numericCodes =
-        set [ TypeCode.SByte; TypeCode.Byte; TypeCode.Int16; TypeCode.UInt16
-              TypeCode.Int32; TypeCode.UInt32; TypeCode.Int64; TypeCode.UInt64
-              TypeCode.Single; TypeCode.Double; TypeCode.Decimal ]
+        set
+            [ TypeCode.SByte
+              TypeCode.Byte
+              TypeCode.Int16
+              TypeCode.UInt16
+              TypeCode.Int32
+              TypeCode.UInt32
+              TypeCode.Int64
+              TypeCode.UInt64
+              TypeCode.Single
+              TypeCode.Double
+              TypeCode.Decimal ]
 
-    let private isNumericType (t: Type) = numericCodes.Contains(Type.GetTypeCode t)
+    let private isNumericType (t: Type) =
+        numericCodes.Contains(Type.GetTypeCode t)
 
     let private formatNumber (v: obj) : string =
         Convert.ToString(v, CultureInfo.InvariantCulture)
@@ -72,8 +82,7 @@ module Formatter =
     let private isFSharpList t = isGenericDef typedefof<_ list> t
     let private isAnonymous (t: Type) = t.Name.Contains("AnonymousType")
 
-    let private toObjArray (v: obj) : obj[] =
-        [| for x in (v :?> IEnumerable) -> x |]
+    let private toObjArray (v: obj) : obj[] = [| for x in (v :?> IEnumerable) -> x |]
 
     let private kvParts (kv: obj) : obj * obj =
         let t = kv.GetType()
@@ -81,7 +90,10 @@ module Formatter =
 
     let private hasCustomToString (t: Type) =
         let m = t.GetMethod("ToString", Type.EmptyTypes)
-        not (isNull m) && m.DeclaringType <> typeof<obj> && m.DeclaringType <> typeof<ValueType>
+
+        not (isNull m)
+        && m.DeclaringType <> typeof<obj>
+        && m.DeclaringType <> typeof<ValueType>
 
     let private formatCore (space: int) (ignoreToString: bool) (input: obj) : string =
         let seen = System.Collections.Generic.HashSet<obj>(HashIdentity.Reference)
@@ -92,9 +104,12 @@ module Formatter =
         // clears `seen` within a single `format`, so a value reached twice on any
         // path renders as `[Circular]` the second time.
         let enter (v: obj) (body: unit -> string) : string =
-            if not (isNull v) && seen.Contains v then CIRCULAR
+            if not (isNull v) && seen.Contains v then
+                CIRCULAR
             else
-                if not (isNull v) then seen.Add v |> ignore
+                if not (isNull v) then
+                    seen.Add v |> ignore
+
                 body ()
 
         let rec recur (v: obj) (d: int) : string =
@@ -109,13 +124,16 @@ module Formatter =
             | :? exn as e -> formatExn e d
             | _ ->
                 let t = v.GetType()
-                if isNumericType t then formatNumber v
+
+                if isNumericType t then
+                    formatNumber v
                 elif t.IsArray || isFSharpList t then
                     bracket (toObjArray v) d v
                 elif isFSharpMap t then
                     let entries =
                         toObjArray v
                         |> Array.map (fun kv -> let k, value = kvParts kv in box [| k; value |])
+
                     "Map(" + bracket entries d v + ")"
                 elif isFSharpSet t then
                     "Set(" + bracket (toObjArray v) d v + ")"
@@ -127,8 +145,11 @@ module Formatter =
                         if isAnonymous t then body else t.Name + "(" + body + ")")
                 elif FSharpType.IsUnion(t, true) then
                     let case, vals = FSharpValue.GetUnionFields(v, t, true)
-                    if vals.Length = 0 then case.Name
-                    else case.Name + "(" + String.Join(",", vals |> Array.map (fun x -> recur x d)) + ")"
+
+                    if vals.Length = 0 then
+                        case.Name
+                    else
+                        case.Name + "(" + String.Join(",", vals |> Array.map (fun x -> recur x d)) + ")"
                 elif (v :? IEnumerable) then
                     t.Name + "(" + bracket (toObjArray v) d v + ")"
                 elif not ignoreToString && hasCustomToString t then
@@ -139,6 +160,7 @@ module Formatter =
                         let props =
                             t.GetProperties()
                             |> Array.filter (fun p -> p.CanRead && p.GetIndexParameters().Length = 0)
+
                         let kvs = props |> Array.map (fun p -> formatPropertyKey p.Name, p.GetValue v)
                         let body = objectBody kvs d
                         t.Name + "(" + body + ")")
@@ -150,18 +172,23 @@ module Formatter =
                 else
                     let inner =
                         String.Join(",\n" + ind (d + 1), items |> Array.map (fun x -> recur x (d + 1)))
+
                     "[\n" + ind (d + 1) + inner + "\n" + ind d + "]")
 
         and objectBody (kvs: (string * obj)[]) (d: int) : string =
             if gap = "" || kvs.Length <= 1 then
-                "{" + String.Join(",", kvs |> Array.map (fun (k, v) -> k + ":" + recur v d)) + "}"
+                "{"
+                + String.Join(",", kvs |> Array.map (fun (k, v) -> k + ":" + recur v d))
+                + "}"
             else
                 let inner =
                     String.Join(",\n", kvs |> Array.map (fun (k, v) -> ind (d + 1) + k + ": " + recur v (d + 1)))
+
                 "{\n" + inner + "\n" + ind d + "}"
 
         and formatExn (e: exn) (d: int) : string =
             let head = e.GetType().Name + ": " + e.Message
+
             match e.InnerException with
             | null -> head
             | cause -> head + " (cause: " + recur cause d + ")"
@@ -180,8 +207,12 @@ module Formatter =
     // --- formatJson -------------------------------------------------------
 
     let private isJsonContainer (t: Type) =
-        FSharpType.IsRecord(t, true) || t.IsArray || isFSharpList t
-        || (not (Type.GetTypeCode t = TypeCode.String) && typeof<IEnumerable>.IsAssignableFrom t && not (isNumericType t))
+        FSharpType.IsRecord(t, true)
+        || t.IsArray
+        || isFSharpList t
+        || (not (Type.GetTypeCode t = TypeCode.String)
+            && typeof<IEnumerable>.IsAssignableFrom t
+            && not (isNumericType t))
 
     let private formatJsonCore (space: int) (input: obj) : string =
         let gap = if space <= 0 then "" else String(' ', space)
@@ -189,60 +220,83 @@ module Formatter =
         // Ancestors along the *current* branch only: repeated non-circular
         // siblings are preserved; a value reached on its own path is omitted.
         let ancestors = System.Collections.Generic.List<obj>()
+
         let containsRef (v: obj) =
             ancestors |> Seq.exists (fun a -> obj.ReferenceEquals(a, v))
 
         let rec ser (v0: obj) (d: int) : string option =
             let v = Redactable.redact v0
+
             match v with
             | null -> Some "null"
             | :? string as s -> Some(formatPropertyKey s)
             | :? bool as b -> Some(if b then "true" else "false")
             | _ ->
                 let t = v.GetType()
-                if isNumericType t then Some(formatNumber v)
+
+                if isNumericType t then
+                    Some(formatNumber v)
                 elif isJsonContainer t then
-                    if containsRef v then None // circular -> omit
+                    if containsRef v then
+                        None // circular -> omit
                     else
                         ancestors.Add v
+
                         let result =
-                            if t.IsArray || isFSharpList t || (typeof<IEnumerable>.IsAssignableFrom t && not (FSharpType.IsRecord(t, true))) then
+                            if
+                                t.IsArray
+                                || isFSharpList t
+                                || (typeof<IEnumerable>.IsAssignableFrom t && not (FSharpType.IsRecord(t, true)))
+                            then
                                 jsonArray (toObjArray v) d
                             else
                                 let fields = FSharpType.GetRecordFields(t, true)
                                 let kvs = fields |> Array.map (fun p -> p.Name, p.GetValue v)
                                 jsonObject kvs d
+
                         ancestors.RemoveAt(ancestors.Count - 1)
                         Some result
-                elif hasCustomToString t then Some(formatPropertyKey (v.ToString()))
-                else
+                elif hasCustomToString t then
+                    Some(formatPropertyKey (v.ToString()))
+                else if
                     // reflect a class instance into a JSON object
-                    if containsRef v then None
-                    else
-                        ancestors.Add v
-                        let props =
-                            t.GetProperties()
-                            |> Array.filter (fun p -> p.CanRead && p.GetIndexParameters().Length = 0)
-                        let kvs = props |> Array.map (fun p -> p.Name, p.GetValue v)
-                        let result = jsonObject kvs d
-                        ancestors.RemoveAt(ancestors.Count - 1)
-                        Some result
+                    containsRef v
+                then
+                    None
+                else
+                    ancestors.Add v
+
+                    let props =
+                        t.GetProperties()
+                        |> Array.filter (fun p -> p.CanRead && p.GetIndexParameters().Length = 0)
+
+                    let kvs = props |> Array.map (fun p -> p.Name, p.GetValue v)
+                    let result = jsonObject kvs d
+                    ancestors.RemoveAt(ancestors.Count - 1)
+                    Some result
 
         and jsonObject (kvs: (string * obj)[]) (d: int) : string =
             let parts =
                 kvs
                 |> Array.choose (fun (k, v) -> ser v (d + 1) |> Option.map (fun s -> formatPropertyKey k, s))
+
             if gap = "" then
                 "{" + String.Join(",", parts |> Array.map (fun (k, s) -> k + ":" + s)) + "}"
-            elif parts.Length = 0 then "{}"
+            elif parts.Length = 0 then
+                "{}"
             else
-                let inner = String.Join(",\n", parts |> Array.map (fun (k, s) -> ind (d + 1) + k + ": " + s))
+                let inner =
+                    String.Join(",\n", parts |> Array.map (fun (k, s) -> ind (d + 1) + k + ": " + s))
+
                 "{\n" + inner + "\n" + ind d + "}"
 
         and jsonArray (items: obj[]) (d: int) : string =
             let parts = items |> Array.map (fun x -> defaultArg (ser x (d + 1)) "null")
-            if gap = "" then "[" + String.Join(",", parts) + "]"
-            elif parts.Length = 0 then "[]"
+
+            if gap = "" then
+                "[" + String.Join(",", parts) + "]"
+            elif parts.Length = 0 then
+                "[]"
             else
                 let inner = String.Join(",\n", parts |> Array.map (fun s -> ind (d + 1) + s))
                 "[\n" + inner + "\n" + ind d + "]"

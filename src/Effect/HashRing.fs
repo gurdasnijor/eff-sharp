@@ -24,7 +24,6 @@ open System.Collections.Generic
 ///
 /// Omissions: `isHashRing` (`unknown`-narrowing guard, CONVENTIONS §3) and the
 /// `Pipeable`/`Inspectable` plumbing (CONVENTIONS §4).
-
 /// A node identity: a stable primary-key string. (replaces upstream PrimaryKey)
 type IPrimaryKey =
     abstract member PrimaryKey: string
@@ -45,8 +44,10 @@ module HashRing =
     /// Self-contained replacement for the upstream `Hash.string`.
     let private hashString (s: string) : int =
         let mutable h = 2166136261u
+
         for c in s do
             h <- (h ^^^ uint32 (uint16 c)) * 16777619u
+
         int h
 
     /// Create an empty ring. `baseWeight` is the virtual-point density for a
@@ -60,9 +61,11 @@ module HashRing =
     /// Push `points` virtual entries per key onto the ring and re-sort by hash.
     let private addNodesToRing (self: HashRing<'A>) (keys: string list) (points: int) : unit =
         let additions = ResizeArray<int * string>()
+
         for i in points .. -1 .. 1 do
             for key in keys do
                 additions.Add(hashString (sprintf "%s:%d" key i), key)
+
         let combined = Array.append self.Ring (additions.ToArray())
         Array.sortInPlaceBy fst combined
         self.Ring <- combined
@@ -73,8 +76,10 @@ module HashRing =
         let weight = max (defaultArg weight 1.0) 0.1
         let keys = ResizeArray<string>()
         let toRemove = HashSet<string>()
+
         for node in nodes do
             let key = (node :> IPrimaryKey).PrimaryKey
+
             match self.Nodes.TryGetValue key with
             | true, (existingNode, existingWeight) ->
                 // Re-point only when the weight actually changes.
@@ -87,8 +92,10 @@ module HashRing =
                 self.Nodes.[key] <- (node, weight)
                 self.TotalWeightCache <- self.TotalWeightCache + weight
                 keys.Add key
+
         if toRemove.Count > 0 then
             self.Ring <- self.Ring |> Array.filter (fun (_, n) -> not (toRemove.Contains n))
+
         addNodesToRing self (List.ofSeq keys) (int (System.Math.Round(weight * float self.BaseWeight)))
         self
 
@@ -99,12 +106,14 @@ module HashRing =
     /// Remove a node by primary key; no-op when absent. (HashRing.remove)
     let remove (self: HashRing<'A>) (node: 'A) : HashRing<'A> =
         let key = (node :> IPrimaryKey).PrimaryKey
+
         match self.Nodes.TryGetValue key with
         | true, (_, w) ->
             self.Nodes.Remove key |> ignore
             self.Ring <- self.Ring |> Array.filter (fun (_, n) -> n <> key)
             self.TotalWeightCache <- self.TotalWeightCache - w
         | _ -> ()
+
         self
 
     /// Whether a node with the same primary key is registered. (HashRing.has)
@@ -119,14 +128,23 @@ module HashRing =
         let dist i = abs (int64 (fst ring.[i]) - int64 hash)
         let mutable lo = 0
         let mutable hi = len - 1
+
         while lo <= hi do
             let mid = (lo + hi) / 2
-            if fst ring.[mid] >= hash then hi <- mid - 1 else lo <- mid + 1
+
+            if fst ring.[mid] >= hash then
+                hi <- mid - 1
+            else
+                lo <- mid + 1
+
         let a = if lo = len then lo - 1 else lo
+
         match exclude with
         | None ->
             let b = lo - 1
-            if b < 0 then (a, dist a)
+
+            if b < 0 then
+                (a, dist a)
             else
                 let distA = dist a
                 let distB = dist b
@@ -137,17 +155,22 @@ module HashRing =
             let mutable result = (a, dist a)
             let mutable found = false
             let mutable i = 1
+
             while not found && i < range do
                 let idx1 = lo - i
+
                 if idx1 >= 0 && idx1 < len && not (ex.Contains(snd ring.[idx1])) then
                     result <- (idx1, dist idx1)
                     found <- true
                 else
                     let idx2 = lo + i
+
                     if idx2 >= 0 && idx2 < len && not (ex.Contains(snd ring.[idx2])) then
                         result <- (idx2, dist idx2)
                         found <- true
+
                 i <- i + 1
+
             result
 
     /// Route a single input string to the node responsible for it, or `None`
@@ -172,50 +195,61 @@ module HashRing =
             let allocations = Dictionary<string, int>()
             let remaining = HashSet<int>()
             let exclude = HashSet<string>()
+
             let allocOf node =
                 match allocations.TryGetValue node with
                 | true, c -> c
                 | _ -> 0
+
             let maxPerNode weight =
                 max 1 (int (floor (float count * (weight / self.TotalWeightCache))))
 
             // First pass: closest node per shard, skipping nodes already at max.
             let distances = Array.zeroCreate<int * string * int64> count
+
             for shard in 0 .. count - 1 do
                 let index, distance = getIndexForInput self (shardHash shard) None
                 let node = snd self.Ring.[index]
                 distances.[shard] <- (shard, node, distance)
                 remaining.Add shard |> ignore
+
             Array.sortInPlaceBy (fun (_, _, d) -> d) distances
+
             for i in 0 .. count - 1 do
                 let shard, node, _ = distances.[i]
+
                 if not (exclude.Contains node) then
                     let value, weight = self.Nodes.[node]
                     shards.[shard] <- value
                     remaining.Remove shard |> ignore
                     let nodeCount = allocOf node + 1
                     allocations.[node] <- nodeCount
+
                     if nodeCount >= maxPerNode weight then
                         exclude.Add node |> ignore
 
             // Second pass: place leftover shards, still avoiding maxed nodes
             // unless every node is maxed.
             let mutable allAtMax = exclude.Count = self.Nodes.Count
+
             for shard in List.ofSeq remaining do
                 let ex = if allAtMax then None else Some exclude
                 let index = fst (getIndexForInput self (shardHash shard) ex)
                 let node = snd self.Ring.[index]
                 let value, weight = self.Nodes.[node]
                 shards.[shard] <- value
+
                 if not allAtMax then
                     let nodeCount = allocOf node + 1
                     allocations.[node] <- nodeCount
+
                     if nodeCount >= maxPerNode weight then
                         exclude.Add node |> ignore
+
                         if exclude.Count = self.Nodes.Count then
                             allAtMax <- true
+
             Some shards
 
     /// The registered nodes. (HashRing iteration)
-    let nodes (self: HashRing<'A>) : seq<'A> =
-        self.Nodes.Values |> Seq.map fst
+    let nodes (self: HashRing<'A>) : seq<'A> = self.Nodes.Values |> Seq.map fst

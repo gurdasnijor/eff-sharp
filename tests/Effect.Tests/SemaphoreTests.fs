@@ -35,7 +35,9 @@ let ``module-level combinators delegate to the instance api`` () =
             return (taken, released, value, value2, avail, piped, piped2, pipedAvail, releasedAll)
         }
 
-    let taken, released, value, value2, avail, piped, piped2, pipedAvail, releasedAll = run eff
+    let taken, released, value, value2, avail, piped, piped2, pipedAvail, releasedAll =
+        run eff
+
     Assert.Equal(1, taken)
     Assert.Equal(1, released)
     Assert.Equal(1, value)
@@ -97,7 +99,10 @@ let ``take blocks until a permit is released`` () =
         effect {
             let! sem = Semaphore.make 1
             let! _ = Semaphore.take sem 1 // hold the only permit
-            let! fiber = Effect.fork (Semaphore.withPermit sem (Effect.sync (fun () -> lock ll (fun () -> log.Add "B"))))
+
+            let! fiber =
+                Effect.fork (Semaphore.withPermit sem (Effect.sync (fun () -> lock ll (fun () -> log.Add "B"))))
+
             do! Effect.sleep 60
             let blockedEmpty = lock ll (fun () -> log.Count = 0)
             let! _ = Semaphore.release sem 1

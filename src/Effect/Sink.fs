@@ -22,7 +22,8 @@ namespace Effect
 /// reduce/reduceWhile/fold, collect/sum/count/drain, forEach, head/last,
 /// succeed, and the map/mapInput shape transformers.
 type Sink<'In, 'Out, 'E, 'R> =
-    internal { Build: unit -> (('In -> Effect<unit, 'E, 'R>) * (unit -> Effect<'Out, 'E, 'R>)) }
+    internal
+        { Build: unit -> (('In -> Effect<unit, 'E, 'R>) * (unit -> Effect<'Out, 'E, 'R>)) }
 
 /// Internal stop signal for short-circuiting sinks. Raised inside `emit` and
 /// caught by `Stream.run`. Mirrors `Stream`'s own private `StreamStop`.
@@ -45,8 +46,7 @@ module Sink =
                 (fun () -> Effect.sync (fun () -> state)) }
 
     /// Fold every input into a single value, starting from `initial`. (Sink.reduce)
-    let reduce (initial: 'S) (f: 'S -> 'In -> 'S) : Sink<'In, 'S, 'E, 'R> =
-        reduceWhile initial (fun _ -> true) f
+    let reduce (initial: 'S) (f: 'S -> 'In -> 'S) : Sink<'In, 'S, 'E, 'R> = reduceWhile initial (fun _ -> true) f
 
     /// Alias of `reduce`: fold every input from `initial`. (Sink.fold, total form)
     let fold (initial: 'S) (f: 'S -> 'In -> 'S) : Sink<'In, 'S, 'E, 'R> = reduce initial f

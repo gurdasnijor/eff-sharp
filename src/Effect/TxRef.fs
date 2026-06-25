@@ -33,7 +33,6 @@ open System.Threading
 ///     weak-memory CPU (arm64) and silently lose updates. See `TxRef` below.
 ///   - HKT/variance plumbing and JS-runtime machinery (`TypeId`, `Proto`,
 ///     `toJSON`, `pipe`/`dual`) are dropped; ops take `self` first.
-
 /// Non-generic view of a `TxRef` so a heterogeneous journal can validate/commit
 /// without knowing the element type.
 type internal ITxVar =
@@ -116,17 +115,24 @@ type internal TxLog() =
     member _.Commit() =
         for kv in entries do
             let e = kv.Value
-            if e.HasWrite then e.Var.CommitBoxed e.Boxed
+
+            if e.HasWrite then
+                e.Var.CommitBoxed e.Boxed
 
     /// Shallow snapshot of the current entries (for `orElse` rollback).
     member _.Snapshot() =
         let copy = Dictionary<ITxVar, Entry>(HashIdentity.Reference)
-        for kv in entries do copy[kv.Key] <- { kv.Value with Boxed = kv.Value.Boxed }
+
+        for kv in entries do
+            copy[kv.Key] <- { kv.Value with Boxed = kv.Value.Boxed }
+
         copy
 
     member _.Restore(snapshot: Dictionary<ITxVar, Entry>) =
         entries.Clear()
-        for kv in snapshot do entries[kv.Key] <- kv.Value
+
+        for kv in snapshot do
+            entries[kv.Key] <- kv.Value
 
 /// Signals an explicit `retry` (or an `orElse` left-branch abort).
 exception internal RetryException
@@ -175,7 +181,8 @@ module TxRef =
     let makeUnsafe (initial: 'a) : TxRef<'a> = TxRef<'a>(initial)
 
     /// Allocate a `TxRef`, wrapped in an `Effect`. (TxRef.make)
-    let make (initial: 'a) : Effect<TxRef<'a>, 'E, 'R> = Effect.sync (fun () -> makeUnsafe initial)
+    let make (initial: 'a) : Effect<TxRef<'a>, 'E, 'R> =
+        Effect.sync (fun () -> makeUnsafe initial)
 
     /// Allocate a fresh `TxRef` *inside* a transaction. Creation never conflicts,
     /// so it is performed immediately and not journaled.

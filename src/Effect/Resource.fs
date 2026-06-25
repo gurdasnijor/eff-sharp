@@ -43,7 +43,9 @@ module Resource =
     /// scope (and final cleanup) is owned by `parent`. (Resource.manual)
     let manual (parent: Scope<'E, 'R>) (acquire: Effect<'A, 'E, 'R>) : Effect<Resource<'A, 'E, 'R>, 'E, 'R> =
         ScopedRef.fromAcquire parent (fun _scope -> toExit acquire)
-        |> Effect.map (fun scopedRef -> { ScopedRef = scopedRef; Acquire = acquire })
+        |> Effect.map (fun scopedRef ->
+            { ScopedRef = scopedRef
+              Acquire = acquire })
 
     /// Reads the current value. If the stored acquisition failed, fails with the
     /// stored error. (Resource.get)

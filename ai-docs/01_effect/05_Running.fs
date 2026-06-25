@@ -14,7 +14,9 @@ module EffSharp.AiDocs.Running
 open Effect
 open EffSharp.AiDocs.Shared
 
-let private succeeds: Effect<int, string, unit> = Effect.succeed 21 |> Effect.map (fun x -> x * 2)
+let private succeeds: Effect<int, string, unit> =
+    Effect.succeed 21 |> Effect.map (fun x -> x * 2)
+
 let private fails: Effect<int, string, unit> = Effect.fail "boom"
 
 let demo () =

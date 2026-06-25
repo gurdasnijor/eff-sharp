@@ -7,7 +7,8 @@ namespace Effect
 ///
 /// (`HashMap` in this port is a `Map`-backed structure, hence the `comparison`
 /// constraint on keys.)
-type TxHashMap<'k, 'v when 'k: comparison> = internal { Ref: TxRef<HashMap<'k, 'v>> }
+type TxHashMap<'k, 'v when 'k: comparison> =
+    internal { Ref: TxRef<HashMap<'k, 'v>> }
 
 [<RequireQualifiedAccess>]
 module TxHashMap =
@@ -52,7 +53,15 @@ module TxHashMap =
         TxRef.update self.Ref (fun m -> HashMap.remove m key)
 
     /// Number of entries. (TxHashMap.size)
-    let size (self: TxHashMap<'k, 'v>) : Stm<int> = stm { let! m = TxRef.get self.Ref in return HashMap.size m }
+    let size (self: TxHashMap<'k, 'v>) : Stm<int> =
+        stm {
+            let! m = TxRef.get self.Ref
+            return HashMap.size m
+        }
 
     /// Whether the map is empty. (TxHashMap.isEmpty)
-    let isEmpty (self: TxHashMap<'k, 'v>) : Stm<bool> = stm { let! m = TxRef.get self.Ref in return HashMap.isEmpty m }
+    let isEmpty (self: TxHashMap<'k, 'v>) : Stm<bool> =
+        stm {
+            let! m = TxRef.get self.Ref
+            return HashMap.isEmpty m
+        }

@@ -44,7 +44,9 @@ let redacted () =
 
 let jsonDiff () =
     let before = JObject(Map [ "name", JString "Ada"; "age", JNumber 36.0 ])
-    let after = JObject(Map [ "name", JString "Ada"; "age", JNumber 37.0; "active", JBool true ])
+
+    let after =
+        JObject(Map [ "name", JString "Ada"; "age", JNumber 37.0; "active", JBool true ])
 
     let patch = JsonPatch.get before after // [Add /active true; Replace /age 37]
     let applied = JsonPatch.apply patch before // == after

@@ -11,8 +11,10 @@ open Effect
 let private testCrypto: Crypto =
     Crypto.make
         (fun size ->
-            if size = 7 then [| 0x18uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy |]
-            else Array.init size byte)
+            if size = 7 then
+                [| 0x18uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy |]
+            else
+                Array.init size byte)
         (fun algorithm data -> Effect.succeed [| byte data.Length; byte algorithm.Name.Length |])
 
 /// A `Clock` whose wall-clock read returns a fixed value.
@@ -28,12 +30,18 @@ let private run (context: Context) (eff: Effect<'A, PlatformError, Context>) : '
     | Failure c -> failwithf "unexpected failure: %s" (Cause.render c)
 
 [<Fact>]
-let ``supports string literal digest algorithms`` () =
-    Assert.Equal("SHA-256", SHA256.Name)
+let ``supports string literal digest algorithms`` () = Assert.Equal("SHA-256", SHA256.Name)
 
 [<Fact>]
 let ``randomBytes delegates to the service`` () =
-    let bytes = run ctx (effect { let! c = Crypto.service in return! c.RandomBytes 4 })
+    let bytes =
+        run
+            ctx
+            (effect {
+                let! c = Crypto.service
+                return! c.RandomBytes 4
+            })
+
     Assert.Equal<byte[]>([| 0uy; 1uy; 2uy; 3uy |], bytes)
 
 [<Fact>]
@@ -53,7 +61,9 @@ let ``random generators delegate to the service`` () =
                 return random, randomInt, randomBoolean, randomBetween, randomBetweenDecimal, randomIntBetween, shuffled
             })
 
-    let random, randomInt, randomBoolean, randomBetween, randomBetweenDecimal, randomIntBetween, shuffled = result
+    let random, randomInt, randomBoolean, randomBetween, randomBetweenDecimal, randomIntBetween, shuffled =
+        result
+
     Assert.Equal(0.75, random)
     Assert.Equal(4503599627370497.0, randomInt)
     Assert.True(randomBoolean)
@@ -68,29 +78,63 @@ let ``randomIntBetween excludes the upper bound in half-open ranges`` () =
         Crypto.make (fun size -> Array.create size 0xffuy) (fun _ data -> Effect.succeed data)
 
     let value =
-        run (Context.make Crypto.tag allOnes) (effect { let! c = Crypto.service in return! c.RandomIntBetween 1.0 6.0 true })
+        run
+            (Context.make Crypto.tag allOnes)
+            (effect {
+                let! c = Crypto.service
+                return! c.RandomIntBetween 1.0 6.0 true
+            })
 
     Assert.Equal(5.0, value)
 
 [<Fact>]
 let ``randomUUIDv4 formats UUID bytes from randomBytes`` () =
-    let uuid = run ctx (effect { let! c = Crypto.service in return! c.RandomUUIDv4 })
+    let uuid =
+        run
+            ctx
+            (effect {
+                let! c = Crypto.service
+                return! c.RandomUUIDv4
+            })
+
     Assert.Equal("00010203-0405-4607-8809-0a0b0c0d0e0f", uuid)
 
 [<Fact>]
 let ``randomUUIDv7 formats UUID bytes with the Clock timestamp`` () =
     let context = ctx |> Context.add Clock.tag (fixedClock 0x0123456789abL)
-    let uuid = run context (effect { let! c = Crypto.service in return! c.RandomUUIDv7 })
+
+    let uuid =
+        run
+            context
+            (effect {
+                let! c = Crypto.service
+                return! c.RandomUUIDv7
+            })
+
     Assert.Equal("01234567-89ab-7607-8809-0a0b0c0d0e0f", uuid)
 
 [<Fact>]
 let ``digest delegates to the service`` () =
-    let digest = run ctx (effect { let! c = Crypto.service in return! c.Digest SHA256 [| 1uy; 2uy; 3uy |] })
+    let digest =
+        run
+            ctx
+            (effect {
+                let! c = Crypto.service
+                return! c.Digest SHA256 [| 1uy; 2uy; 3uy |]
+            })
+
     Assert.Equal<byte[]>([| 3uy; 7uy |], digest)
 
 [<Fact>]
 let ``randomBytes validates a negative size`` () =
-    match Effect.runSync ctx (effect { let! c = Crypto.service in return! c.RandomBytes -1 }) with
+    match
+        Effect.runSync
+            ctx
+            (effect {
+                let! c = Crypto.service
+                return! c.RandomBytes -1
+            })
+    with
     | Failure cause ->
         match Cause.failures cause with
         | (e: PlatformError) :: _ -> Assert.Equal("PlatformError", e.Tag)

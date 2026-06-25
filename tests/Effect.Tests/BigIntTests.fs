@@ -92,7 +92,9 @@ let ``gcd and lcm`` () =
 [<Fact>]
 let ``sqrtUnsafe throws on negative`` () =
     Assert.Equal(4I, BigInt.sqrtUnsafe 16I)
-    Assert.Throws<System.ArgumentException>(fun () -> BigInt.sqrtUnsafe -1I |> ignore) |> ignore
+
+    Assert.Throws<System.ArgumentException>(fun () -> BigInt.sqrtUnsafe -1I |> ignore)
+    |> ignore
 
 [<Fact>]
 let ``sumAll and multiplyAll aggregate`` () =

@@ -22,7 +22,6 @@ open System.Runtime.CompilerServices
 ///   - JS-runtime machinery (`TypeId`, `Proto`, `toJSON`, `isTxReentrantLock`,
 ///     `pipe`/`dual`) is dropped; ops take `self` first. `readLock`/`writeLock`
 ///     take an explicit `Scope` rather than requiring it from the environment.
-
 /// The lock's ownership state: per-fiber read counts and an optional writer
 /// `(fiberId, count)`.
 type internal LockState =
@@ -34,7 +33,9 @@ type TxReentrantLock = internal { StateRef: TxRef<LockState> }
 [<RequireQualifiedAccess>]
 module TxReentrantLock =
 
-    let private emptyState: LockState = { Readers = HashMap.empty; Writer = None }
+    let private emptyState: LockState =
+        { Readers = HashMap.empty
+          Writer = None }
 
     // --- fiber identity (reference-keyed, since FiberRuntime has no id) ---
 
@@ -78,7 +79,13 @@ module TxReentrantLock =
                 | Some(wid, _) when wid <> fid -> return! TxRef.retry
                 | _ ->
                     let next = readerCount state fid + 1
-                    do! TxRef.set self.StateRef { state with Readers = HashMap.set state.Readers fid next }
+
+                    do!
+                        TxRef.set
+                            self.StateRef
+                            { state with
+                                Readers = HashMap.set state.Readers fid next }
+
                     return next
             })
 
@@ -169,10 +176,8 @@ module TxReentrantLock =
     /// Run `effect` while holding a write lock, released afterwards even on
     /// failure or interruption. (TxReentrantLock.withWriteLock)
     let withWriteLock (self: TxReentrantLock) (effect: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
-        Effect.acquireUseRelease
-            (acquireWrite self)
-            (fun _ -> effect)
-            (fun _ _ -> releaseWrite self |> Effect.map ignore)
+        Effect.acquireUseRelease (acquireWrite self) (fun _ -> effect) (fun _ _ ->
+            releaseWrite self |> Effect.map ignore)
 
     /// Alias for `withWriteLock`. (TxReentrantLock.withLock)
     let withLock (self: TxReentrantLock) (effect: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> = withWriteLock self effect

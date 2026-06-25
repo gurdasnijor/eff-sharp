@@ -12,14 +12,16 @@ namespace Effect
 ///     smart constructor for ergonomics. No upstream test file exists.
 ///   * The TS `interface` is modelled as an F# record of (curried) functions.
 type Differ<'T, 'Patch> =
-    { /// The empty patch (applying it is a no-op).
-      empty: 'Patch
-      /// Computes the patch turning `oldValue` into `newValue`.
-      diff: 'T -> 'T -> 'Patch
-      /// Combines two patches in order (`first` then `second`).
-      combine: 'Patch -> 'Patch -> 'Patch
-      /// Applies a patch to `oldValue`, producing the updated value.
-      patch: 'T -> 'Patch -> 'T }
+    {
+        /// The empty patch (applying it is a no-op).
+        empty: 'Patch
+        /// Computes the patch turning `oldValue` into `newValue`.
+        diff: 'T -> 'T -> 'Patch
+        /// Combines two patches in order (`first` then `second`).
+        combine: 'Patch -> 'Patch -> 'Patch
+        /// Applies a patch to `oldValue`, producing the updated value.
+        patch: 'T -> 'Patch -> 'T
+    }
 
 [<RequireQualifiedAccess>]
 module Differ =
@@ -31,4 +33,7 @@ module Differ =
         (combine: 'Patch -> 'Patch -> 'Patch)
         (patch: 'T -> 'Patch -> 'T)
         : Differ<'T, 'Patch> =
-        { empty = empty; diff = diff; combine = combine; patch = patch }
+        { empty = empty
+          diff = diff
+          combine = combine
+          patch = patch }

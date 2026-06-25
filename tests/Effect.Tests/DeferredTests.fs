@@ -163,7 +163,11 @@ let ``interrupt - should propagate the interruption`` () =
     let deferred = Deferred.makeUnsafe<int, string> ()
     Assert.True(runBool (Deferred.interruptWith deferred -1))
     Assert.False(runBool (Deferred.interrupt deferred))
-    Assert.Equal<Exit<int, string>>(Exit.failCause (Cause.interrupt (Some -1)), Effect.runSync () (Deferred.await deferred))
+
+    Assert.Equal<Exit<int, string>>(
+        Exit.failCause (Cause.interrupt (Some -1)),
+        Effect.runSync () (Deferred.await deferred)
+    )
 
 // ----------------------------------------------------------------------------
 // polling
@@ -172,14 +176,19 @@ let ``interrupt - should propagate the interruption`` () =
 [<Fact>]
 let ``poll - should return None when the deferred is incomplete`` () =
     let deferred = Deferred.makeUnsafe<int, string> ()
-    let poll: Effect<Effect<int, string, unit> option, string, unit> = Deferred.poll deferred
+
+    let poll: Effect<Effect<int, string, unit> option, string, unit> =
+        Deferred.poll deferred
+
     Assert.Equal<Exit<Effect<int, string, unit> option, string>>(Exit.succeed None, Effect.runSync () poll)
 
 [<Fact>]
 let ``poll - should return Some when the deferred was completed`` () =
     let deferred = Deferred.makeUnsafe<int, string> ()
     runBool (Deferred.succeed deferred 1) |> ignore
-    let poll: Effect<Effect<int, string, unit> option, string, unit> = Deferred.poll deferred
+
+    let poll: Effect<Effect<int, string, unit> option, string, unit> =
+        Deferred.poll deferred
 
     match Effect.runSync () poll with
     | Success(Some inner) -> Assert.Equal<Exit<int, string>>(Exit.succeed 1, Effect.runSync () inner)
@@ -189,7 +198,9 @@ let ``poll - should return Some when the deferred was completed`` () =
 let ``poll - should return Some when the deferred was failed`` () =
     let deferred = Deferred.makeUnsafe<int, string> ()
     runBool (Deferred.fail deferred "boom") |> ignore
-    let poll: Effect<Effect<int, string, unit> option, string, unit> = Deferred.poll deferred
+
+    let poll: Effect<Effect<int, string, unit> option, string, unit> =
+        Deferred.poll deferred
 
     match Effect.runSync () poll with
     | Success(Some inner) -> Assert.Equal<Exit<int, string>>(Exit.fail "boom", Effect.runSync () inner)
@@ -199,7 +210,9 @@ let ``poll - should return Some when the deferred was failed`` () =
 let ``poll - should return Some when the deferred was interrupted`` () =
     let deferred = Deferred.makeUnsafe<int, string> ()
     runBool (Deferred.interruptWith deferred -1) |> ignore
-    let poll: Effect<Effect<int, string, unit> option, string, unit> = Deferred.poll deferred
+
+    let poll: Effect<Effect<int, string, unit> option, string, unit> =
+        Deferred.poll deferred
 
     match Effect.runSync () poll with
     | Success(Some inner) ->

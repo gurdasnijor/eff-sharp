@@ -149,21 +149,30 @@ let ``releaseWrite without acquire returns 0`` () =
 [<Fact>]
 let ``withReadLock runs effect and releases`` () =
     let lock = run (TxReentrantLock.make ())
-    let observed = run (TxReentrantLock.withReadLock lock (TxReentrantLock.readLocked lock))
+
+    let observed =
+        run (TxReentrantLock.withReadLock lock (TxReentrantLock.readLocked lock))
+
     Assert.True(observed)
     Assert.False(run (TxReentrantLock.readLocked lock))
 
 [<Fact>]
 let ``withWriteLock runs effect and releases`` () =
     let lock = run (TxReentrantLock.make ())
-    let observed = run (TxReentrantLock.withWriteLock lock (TxReentrantLock.writeLocked lock))
+
+    let observed =
+        run (TxReentrantLock.withWriteLock lock (TxReentrantLock.writeLocked lock))
+
     Assert.True(observed)
     Assert.False(run (TxReentrantLock.writeLocked lock))
 
 [<Fact>]
 let ``withLock is an alias for withWriteLock`` () =
     let lock = run (TxReentrantLock.make ())
-    let observed = run (TxReentrantLock.withLock lock (TxReentrantLock.writeLocked lock))
+
+    let observed =
+        run (TxReentrantLock.withLock lock (TxReentrantLock.writeLocked lock))
+
     Assert.True(observed)
     Assert.False(run (TxReentrantLock.locked lock))
 

@@ -23,7 +23,8 @@ let private run (eff: Effect<'A, obj, unit>) : 'A =
 
 /// `acquireRelease` that bumps `count` up on acquire and down on release.
 let private counting (count: Ref<int>) (itemScope: Scope<obj, unit>) : Effect<int, obj, unit> =
-    Scope.acquireRelease itemScope (Ref.updateAndGet count (fun n -> n + 1)) (fun _ _ -> Ref.update count (fun n -> n - 1))
+    Scope.acquireRelease itemScope (Ref.updateAndGet count (fun n -> n + 1)) (fun _ _ ->
+        Ref.update count (fun n -> n - 1))
 
 [<Fact>]
 let ``preallocates pool items`` () =
@@ -61,7 +62,11 @@ let ``reuse released items`` () =
                 let! count = Ref.make 0
                 let poolScope: Scope<obj, unit> = Scope.make ()
                 let! pool = Pool.make poolScope (counting count) 10
-                do! Effect.forEach (Seq.replicate 99 ()) (fun () -> Pool.getScoped pool |> Effect.map ignore) |> Effect.map ignore
+
+                do!
+                    Effect.forEach (Seq.replicate 99 ()) (fun () -> Pool.getScoped pool |> Effect.map ignore)
+                    |> Effect.map ignore
+
                 return! Ref.get count
             }
         )
@@ -86,10 +91,9 @@ let ``cleans up items when shut down`` () =
 [<Fact>]
 let ``defects in finalizers don't prevent cleanup`` () =
     let dying (count: Ref<int>) (itemScope: Scope<obj, unit>) : Effect<int, obj, unit> =
-        Scope.acquireRelease
-            itemScope
-            (Ref.updateAndGet count (fun n -> n + 1))
-            (fun _ _ -> Ref.update count (fun n -> n - 1) |> Effect.flatMap (fun () -> Effect.sync (fun () -> failwith "boom")))
+        Scope.acquireRelease itemScope (Ref.updateAndGet count (fun n -> n + 1)) (fun _ _ ->
+            Ref.update count (fun n -> n - 1)
+            |> Effect.flatMap (fun () -> Effect.sync (fun () -> failwith "boom")))
 
     let result =
         run (
@@ -114,7 +118,10 @@ let ``blocks when item not available`` () =
                 let! pool = Pool.make poolScope (counting count) 10
                 // borrow all 10 into a long-lived scope (never returned)
                 let borrowScope: Scope<obj, unit> = Scope.make ()
-                do! Effect.forEach (Seq.replicate 10 ()) (fun () -> Pool.get pool borrowScope |> Effect.map ignore) |> Effect.map ignore
+
+                do!
+                    Effect.forEach (Seq.replicate 10 ()) (fun () -> Pool.get pool borrowScope |> Effect.map ignore)
+                    |> Effect.map ignore
                 // an 11th get must block
                 let! fib = Effect.fork (Pool.getScoped pool)
                 do! Effect.sleep 50
@@ -152,10 +159,8 @@ let ``invalidate all items and get does not hang`` () =
                 let! finalizedRef = Ref.make 0
 
                 let acquire (itemScope: Scope<obj, unit>) : Effect<int, obj, unit> =
-                    Scope.acquireRelease
-                        itemScope
-                        (Ref.updateAndGet allocatedRef (fun n -> n + 1))
-                        (fun _ _ -> Ref.update finalizedRef (fun n -> n + 1))
+                    Scope.acquireRelease itemScope (Ref.updateAndGet allocatedRef (fun n -> n + 1)) (fun _ _ ->
+                        Ref.update finalizedRef (fun n -> n + 1))
 
                 let poolScope: Scope<obj, unit> = Scope.make ()
                 let! pool = Pool.make poolScope acquire 2
@@ -181,15 +186,18 @@ let ``finalizer is called for failed allocations`` () =
                 let! releasedRef = Ref.make 0
 
                 let acquire (itemScope: Scope<obj, unit>) : Effect<int, obj, unit> =
-                    Scope.acquireRelease
-                        itemScope
-                        (Ref.updateAndGet allocationsRef (fun n -> n + 1))
-                        (fun _ _ -> Ref.update releasedRef (fun n -> n + 1))
+                    Scope.acquireRelease itemScope (Ref.updateAndGet allocationsRef (fun n -> n + 1)) (fun _ _ ->
+                        Ref.update releasedRef (fun n -> n + 1))
                     |> Effect.flatMap (fun _ -> Effect.fail (box "boom"))
 
                 let poolScope: Scope<obj, unit> = Scope.make ()
                 let! pool = Pool.make poolScope acquire 10
-                do! Pool.getScoped pool |> Effect.catchAll (fun _ -> Effect.succeed 0) |> Effect.map ignore
+
+                do!
+                    Pool.getScoped pool
+                    |> Effect.catchAll (fun _ -> Effect.succeed 0)
+                    |> Effect.map ignore
+
                 let! a = Ref.get allocationsRef
                 let! r = Ref.get releasedRef
                 return (a, r)
@@ -207,7 +215,8 @@ let ``reports failures via get`` () =
                 let! count = Ref.make 0
 
                 let acquire (_: Scope<obj, unit>) : Effect<int, obj, unit> =
-                    Ref.updateAndGet count (fun n -> n + 1) |> Effect.flatMap (fun n -> Effect.fail (box n))
+                    Ref.updateAndGet count (fun n -> n + 1)
+                    |> Effect.flatMap (fun n -> Effect.fail (box n))
 
                 let poolScope: Scope<obj, unit> = Scope.make ()
                 let! pool = Pool.make poolScope acquire 10

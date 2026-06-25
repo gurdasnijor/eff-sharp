@@ -21,7 +21,6 @@ namespace Effect
 /// adapter can supply `readInput` later. The HKT/`Schema.ErrorClass`/`TypeId`
 /// machinery and the `isQuitError`-over-`unknown` guard are simplified per
 /// CONVENTIONS.
-
 /// Keyboard key metadata for a terminal input event. (Terminal.Key)
 type Key =
     { Name: string
@@ -31,24 +30,23 @@ type Key =
 
 /// A terminal input event: an optional raw character plus the parsed key.
 /// (Terminal.UserInput)
-type UserInput =
-    { Input: string option
-      Key: Key }
+type UserInput = { Input: string option; Key: Key }
 
 /// Raised through the typed error channel when a user quits a `Terminal` prompt
 /// (e.g. Ctrl+C / Ctrl+D) or the input stream ends. (Terminal.QuitError)
-type QuitError =
-    | QuitError
+type QuitError = | QuitError
 
 /// The command-line interface service. The fields are *unsafe* primitives the
 /// accessors lift into effects (mirrors this port's `Console`). (Terminal.Terminal)
 type Terminal =
-    { ColumnsUnsafe: unit -> int
-      RowsUnsafe: unit -> int
-      /// `None` signals a quit / end-of-input (lifted to `QuitError`).
-      ReadLineUnsafe: unit -> string option
-      /// May throw; a throw is lifted to a `PlatformError`.
-      DisplayUnsafe: string -> unit }
+    {
+        ColumnsUnsafe: unit -> int
+        RowsUnsafe: unit -> int
+        /// `None` signals a quit / end-of-input (lifted to `QuitError`).
+        ReadLineUnsafe: unit -> string option
+        /// May throw; a throw is lifted to a `PlatformError`.
+        DisplayUnsafe: string -> unit
+    }
 
 [<RequireQualifiedAccess>]
 module Terminal =
@@ -81,13 +79,19 @@ module Terminal =
         { ColumnsUnsafe =
             fun () ->
                 try
-                    if System.Console.IsOutputRedirected then 80 else System.Console.WindowWidth
+                    if System.Console.IsOutputRedirected then
+                        80
+                    else
+                        System.Console.WindowWidth
                 with _ ->
                     80
           RowsUnsafe =
             fun () ->
                 try
-                    if System.Console.IsOutputRedirected then 25 else System.Console.WindowHeight
+                    if System.Console.IsOutputRedirected then
+                        25
+                    else
+                        System.Console.WindowHeight
                 with _ ->
                     25
           ReadLineUnsafe =

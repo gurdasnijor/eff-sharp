@@ -40,8 +40,10 @@ module MutableHashMap =
     /// Creates a map from a sequence of key/value pairs. (MutableHashMap.fromIterable)
     let fromIterable (entries: seq<'K * 'V>) : MutableHashMap<'K, 'V> =
         let self = empty ()
+
         for (k, v) in entries do
             set self k v |> ignore
+
         self
 
     /// Creates a map from explicit key/value pairs. (MutableHashMap.make)
@@ -88,20 +90,21 @@ module MutableHashMap =
         match self.Backing.TryGetValue key with
         | true, v -> self.Backing.[key] <- f v
         | _ -> ()
+
         self
 
     /// Updates or removes `key` from a function over its current optional value:
     /// `None` removes (if present), `Some v` sets. Returns the same map.
     /// (MutableHashMap.modifyAt)
-    let modifyAt
-        (self: MutableHashMap<'K, 'V>)
-        (key: 'K)
-        (f: 'V option -> 'V option)
-        : MutableHashMap<'K, 'V> =
+    let modifyAt (self: MutableHashMap<'K, 'V>) (key: 'K) (f: 'V option -> 'V option) : MutableHashMap<'K, 'V> =
         let current = get self key
+
         match f current with
-        | None -> if Option.isSome current then remove self key |> ignore
+        | None ->
+            if Option.isSome current then
+                remove self key |> ignore
         | Some v -> set self key v |> ignore
+
         self
 
     /// Removes every entry, mutating in place. Returns the same map.

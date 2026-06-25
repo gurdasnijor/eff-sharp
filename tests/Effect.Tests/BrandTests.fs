@@ -8,7 +8,10 @@ open Effect
 // predicate-based `make` and `nominal` surface is covered here.
 
 let private isInteger (n: float) : Result<unit, string> =
-    if n = System.Math.Truncate n then Ok () else Error (sprintf "Expected %g to be an integer" n)
+    if n = System.Math.Truncate n then
+        Ok()
+    else
+        Error(sprintf "Expected %g to be an integer" n)
 
 [<Fact>]
 let ``creates nominal brands without runtime validation`` () =
@@ -49,6 +52,7 @@ let ``validates custom predicates created with make`` () =
 [<Fact>]
 let ``make failures carry the predicate message`` () =
     let int' = Brand.make isInteger
+
     match int'.Result 1.1 with
     | Error e -> Assert.Equal("Expected 1.1 to be an integer", e.Message)
     | Ok _ -> Assert.Fail("expected failure")
@@ -56,6 +60,7 @@ let ``make failures carry the predicate message`` () =
 [<Fact>]
 let ``BrandError formats as BrandError(message)`` () =
     let int' = Brand.make isInteger
+
     match int'.Result 1.1 with
     | Error e -> Assert.Equal("BrandError(Expected 1.1 to be an integer)", string e)
     | Ok _ -> Assert.Fail("expected failure")

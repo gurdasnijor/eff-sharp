@@ -18,7 +18,6 @@ open System.Threading.Tasks
 /// Omissions vs upstream (per CONVENTIONS): nanosecond precision
 /// (`currentTimeNanos`) is dropped — .NET wall-clock is millisecond-grained — as
 /// is the `Context.Reference` default-service plumbing (a plain `Tag` is used).
-
 /// The time service. `CurrentTimeMillisUnsafe` reads wall-clock millis; `SleepUnsafe`
 /// returns a `Task` that completes after the given duration.
 type Clock =

@@ -49,7 +49,9 @@ type SummaryState =
       Max: float }
 
 /// A mutable hook: heterogeneous, so input/state are boxed.
-type internal MetricHook = { Get: unit -> obj; Update: obj -> unit }
+type internal MetricHook =
+    { Get: unit -> obj
+      Update: obj -> unit }
 
 /// Registered metric metadata.
 type internal MetricMetadata =
@@ -80,11 +82,14 @@ module Metric =
     let private registryLock = obj ()
 
     /// Clear the default registry (test isolation; mirrors providing a fresh Map).
-    let resetUnsafe () = lock registryLock (fun () -> registry.Clear())
+    let resetUnsafe () =
+        lock registryLock (fun () -> registry.Clear())
 
     let private keyOf (m: Metric<'Input, 'State>) : string =
         let attrs =
-            m.Attributes |> Seq.map (fun kv -> sprintf "%s=%s" kv.Key kv.Value) |> String.concat ","
+            m.Attributes
+            |> Seq.map (fun kv -> sprintf "%s=%s" kv.Key kv.Value)
+            |> String.concat ","
 
         sprintf "%s|%s|%s|%s" m.Type m.Id (defaultArg m.Description "") attrs
 
@@ -120,7 +125,8 @@ module Metric =
     /// Ignore the supplied input and always update with `input`.
     /// (Metric.withConstantInput)
     let withConstantInput (m: Metric<'Input, 'State>) (input: 'Input) : Metric<'Input, 'State> =
-        { m with MapInput = fun _ -> m.MapInput (box input) }
+        { m with
+            MapInput = fun _ -> m.MapInput(box input) }
 
     // --- read / update ---
 
@@ -199,13 +205,24 @@ module Metric =
     let private counterHook (incremental: bool) () : MetricHook =
         let mutable count = 0.0
 
-        { Get = fun () -> box { Count = count; Incremental = incremental }
+        { Get =
+            fun () ->
+                box
+                    { Count = count
+                      Incremental = incremental }
           Update =
             fun v ->
                 let x = unbox<float> v
-                if (not incremental) || x >= 0.0 then count <- count + x }
 
-    let private mk (typ: string) (id: string) (createHook: unit -> MetricHook) (readState: obj -> 'State) : Metric<'Input, 'State> =
+                if (not incremental) || x >= 0.0 then
+                    count <- count + x }
+
+    let private mk
+        (typ: string)
+        (id: string)
+        (createHook: unit -> MetricHook)
+        (readState: obj -> 'State)
+        : Metric<'Input, 'State> =
         { Type = typ
           Id = id
           Description = None
@@ -244,7 +261,12 @@ module Metric =
               Update =
                 fun w ->
                     let word = unbox<string> w
-                    let c = match occ.TryGetValue word with | true, n -> n | _ -> 0
+
+                    let c =
+                        match occ.TryGetValue word with
+                        | true, n -> n
+                        | _ -> 0
+
                     occ.[word] <- c + 1 }
 
         mk "Frequency" id createHook (fun o -> unbox<FrequencyState> o)
@@ -279,21 +301,34 @@ module Metric =
                 fun v ->
                     let x = unbox<float> v
                     let mutable i = 0
+
                     while i < size && x > bounds.[i] do
                         i <- i + 1
+
                     counts.[i] <- counts.[i] + 1 // i = size => overflow slot
                     count <- count + 1
                     sum <- sum + x
-                    if x < mn then mn <- x
-                    if x > mx then mx <- x }
+
+                    if x < mn then
+                        mn <- x
+
+                    if x > mx then
+                        mx <- x }
 
         mk "Histogram" id createHook (fun o -> unbox<HistogramState> o)
 
     /// A summary computing quantiles over a sliding window. `maxAge` is in
     /// milliseconds. (Metric.summary)
-    let summary (id: string) (maxAgeMillis: float) (maxSize: int) (quantiles: float list) : Metric<float, SummaryState> =
+    let summary
+        (id: string)
+        (maxAgeMillis: float)
+        (maxSize: int)
+        (quantiles: float list)
+        : Metric<float, SummaryState> =
         let sortedQuantiles = List.sort quantiles
-        let now () = float (System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+
+        let now () =
+            float (System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
 
         let createHook () =
             let observations = Array.zeroCreate<(float * float) option> (max 0 maxSize)
@@ -307,7 +342,7 @@ module Metric =
                 let samples =
                     [ for o in observations do
                           match o with
-                          | Some (ts, value) when current - ts >= 0.0 && current - ts <= maxAgeMillis -> yield value
+                          | Some(ts, value) when current - ts >= 0.0 && current - ts <= maxAgeMillis -> yield value
                           | _ -> () ]
                     |> List.sort
                     |> List.toArray
@@ -337,13 +372,19 @@ module Metric =
               Update =
                 fun v ->
                     let value, ts = unbox<float * float> v
+
                     if maxSize > 0 then
                         observations.[head % maxSize] <- Some(ts, value)
                         head <- head + 1
+
                     count <- count + 1
                     sum <- sum + value
-                    if value < mn then mn <- value
-                    if value > mx then mx <- value }
+
+                    if value < mn then
+                        mn <- value
+
+                    if value > mx then
+                        mx <- value }
 
         // summary's hook input is (value, timestamp); attach the clock per update.
         { mk "Summary" id createHook (fun o -> unbox<SummaryState> o) with
@@ -353,7 +394,9 @@ module Metric =
 
     let private attributesToString (attrs: Map<string, string>) : string =
         let body =
-            attrs |> Seq.map (fun kv -> sprintf "%s: %s" kv.Key kv.Value) |> String.concat ", "
+            attrs
+            |> Seq.map (fun kv -> sprintf "%s: %s" kv.Key kv.Value)
+            |> String.concat ", "
 
         sprintf "attributes=[%s]" body
 
@@ -369,7 +412,11 @@ module Metric =
             sprintf "state=[value: [%s]]" (Cause.renderValue (box st.Value))
         | _ -> "state=[]"
 
-    let private padEnd (s: string) (n: int) : string = if s.Length >= n then s else s + System.String(' ', n - s.Length)
+    let private padEnd (s: string) (n: int) : string =
+        if s.Length >= n then
+            s
+        else
+            s + System.String(' ', n - s.Length)
 
     /// Render all registered metrics, grouped and sorted by id. (Metric.dump —
     /// a unit function here to dodge the value restriction on a generic effect.)
@@ -384,7 +431,8 @@ module Metric =
                     let maxName = (metrics |> List.map (fun m -> m.Id.Length) |> List.max) + 2
 
                     let maxDesc =
-                        (metrics |> List.map (fun m -> (defaultArg m.Description "").Length) |> List.max) + 2
+                        (metrics |> List.map (fun m -> (defaultArg m.Description "").Length) |> List.max)
+                        + 2
 
                     let maxType = (metrics |> List.map (fun m -> m.Type.Length) |> List.max) + 2
 
@@ -401,6 +449,7 @@ module Metric =
                         group
                         |> List.map (fun m ->
                             let attrs = attributesToString m.Attributes
+
                             sprintf
                                 "name=%sdescription=%stype=%s%s%s%s"
                                 (padEnd m.Id maxName)

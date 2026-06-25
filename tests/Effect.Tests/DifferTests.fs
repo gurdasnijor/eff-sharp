@@ -8,7 +8,7 @@ open Effect
 // the ported record/constructor with a simple additive integer differ where a
 // patch is the delta between values.
 
-let private IntDiffer : Differ<int, int> =
+let private IntDiffer: Differ<int, int> =
     Differ.make 0 (fun oldV newV -> newV - oldV) (+) (+)
 
 [<Fact>]

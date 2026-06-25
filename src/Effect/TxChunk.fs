@@ -20,8 +20,7 @@ module TxChunk =
         TxRef.make initial |> Effect.map (fun ref -> { Ref = ref })
 
     /// Create a `TxChunk` from any sequence. (TxChunk.fromIterable)
-    let fromIterable (values: seq<'a>) : Effect<TxChunk<'a>, 'E, 'R> =
-        make { Values = Seq.toArray values }
+    let fromIterable (values: seq<'a>) : Effect<TxChunk<'a>, 'E, 'R> = make { Values = Seq.toArray values }
 
     // --- transactional operations ---
 
@@ -38,10 +37,18 @@ module TxChunk =
     let update (self: TxChunk<'a>) (f: Chunk<'a> -> Chunk<'a>) : Stm<unit> = TxRef.update self.Ref f
 
     /// Current size. (TxChunk.size)
-    let size (self: TxChunk<'a>) : Stm<int> = stm { let! c = get self in return Chunk.size c }
+    let size (self: TxChunk<'a>) : Stm<int> =
+        stm {
+            let! c = get self
+            return Chunk.size c
+        }
 
     /// Whether the chunk is empty. (TxChunk.isEmpty)
-    let isEmpty (self: TxChunk<'a>) : Stm<bool> = stm { let! c = get self in return Chunk.isEmpty c }
+    let isEmpty (self: TxChunk<'a>) : Stm<bool> =
+        stm {
+            let! c = get self
+            return Chunk.isEmpty c
+        }
 
     /// Append a value. (TxChunk.append)
     let append (self: TxChunk<'a>) (value: 'a) : Stm<unit> = update self (Chunk.append value)

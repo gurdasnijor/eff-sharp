@@ -22,13 +22,15 @@ open System.Collections.Generic
 /// are omitted (not needed by the ported tests; noted).
 type TestClock =
     internal
-        { Clock: Clock
-          /// Advance virtual time by `millis`, completing every sleep whose target
-          /// time is now reached (in time order).
-          AdjustUnsafe: int64 -> unit
-          /// A task that completes once at least `n` sleeps have *ever* been
-          /// registered (cumulative) — the registration handshake.
-          AwaitSleepsTask: int -> Task }
+        {
+            Clock: Clock
+            /// Advance virtual time by `millis`, completing every sleep whose target
+            /// time is now reached (in time order).
+            AdjustUnsafe: int64 -> unit
+            /// A task that completes once at least `n` sleeps have *ever* been
+            /// registered (cumulative) — the registration handshake.
+            AwaitSleepsTask: int -> Task
+        }
 
 [<RequireQualifiedAccess>]
 module TestClock =
@@ -65,8 +67,15 @@ module TestClock =
                 let tcs, due =
                     lock gate (fun () ->
                         let delta = int64 (min ms (float Int64.MaxValue))
-                        let tcs = TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
-                        sleeps.Add { WakeAt = now + delta; Seq = seq; Tcs = tcs }
+
+                        let tcs =
+                            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+                        sleeps.Add
+                            { WakeAt = now + delta
+                              Seq = seq
+                              Tcs = tcs }
+
                         seq <- seq + 1
                         registered <- registered + 1
                         tcs, signalRegistered ())
@@ -97,7 +106,9 @@ module TestClock =
                 if registered >= n then
                     Task.CompletedTask
                 else
-                    let tcs = TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+                    let tcs =
+                        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
                     regWaiters.Add(n, tcs)
                     tcs.Task :> Task)
 

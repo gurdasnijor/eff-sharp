@@ -34,8 +34,10 @@ module Filter =
     /// if `f` throws (upstream `try`; `try` is an F# keyword).
     let tryCatch (f: 'Input -> 'Output) : Filter<'Input, 'Output, 'Input> =
         fun input ->
-            try Ok(f input)
-            with _ -> Error input
+            try
+                Ok(f input)
+            with _ ->
+                Error input
 
     /// A filter from a predicate: passes the input unchanged when true, else
     /// fails with the input.
@@ -78,7 +80,10 @@ module Filter =
     // --- combinators (subject-last) ---
 
     /// Logical OR: the left filter's pass, or the right filter's result.
-    let orElse (that: Filter<'Input, 'Pass, 'Fail2>) (self: Filter<'Input, 'Pass, 'Fail1>) : Filter<'Input, 'Pass, 'Fail2> =
+    let orElse
+        (that: Filter<'Input, 'Pass, 'Fail2>)
+        (self: Filter<'Input, 'Pass, 'Fail1>)
+        : Filter<'Input, 'Pass, 'Fail2> =
         fun input ->
             match self input with
             | Ok p -> Ok p
@@ -101,19 +106,31 @@ module Filter =
                 | Ok r -> Ok(f l r)
 
     /// Both filters must pass; their passes are combined into a tuple.
-    let zip (right: Filter<'Input, 'PassR, 'Fail>) (left: Filter<'Input, 'PassL, 'Fail>) : Filter<'Input, 'PassL * 'PassR, 'Fail> =
+    let zip
+        (right: Filter<'Input, 'PassR, 'Fail>)
+        (left: Filter<'Input, 'PassL, 'Fail>)
+        : Filter<'Input, 'PassL * 'PassR, 'Fail> =
         zipWith right (fun l r -> l, r) left
 
     /// Both must pass; keeps the left filter's pass.
-    let andLeft (right: Filter<'Input, 'PassR, 'Fail>) (left: Filter<'Input, 'PassL, 'Fail>) : Filter<'Input, 'PassL, 'Fail> =
+    let andLeft
+        (right: Filter<'Input, 'PassR, 'Fail>)
+        (left: Filter<'Input, 'PassL, 'Fail>)
+        : Filter<'Input, 'PassL, 'Fail> =
         zipWith right (fun l _ -> l) left
 
     /// Both must pass; keeps the right filter's pass.
-    let andRight (right: Filter<'Input, 'PassR, 'Fail>) (left: Filter<'Input, 'PassL, 'Fail>) : Filter<'Input, 'PassR, 'Fail> =
+    let andRight
+        (right: Filter<'Input, 'PassR, 'Fail>)
+        (left: Filter<'Input, 'PassL, 'Fail>)
+        : Filter<'Input, 'PassR, 'Fail> =
         zipWith right (fun _ r -> r) left
 
     /// Sequential composition: feed the left filter's pass into the right.
-    let compose (right: Filter<'PassL, 'PassR, 'Fail>) (left: Filter<'Input, 'PassL, 'Fail>) : Filter<'Input, 'PassR, 'Fail> =
+    let compose
+        (right: Filter<'PassL, 'PassR, 'Fail>)
+        (left: Filter<'Input, 'PassL, 'Fail>)
+        : Filter<'Input, 'PassR, 'Fail> =
         fun input ->
             match left input with
             | Error e -> Error e

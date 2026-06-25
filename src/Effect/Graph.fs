@@ -32,7 +32,6 @@ open System.Collections.Generic
 ///     the equality/find/neighbor behaviour those tests probe is covered by the
 ///     ordinary tests).
 /// Effect's `Equal`/`Hash` are satisfied with FSharp.Core structural equality.
-
 /// Directed or undirected.
 type Kind =
     | Directed
@@ -47,7 +46,10 @@ type Direction =
 type Edge<'E> = { Source: int; Target: int; Data: 'E }
 
 /// A shortest path: ordered node indices, total distance, and edge data.
-type PathResult<'E> = { Path: int list; Distance: float; Costs: 'E list }
+type PathResult<'E> =
+    { Path: int list
+      Distance: float
+      Costs: 'E list }
 
 /// Raised for missing endpoints, illegal directed queries on undirected graphs,
 /// and negative Dijkstra weights (parity with upstream `GraphError`).
@@ -86,8 +88,14 @@ type MutableGraph<'N, 'E>(kind: Kind) =
     member _.Edges = edges
     member _.Adjacency = adjacency
     member _.ReverseAdjacency = reverseAdjacency
-    member _.NextNodeIndex with get () = nextNodeIndex and set v = nextNodeIndex <- v
-    member _.NextEdgeIndex with get () = nextEdgeIndex and set v = nextEdgeIndex <- v
+
+    member _.NextNodeIndex
+        with get () = nextNodeIndex
+        and set v = nextNodeIndex <- v
+
+    member _.NextEdgeIndex
+        with get () = nextEdgeIndex
+        and set v = nextEdgeIndex <- v
 
     member private _.AdjOf(map: Dictionary<int, ResizeArray<int>>, node) =
         match map.TryGetValue node with
@@ -99,17 +107,25 @@ type MutableGraph<'N, 'E>(kind: Kind) =
         member _.NodeCount = nodes.Count
         member _.EdgeCount = edges.Count
         member _.HasNode i = nodes.ContainsKey i
+
         member _.TryGetNode i =
             match nodes.TryGetValue i with
             | true, v -> Some v
             | _ -> None
+
         member _.TryGetEdge i =
             match edges.TryGetValue i with
             | true, e -> Some e
             | _ -> None
+
         member _.NodeKeys = nodes.Keys |> Seq.sort |> List.ofSeq
+
         member _.EdgeEntries =
-            edges |> Seq.sortBy (fun kv -> kv.Key) |> Seq.map (fun kv -> kv.Key, kv.Value) |> List.ofSeq
+            edges
+            |> Seq.sortBy (fun kv -> kv.Key)
+            |> Seq.map (fun kv -> kv.Key, kv.Value)
+            |> List.ofSeq
+
         member this.Outgoing node = this.AdjOf(adjacency, node)
         member this.Incoming node = this.AdjOf(reverseAdjacency, node)
 
@@ -125,11 +141,11 @@ type Graph<'N, 'E when 'N: equality and 'E: equality> =
 
     override this.Equals(o) =
         match o with
-        | :? Graph<'N, 'E> as that ->
-            this.Kind = that.Kind && this.Nodes = that.Nodes && this.Edges = that.Edges
+        | :? Graph<'N, 'E> as that -> this.Kind = that.Kind && this.Nodes = that.Nodes && this.Edges = that.Edges
         | _ -> false
 
-    override this.GetHashCode() = hash (this.Kind, this.Nodes, this.Edges)
+    override this.GetHashCode() =
+        hash (this.Kind, this.Nodes, this.Edges)
 
     interface IGraphView<'N, 'E> with
         member this.Kind = this.Kind
@@ -140,13 +156,18 @@ type Graph<'N, 'E when 'N: equality and 'E: equality> =
         member this.TryGetEdge i = Map.tryFind i this.Edges
         member this.NodeKeys = this.Nodes |> Map.toList |> List.map fst
         member this.EdgeEntries = this.Edges |> Map.toList
-        member this.Outgoing node = Map.tryFind node this.Adjacency |> Option.defaultValue []
-        member this.Incoming node = Map.tryFind node this.ReverseAdjacency |> Option.defaultValue []
+
+        member this.Outgoing node =
+            Map.tryFind node this.Adjacency |> Option.defaultValue []
+
+        member this.Incoming node =
+            Map.tryFind node this.ReverseAdjacency |> Option.defaultValue []
 
 [<RequireQualifiedAccess>]
 module Graph =
 
-    let private missingNode (node: int) = GraphError(sprintf "Node %d does not exist" node)
+    let private missingNode (node: int) =
+        GraphError(sprintf "Node %d does not exist" node)
 
     let private ensureList (map: Dictionary<int, ResizeArray<int>>) (key: int) =
         match map.TryGetValue key with
@@ -170,17 +191,28 @@ module Graph =
     /// Add an edge between two existing nodes, returning its index. Throws
     /// `GraphError` if either endpoint is missing.
     let addEdge (m: MutableGraph<'N, 'E>) (source: int) (target: int) (data: 'E) : int =
-        if not (m.Nodes.ContainsKey source) then raise (missingNode source)
-        if not (m.Nodes.ContainsKey target) then raise (missingNode target)
+        if not (m.Nodes.ContainsKey source) then
+            raise (missingNode source)
+
+        if not (m.Nodes.ContainsKey target) then
+            raise (missingNode target)
+
         let i = m.NextEdgeIndex
-        m.Edges.[i] <- { Source = source; Target = target; Data = data }
+
+        m.Edges.[i] <-
+            { Source = source
+              Target = target
+              Data = data }
+
         (ensureList m.Adjacency source).Add i
         (ensureList m.ReverseAdjacency target).Add i
+
         match m.Kind with
         | Undirected ->
             (ensureList m.Adjacency target).Add i
             (ensureList m.ReverseAdjacency source).Add i
         | Directed -> ()
+
         m.NextEdgeIndex <- i + 1
         i
 
@@ -192,13 +224,16 @@ module Graph =
                 match map.TryGetValue key with
                 | true, list -> list.Remove edgeIndex |> ignore
                 | _ -> ()
+
             remove m.Adjacency edge.Source
             remove m.ReverseAdjacency edge.Target
+
             match m.Kind with
             | Undirected ->
                 remove m.Adjacency edge.Target
                 remove m.ReverseAdjacency edge.Source
             | Directed -> ()
+
             m.Edges.Remove edgeIndex |> ignore
             true
 
@@ -210,14 +245,18 @@ module Graph =
     let removeNode (m: MutableGraph<'N, 'E>) (nodeIndex: int) : unit =
         if m.Nodes.ContainsKey nodeIndex then
             let incident = ResizeArray<int>()
+
             match m.Adjacency.TryGetValue nodeIndex with
             | true, list -> incident.AddRange list
             | _ -> ()
+
             match m.ReverseAdjacency.TryGetValue nodeIndex with
             | true, list -> incident.AddRange list
             | _ -> ()
+
             for e in incident do
                 removeEdgeInternal m e |> ignore
+
             m.Nodes.Remove nodeIndex |> ignore
             m.Adjacency.Remove nodeIndex |> ignore
             m.ReverseAdjacency.Remove nodeIndex |> ignore
@@ -249,8 +288,12 @@ module Graph =
             m.Edges.[i] <- { e with Data = f e.Data }
 
     let private rebuildAdjacency (m: MutableGraph<'N, 'E>) =
-        for kv in m.Adjacency do kv.Value.Clear()
-        for kv in m.ReverseAdjacency do kv.Value.Clear()
+        for kv in m.Adjacency do
+            kv.Value.Clear()
+
+        for kv in m.ReverseAdjacency do
+            kv.Value.Clear()
+
         for i in edgeKeysSorted m do
             let e = m.Edges.[i]
             (ensureList m.Adjacency e.Source).Add i
@@ -263,17 +306,24 @@ module Graph =
         | Directed ->
             for i in edgeKeysSorted m do
                 let e = m.Edges.[i]
-                m.Edges.[i] <- { e with Source = e.Target; Target = e.Source }
+
+                m.Edges.[i] <-
+                    { e with
+                        Source = e.Target
+                        Target = e.Source }
+
             rebuildAdjacency m
 
     /// Keep nodes for which `f` returns `Some` (with the transformed data) and
     /// drop the rest along with their incident edges.
     let filterMapNodes (m: MutableGraph<'N, 'E>) (f: 'N -> 'N option) : unit =
         let toRemove = ResizeArray<int>()
+
         for i in nodeKeysSorted m do
             match f m.Nodes.[i] with
             | Some v -> m.Nodes.[i] <- v
             | None -> toRemove.Add i
+
         for i in toRemove do
             removeNode m i
 
@@ -284,10 +334,12 @@ module Graph =
     /// Keep edges for which `f` returns `Some` (with transformed data).
     let filterMapEdges (m: MutableGraph<'N, 'E>) (f: 'E -> 'E option) : unit =
         let toRemove = ResizeArray<int>()
+
         for i in edgeKeysSorted m do
             match f m.Edges.[i].Data with
             | Some d -> m.Edges.[i] <- { m.Edges.[i] with Data = d }
             | None -> toRemove.Add i
+
         for i in toRemove do
             removeEdge m i
 
@@ -300,6 +352,7 @@ module Graph =
     let private freeze (m: MutableGraph<'N, 'E>) : Graph<'N, 'E> =
         let toMapList (d: Dictionary<int, ResizeArray<int>>) =
             d |> Seq.map (fun kv -> kv.Key, List.ofSeq kv.Value) |> Map.ofSeq
+
         { Kind = m.Kind
           Nodes = m.Nodes |> Seq.map (fun kv -> kv.Key, kv.Value) |> Map.ofSeq
           Edges = m.Edges |> Seq.map (fun kv -> kv.Key, kv.Value) |> Map.ofSeq
@@ -309,12 +362,31 @@ module Graph =
     /// Open a mutation scope by copying an immutable graph.
     let beginMutation (graph: Graph<'N, 'E>) : MutableGraph<'N, 'E> =
         let m = MutableGraph<'N, 'E>(graph.Kind)
-        for KeyValue (k, v) in graph.Nodes do m.Nodes.[k] <- v
-        for KeyValue (k, v) in graph.Edges do m.Edges.[k] <- v
-        for KeyValue (k, v) in graph.Adjacency do m.Adjacency.[k] <- ResizeArray<int>(v)
-        for KeyValue (k, v) in graph.ReverseAdjacency do m.ReverseAdjacency.[k] <- ResizeArray<int>(v)
-        let nextNode = if graph.Nodes.IsEmpty then 0 else (graph.Nodes |> Map.toSeq |> Seq.map fst |> Seq.max) + 1
-        let nextEdge = if graph.Edges.IsEmpty then 0 else (graph.Edges |> Map.toSeq |> Seq.map fst |> Seq.max) + 1
+
+        for KeyValue(k, v) in graph.Nodes do
+            m.Nodes.[k] <- v
+
+        for KeyValue(k, v) in graph.Edges do
+            m.Edges.[k] <- v
+
+        for KeyValue(k, v) in graph.Adjacency do
+            m.Adjacency.[k] <- ResizeArray<int>(v)
+
+        for KeyValue(k, v) in graph.ReverseAdjacency do
+            m.ReverseAdjacency.[k] <- ResizeArray<int>(v)
+
+        let nextNode =
+            if graph.Nodes.IsEmpty then
+                0
+            else
+                (graph.Nodes |> Map.toSeq |> Seq.map fst |> Seq.max) + 1
+
+        let nextEdge =
+            if graph.Edges.IsEmpty then
+                0
+            else
+                (graph.Edges |> Map.toSeq |> Seq.map fst |> Seq.max) + 1
+
         m.NextNodeIndex <- nextNode
         m.NextEdgeIndex <- nextEdge
         m
@@ -324,9 +396,11 @@ module Graph =
 
     let private build (kind: Kind) (mutate: (MutableGraph<'N, 'E> -> unit) option) : Graph<'N, 'E> =
         let m = MutableGraph<'N, 'E>(kind)
+
         match mutate with
         | Some f -> f m
         | None -> ()
+
         freeze m
 
     /// A directed graph, optionally initialised by a mutation function.
@@ -372,21 +446,24 @@ module Graph =
         g.NodeKeys |> List.filter (fun i -> pred (g.TryGetNode i).Value)
 
     let findEdge (g: #IGraphView<'N, 'E>) (pred: 'E -> bool) : int option =
-        g.EdgeEntries |> List.tryPick (fun (i, e) -> if pred e.Data then Some i else None)
+        g.EdgeEntries
+        |> List.tryPick (fun (i, e) -> if pred e.Data then Some i else None)
 
     let findEdges (g: #IGraphView<'N, 'E>) (pred: 'E -> bool) : int list =
-        g.EdgeEntries |> List.choose (fun (i, e) -> if pred e.Data then Some i else None)
+        g.EdgeEntries
+        |> List.choose (fun (i, e) -> if pred e.Data then Some i else None)
 
     let private directedNeighbors (g: #IGraphView<'N, 'E>) (node: int) (incoming: bool) : int list =
         let adj = if incoming then g.Incoming node else g.Outgoing node
+
         adj
-        |> List.choose (fun ei ->
-            g.TryGetEdge ei |> Option.map (fun e -> if incoming then e.Source else e.Target))
+        |> List.choose (fun ei -> g.TryGetEdge ei |> Option.map (fun e -> if incoming then e.Source else e.Target))
 
     let private undirectedNeighbors (g: #IGraphView<'N, 'E>) (node: int) : int list =
         g.Outgoing node
         |> List.choose (fun ei ->
-            g.TryGetEdge ei |> Option.map (fun e -> if e.Source = node then e.Target else e.Source))
+            g.TryGetEdge ei
+            |> Option.map (fun e -> if e.Source = node then e.Target else e.Source))
         |> List.distinct
 
     /// Neighbours of a node: outgoing targets (directed) or the other endpoint
@@ -424,6 +501,7 @@ module Graph =
                     match g.Kind with
                     | Undirected when e.Target = source -> e.Source
                     | _ -> e.Target
+
                 neighbor = target
             | None -> false)
 
@@ -435,77 +513,101 @@ module Graph =
         | Undirected ->
             let visited = HashSet<int>()
             let mutable acyclic = true
+
             for start in g.NodeKeys do
                 if acyclic && not (visited.Contains start) then
                     visited.Add start |> ignore
                     let stack = Stack<int * int option>()
                     stack.Push(start, None)
+
                     while acyclic && stack.Count > 0 do
                         let node, parent = stack.Pop()
+
                         for nb in undirectedNeighbors g node do
                             if not (visited.Contains nb) then
                                 visited.Add nb |> ignore
                                 stack.Push(nb, Some node)
                             elif Some nb <> parent then
                                 acyclic <- false
+
             acyclic
         | Directed ->
             let visited = HashSet<int>()
             let recStack = HashSet<int>()
+
             let rec dfs node =
                 visited.Add node |> ignore
                 recStack.Add node |> ignore
                 let mutable cycle = false
+
                 for nb in directedNeighbors g node false do
-                    if recStack.Contains nb then cycle <- true
+                    if recStack.Contains nb then
+                        cycle <- true
                     elif not (visited.Contains nb) then
-                        if dfs nb then cycle <- true
+                        if dfs nb then
+                            cycle <- true
+
                 recStack.Remove node |> ignore
                 cycle
+
             let mutable acyclic = true
+
             for start in g.NodeKeys do
                 if acyclic && not (visited.Contains start) then
-                    if dfs start then acyclic <- false
+                    if dfs start then
+                        acyclic <- false
+
             acyclic
 
     /// Whether an undirected graph is 2-colourable (bipartite).
     let isBipartite (g: #IGraphView<'N, 'E>) : bool =
         let coloring = Dictionary<int, int>()
         let mutable bipartite = true
+
         for start in g.NodeKeys do
             if bipartite && not (coloring.ContainsKey start) then
                 let queue = Queue<int>()
                 coloring.[start] <- 0
                 queue.Enqueue start
+
                 while bipartite && queue.Count > 0 do
                     let current = queue.Dequeue()
                     let currentColor = coloring.[current]
                     let nextColor = if currentColor = 0 then 1 else 0
+
                     for nb in undirectedNeighbors g current do
                         if not (coloring.ContainsKey nb) then
                             coloring.[nb] <- nextColor
                             queue.Enqueue nb
                         elif coloring.[nb] = currentColor then
                             bipartite <- false
+
         bipartite
 
     /// Connected components of an undirected graph, each a list of node indices.
     let connectedComponents (g: #IGraphView<'N, 'E>) : int list list =
         let visited = HashSet<int>()
         let components = ResizeArray<int list>()
+
         for start in g.NodeKeys do
             if not (visited.Contains start) then
                 let comp = ResizeArray<int>()
                 let stack = Stack<int>()
                 stack.Push start
+
                 while stack.Count > 0 do
                     let current = stack.Pop()
+
                     if not (visited.Contains current) then
                         visited.Add current |> ignore
                         comp.Add current
+
                         for nb in undirectedNeighbors g current do
-                            if not (visited.Contains nb) then stack.Push nb
+                            if not (visited.Contains nb) then
+                                stack.Push nb
+
                 components.Add(List.ofSeq comp)
+
         List.ofSeq components
 
     /// Strongly connected components of a directed graph (Kosaraju); throws for
@@ -516,68 +618,102 @@ module Graph =
         | Directed ->
             let visited = HashSet<int>()
             let finishOrder = ResizeArray<int>()
+
             let rec visit node =
                 if not (visited.Contains node) then
                     visited.Add node |> ignore
-                    for nb in directedNeighbors g node false do visit nb
+
+                    for nb in directedNeighbors g node false do
+                        visit nb
+
                     finishOrder.Add node
-            for start in g.NodeKeys do visit start
+
+            for start in g.NodeKeys do
+                visit start
+
             visited.Clear()
             let sccs = ResizeArray<int list>()
+
             for idx in finishOrder.Count - 1 .. -1 .. 0 do
                 let start = finishOrder.[idx]
+
                 if not (visited.Contains start) then
                     let scc = ResizeArray<int>()
                     let stack = Stack<int>()
                     stack.Push start
+
                     while stack.Count > 0 do
                         let node = stack.Pop()
+
                         if not (visited.Contains node) then
                             visited.Add node |> ignore
                             scc.Add node
+
                             for ei in g.Incoming node do
                                 match g.TryGetEdge ei with
                                 | Some e when not (visited.Contains e.Source) -> stack.Push e.Source
                                 | _ -> ()
+
                     sccs.Add(List.ofSeq scc)
+
             List.ofSeq sccs
 
     /// Dijkstra's shortest path from `source` to `target`. `cost` maps edge data
     /// to a non-negative weight. Throws for missing endpoints or negative
     /// weights; returns `None` when the target is unreachable.
     let dijkstra (g: #IGraphView<'N, 'E>) (source: int) (target: int) (cost: 'E -> float) : PathResult<'E> option =
-        if not (g.HasNode source) then raise (missingNode source)
-        if not (g.HasNode target) then raise (missingNode target)
+        if not (g.HasNode source) then
+            raise (missingNode source)
+
+        if not (g.HasNode target) then
+            raise (missingNode target)
+
         let edgeWeights = Dictionary<int, float>()
+
         for (i, e) in g.EdgeEntries do
             let w = cost e.Data
+
             if w < 0.0 || System.Double.IsNaN w then
                 raise (GraphError "Dijkstra's algorithm requires non-negative edge weights")
+
             edgeWeights.[i] <- w
+
         if source = target then
-            Some { Path = [ source ]; Distance = 0.0; Costs = [] }
+            Some
+                { Path = [ source ]
+                  Distance = 0.0
+                  Costs = [] }
         else
             let distances = Dictionary<int, float>()
             let previous = Dictionary<int, (int * 'E) option>()
+
             for node in g.NodeKeys do
                 distances.[node] <- (if node = source then 0.0 else infinity)
                 previous.[node] <- None
+
             let visited = HashSet<int>()
             let queue = ResizeArray<int * float>()
             queue.Add(source, 0.0)
             let mutable go = true
+
             while go && queue.Count > 0 do
                 let mutable minIdx = 0
+
                 for i in 1 .. queue.Count - 1 do
-                    if snd queue.[i] < snd queue.[minIdx] then minIdx <- i
+                    if snd queue.[i] < snd queue.[minIdx] then
+                        minIdx <- i
+
                 let currentNode, _ = queue.[minIdx]
                 queue.RemoveAt minIdx
+
                 if not (visited.Contains currentNode) then
                     visited.Add currentNode |> ignore
+
                     if currentNode = target then
                         go <- false
                     else
                         let currentDistance = distances.[currentNode]
+
                         for ei in g.Outgoing currentNode do
                             match g.TryGetEdge ei with
                             | Some edge ->
@@ -585,33 +721,48 @@ module Graph =
                                     match g.Kind with
                                     | Undirected when edge.Target = currentNode -> edge.Source
                                     | _ -> edge.Target
+
                                 let newDistance = currentDistance + edgeWeights.[ei]
+
                                 if newDistance < distances.[neighbor] then
                                     distances.[neighbor] <- newDistance
                                     previous.[neighbor] <- Some(currentNode, edge.Data)
+
                                     if not (visited.Contains neighbor) then
                                         queue.Add(neighbor, newDistance)
                             | None -> ()
+
             let distance = distances.[target]
+
             if System.Double.IsInfinity distance then
                 None
             else
                 let path = ResizeArray<int>()
                 let costs = ResizeArray<'E>()
                 let mutable current = Some target
+
                 while current.IsSome do
                     let node = current.Value
                     path.Insert(0, node)
+
                     match previous.[node] with
                     | Some(prevNode, edgeData) ->
                         costs.Insert(0, edgeData)
                         current <- Some prevNode
                     | None -> current <- None
-                Some { Path = List.ofSeq path; Distance = distance; Costs = List.ofSeq costs }
+
+                Some
+                    { Path = List.ofSeq path
+                      Distance = distance
+                      Costs = List.ofSeq costs }
 
     // --- rendering ---
 
     /// `Graph(directed, 2, 1)` — kind, node count, edge count.
     let render (g: #IGraphView<'N, 'E>) : string =
-        let kindStr = match g.Kind with Directed -> "directed" | Undirected -> "undirected"
+        let kindStr =
+            match g.Kind with
+            | Directed -> "directed"
+            | Undirected -> "undirected"
+
         sprintf "Graph(%s, %d, %d)" kindStr g.NodeCount g.EdgeCount

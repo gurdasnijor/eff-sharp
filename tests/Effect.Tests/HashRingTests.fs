@@ -9,6 +9,7 @@ open Effect
 
 type private Node =
     { Name: string }
+
     interface IPrimaryKey with
         member this.PrimaryKey = this.Name
 
@@ -96,6 +97,7 @@ let ``getShards assigns every shard to a registered node`` () =
     let shards = HashRing.getShards ring 12 |> Option.get
     Assert.Equal(12, shards.Length)
     let names = HashRing.nodes ring |> Seq.map (fun n -> n.Name) |> Set.ofSeq
+
     for s in shards do
         Assert.Contains(s.Name, names)
 

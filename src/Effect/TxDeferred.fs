@@ -13,7 +13,9 @@ namespace Effect
 /// Naming note: upstream's `done` is a reserved word in F#'s verbose syntax, so
 /// the general completion combinator is named `complete` here; `succeed`/`fail`
 /// match upstream.
-type TxDeferred<'a, 'e> = internal { Ref: TxRef<Result<'a, 'e> option> }
+type TxDeferred<'a, 'e> =
+    internal
+        { Ref: TxRef<Result<'a, 'e> option> }
 
 [<RequireQualifiedAccess>]
 module TxDeferred =
@@ -22,7 +24,8 @@ module TxDeferred =
 
     /// Create a new empty `TxDeferred`. (TxDeferred.make)
     let make () : Effect<TxDeferred<'a, 'e>, 'E, 'R> =
-        TxRef.make (None: Result<'a, 'e> option) |> Effect.map (fun ref -> { Ref = ref })
+        TxRef.make (None: Result<'a, 'e> option)
+        |> Effect.map (fun ref -> { Ref = ref })
 
     // --- getters ---
 
@@ -40,7 +43,8 @@ module TxDeferred =
                 match current with
                 | None -> return! TxRef.retry
                 | Some result -> return result
-            })
+            }
+        )
         |> Effect.flatMap (fun result ->
             match result with
             | Ok value -> Effect.succeed value

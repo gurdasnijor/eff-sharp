@@ -35,7 +35,6 @@ namespace Effect
 ///   * `unfold`, `linear`, `fibonacci`, `addDelay`/`modifyDelay`, `take`,
 ///     `andThen`, `tapInput`/`tapOutput`, `bothLeft`/`bothRight` and the HKT/
 ///     `TypeId`/`Pipeable` plumbing are not ported in this slice.
-
 /// Per-step metadata before the output is known.
 type InputMetadata<'In> =
     { Input: 'In
@@ -64,7 +63,9 @@ type ScheduleDecision<'Out> =
 
 /// A schedule: allocates fresh step state, yielding a `now -> input -> decision`
 /// stepper.
-type Schedule<'Out, 'In> = internal { Start: unit -> (float -> 'In -> ScheduleDecision<'Out>) }
+type Schedule<'Out, 'In> =
+    internal
+        { Start: unit -> (float -> 'In -> ScheduleDecision<'Out>) }
 
 [<RequireQualifiedAccess>]
 module Schedule =
@@ -77,13 +78,14 @@ module Schedule =
 
     /// Allocate a fresh step function (with its own mutable state). The analogue
     /// of upstream `toStep` — callers supply `now` and handle the delay. (Schedule.toStep)
-    let toStep (self: Schedule<'Out, 'In>) : float -> 'In -> ScheduleDecision<'Out> = self.Start ()
+    let toStep (self: Schedule<'Out, 'In>) : float -> 'In -> ScheduleDecision<'Out> = self.Start()
 
     /// Upstream `metadataFn`: tracks attempt count and elapsed timing per step.
     let private metadataFn () : float -> 'In -> InputMetadata<'In> =
         let mutable n = 0
         let mutable previous = ValueNone
         let mutable start = ValueNone
+
         fun now input ->
             let s =
                 match start with
@@ -91,12 +93,15 @@ module Schedule =
                 | ValueNone ->
                     start <- ValueSome now
                     now
+
             let elapsedSincePrevious =
                 match previous with
                 | ValueSome p -> now - p
                 | ValueNone -> 0.0
+
             previous <- ValueSome now
             n <- n + 1
+
             { Input = input
               Attempt = n
               Start = s
@@ -128,11 +133,13 @@ module Schedule =
         fromStep (fun () ->
             let step = toStep self
             let meta = metadataFn ()
+
             fun now input ->
                 match step now input with
                 | Done o -> Done o
                 | Continue(o, d) ->
                     let im = meta now input
+
                     let full =
                         { Input = im.Input
                           Output = o
@@ -142,6 +149,7 @@ module Schedule =
                           Now = im.Now
                           Elapsed = im.Elapsed
                           ElapsedSincePrevious = im.ElapsedSincePrevious }
+
                     if predicate full then Continue(o, d) else Done o)
 
     /// Recurs the specified number of times, outputting the recurrence count. (Schedule.recurs)
@@ -156,6 +164,7 @@ module Schedule =
     /// outputting the delay. (Schedule.exponential)
     let exponentialFactor (factor: float) (baseDuration: Duration) : Schedule<Duration, 'In> =
         let baseMillis = Duration.toMillis baseDuration
+
         fromMetaStep (fun m ->
             let d = Duration.millis (baseMillis * (factor ** float (m.Attempt - 1)))
             Continue(d, d))
@@ -167,10 +176,14 @@ module Schedule =
     /// next window boundary on each recurrence. (Schedule.windowed)
     let windowed (interval: Duration) : Schedule<int, 'In> =
         let window = Duration.toMillis interval
+
         fromMetaStep (fun m ->
             let delay =
-                if window = 0.0 then Duration.zero
-                else Duration.millis (window - (m.Elapsed % window))
+                if window = 0.0 then
+                    Duration.zero
+                else
+                    Duration.millis (window - (m.Elapsed % window))
+
             Continue(m.Attempt - 1, delay))
 
     /// Recurs on a fixed cadence: each delay realigns to the regular `interval`
@@ -178,13 +191,17 @@ module Schedule =
     /// stay on schedule regardless of action duration. (Schedule.fixed)
     let ``fixed`` (interval: Duration) : Schedule<int, 'In> =
         let window = Duration.toMillis interval
+
         fromStep (fun () ->
             let meta = metadataFn ()
             let mutable start = 0.0
             let mutable lastRun = 0.0
+
             fun now input ->
                 let m = meta now input
-                if window = 0.0 then Continue(m.Attempt - 1, Duration.zero)
+
+                if window = 0.0 then
+                    Continue(m.Attempt - 1, Duration.zero)
                 elif m.Attempt = 1 then
                     start <- m.Now
                     lastRun <- m.Now + window
@@ -192,10 +209,12 @@ module Schedule =
                 else
                     let runningBehind = m.Now > (lastRun + window)
                     let boundary = window - ((m.Now - start) % window)
+
                     let delay =
                         if runningBehind then 0.0
                         elif boundary = 0.0 then window
                         else boundary
+
                     lastRun <- if runningBehind then m.Now else m.Now + delay
                     Continue(m.Attempt - 1, Duration.millis delay))
 
@@ -203,6 +222,7 @@ module Schedule =
     /// `Cron`), outputting the duration until the next occurrence. (Schedule.cron)
     let cron (expression: string) : Schedule<Duration, 'In> =
         let parsed = Cron.parseUnsafe expression (Some "UTC")
+
         fromStep (fun () ->
             fun now _ ->
                 let nowDt = DateTime.makeUnsafe (InputEpochMillis(int64 now))
@@ -216,6 +236,7 @@ module Schedule =
     let map (f: 'Out -> 'Out2) (self: Schedule<'Out, 'In>) : Schedule<'Out2, 'In> =
         fromStep (fun () ->
             let step = toStep self
+
             fun now input ->
                 match step now input with
                 | Continue(o, d) -> Continue(f o, d)
@@ -225,6 +246,7 @@ module Schedule =
     let passthrough (self: Schedule<'Out, 'In>) : Schedule<'In, 'In> =
         fromStep (fun () ->
             let step = toStep self
+
             fun now input ->
                 match step now input with
                 | Continue(_, d) -> Continue(input, d)
@@ -234,6 +256,7 @@ module Schedule =
     let delays (self: Schedule<'Out, 'In>) : Schedule<Duration, 'In> =
         fromStep (fun () ->
             let step = toStep self
+
             fun now input ->
                 match step now input with
                 | Continue(_, d) -> Continue(d, d)
@@ -245,11 +268,13 @@ module Schedule =
         fromStep (fun () ->
             let step = toStep self
             let meta = metadataFn ()
+
             fun now input ->
                 match step now input with
                 | Done o -> Done o
                 | Continue(o, d) ->
                     let im = meta now input
+
                     f
                         { Input = im.Input
                           Output = o
@@ -259,6 +284,7 @@ module Schedule =
                           Now = im.Now
                           Elapsed = im.Elapsed
                           ElapsedSincePrevious = im.ElapsedSincePrevious }
+
                     Continue(o, d))
 
     /// Folds outputs into accumulating state with a synchronous combine. (Schedule.reduce)
@@ -266,6 +292,7 @@ module Schedule =
         fromStep (fun () ->
             let step = toStep self
             let mutable state = initial ()
+
             fun now input ->
                 match step now input with
                 | Continue(o, d) ->
@@ -287,8 +314,7 @@ module Schedule =
         collectWhile (fun _ -> true) (passthrough self)
 
     /// Collects all of the schedule's outputs into a list. (Schedule.collectOutputs)
-    let collectOutputs (self: Schedule<'Out, 'In>) : Schedule<'Out list, 'In> =
-        collectWhile (fun _ -> true) self
+    let collectOutputs (self: Schedule<'Out, 'In>) : Schedule<'Out list, 'In> = collectWhile (fun _ -> true) self
 
     // --- jitter ---
 
@@ -297,6 +323,7 @@ module Schedule =
     let jitteredWith (random: unit -> float) (self: Schedule<'Out, 'In>) : Schedule<'Out, 'In> =
         fromStep (fun () ->
             let step = toStep self
+
             fun now input ->
                 match step now input with
                 | Continue(o, d) ->
@@ -321,10 +348,16 @@ module Schedule =
         fromStep (fun () ->
             let l = toStep self
             let r = toStep other
+
             fun now input ->
                 match l now input, r now input with
                 | Continue(lo, ld), Continue(ro, rd) ->
-                    let delay = if Duration.toMillis ld >= Duration.toMillis rd then ld else rd
+                    let delay =
+                        if Duration.toMillis ld >= Duration.toMillis rd then
+                            ld
+                        else
+                            rd
+
                     Continue((lo, ro), delay)
                 | Continue(lo, _), Done ro
                 | Done lo, Continue(ro, _) -> Done(lo, ro)
@@ -337,10 +370,16 @@ module Schedule =
         fromStep (fun () ->
             let l = toStep self
             let r = toStep other
+
             fun now input ->
                 match l now input, r now input with
                 | Continue(lo, ld), Continue(ro, rd) ->
-                    let delay = if Duration.toMillis ld <= Duration.toMillis rd then ld else rd
+                    let delay =
+                        if Duration.toMillis ld <= Duration.toMillis rd then
+                            ld
+                        else
+                            rd
+
                     Continue((lo, ro), delay)
                 | Continue(lo, ld), Done ro -> Continue((lo, ro), ld)
                 | Done lo, Continue(ro, rd) -> Continue((lo, ro), rd)
@@ -356,10 +395,12 @@ module Schedule =
             let lstep = toStep left
             let rstep = toStep right
             let mutable onRight = false
+
             let stepRight now input =
                 match rstep now input with
                 | Continue(o, d) -> Continue(Error o, d)
                 | Done o -> Done(Error o)
+
             fun now input ->
                 if onRight then
                     stepRight now input

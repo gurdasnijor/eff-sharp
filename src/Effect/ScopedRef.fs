@@ -16,10 +16,10 @@ namespace Effect
 /// receives the value's fresh `Scope` to register its release on. The
 /// `tapCause`-on-acquire-failure cleanup and `idleTimeToLive` are omitted (no
 /// failing acquisitions in scope here); noted.
-
 /// A reference whose value owns a `Scope`'s resources.
 type ScopedRef<'A, 'E, 'R> =
-    internal { Backing: SynchronizedRef<Scope<'E, 'R> * 'A> }
+    internal
+        { Backing: SynchronizedRef<Scope<'E, 'R> * 'A> }
 
 [<RequireQualifiedAccess>]
 module ScopedRef =
@@ -33,7 +33,8 @@ module ScopedRef =
             Scope.close scope voidExit)
 
     /// Reads the current value synchronously. (ScopedRef.getUnsafe)
-    let getUnsafe (self: ScopedRef<'A, 'E, 'R>) : 'A = snd (SynchronizedRef.getUnsafe self.Backing)
+    let getUnsafe (self: ScopedRef<'A, 'E, 'R>) : 'A =
+        snd (SynchronizedRef.getUnsafe self.Backing)
 
     /// Reads the current value. (ScopedRef.get)
     let get (self: ScopedRef<'A, 'E, 'R>) : Effect<'A, 'E, 'R> = Effect.sync (fun () -> getUnsafe self)

@@ -14,15 +14,18 @@ type State =
     | Changed
     | Closed
 
-let private isActive = function
+let private isActive =
+    function
     | Active -> true
     | _ -> false
 
-let private isChanged = function
+let private isChanged =
+    function
     | Changed -> true
     | _ -> false
 
-let private isClosed = function
+let private isClosed =
+    function
     | Closed -> true
     | _ -> false
 
@@ -54,7 +57,10 @@ let ``getAndUpdate returns the previous value and stores the computed value`` ()
 [<Fact>]
 let ``getAndUpdateSome leaves state unchanged when no transition matches`` () =
     let ref = run (Ref.make Active)
-    let result1 = run (Ref.getAndUpdateSome ref (fun s -> if isClosed s then Some Changed else None))
+
+    let result1 =
+        run (Ref.getAndUpdateSome ref (fun s -> if isClosed s then Some Changed else None))
+
     let result2 = run (Ref.get ref)
     Assert.Equal(Active, result1)
     Assert.Equal(Active, result2)
@@ -62,7 +68,9 @@ let ``getAndUpdateSome leaves state unchanged when no transition matches`` () =
 [<Fact>]
 let ``getAndUpdateSome returns each previous state while applying matching transitions`` () =
     let ref = run (Ref.make Active)
-    let result1 = run (Ref.getAndUpdateSome ref (fun s -> if isActive s then Some Changed else None))
+
+    let result1 =
+        run (Ref.getAndUpdateSome ref (fun s -> if isActive s then Some Changed else None))
 
     let result2 =
         run (
@@ -121,13 +129,18 @@ let ``updateSome applies matching transitions to the stored state`` () =
 [<Fact>]
 let ``updateSomeAndGet returns the current state when no transition matches`` () =
     let ref = run (Ref.make Active)
-    let result = run (Ref.updateSomeAndGet ref (fun s -> if isClosed s then Some Changed else None))
+
+    let result =
+        run (Ref.updateSomeAndGet ref (fun s -> if isClosed s then Some Changed else None))
+
     Assert.Equal(Active, result)
 
 [<Fact>]
 let ``updateSomeAndGet - twice`` () =
     let ref = run (Ref.make Active)
-    let result1 = run (Ref.updateSomeAndGet ref (fun s -> if isActive s then Some Changed else None))
+
+    let result1 =
+        run (Ref.updateSomeAndGet ref (fun s -> if isActive s then Some Changed else None))
 
     let result2 =
         run (
@@ -155,7 +168,10 @@ let ``modifySome - once`` () =
     let result =
         run (
             Ref.modifySome ref (fun s ->
-                if isClosed s then ("active", Some Active) else ("state does not change", None))
+                if isClosed s then
+                    ("active", Some Active)
+                else
+                    ("state does not change", None))
         )
 
     Assert.Equal("state does not change", result)
@@ -167,7 +183,10 @@ let ``modifySome returns a result while applying matching transitions`` () =
     let result1 =
         run (
             Ref.modifySome ref (fun s ->
-                if isActive s then ("changed", Some Changed) else ("state does not change", None))
+                if isActive s then
+                    ("changed", Some Changed)
+                else
+                    ("state does not change", None))
         )
 
     let result2 =

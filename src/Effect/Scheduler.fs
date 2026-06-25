@@ -53,7 +53,8 @@ module Scheduler =
     /// The default scheduler — each `makeDispatcher` is an independent priority queue.
     let Default: Scheduler =
         { new Scheduler with
-            member _.MakeDispatcher() = PriorityDispatcher() :> SchedulerDispatcher }
+            member _.MakeDispatcher() =
+                PriorityDispatcher() :> SchedulerDispatcher }
 
     /// Convenience: a fresh dispatcher from the default scheduler. (makeDispatcher)
     let makeDispatcher () : SchedulerDispatcher = Default.MakeDispatcher()

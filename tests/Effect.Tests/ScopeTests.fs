@@ -49,7 +49,8 @@ let ``acquireRelease registers a finalizer that runs on scope close`` () =
     let program =
         effect {
             let! resource =
-                Scope.acquireRelease scope (Effect.succeed "conn") (fun _ _ -> Effect.sync (fun () -> released.Value <- true))
+                Scope.acquireRelease scope (Effect.succeed "conn") (fun _ _ ->
+                    Effect.sync (fun () -> released.Value <- true))
 
             // resource is live; finalizer not yet run
             Assert.False(released.Value)
@@ -63,7 +64,10 @@ let ``acquireRelease registers a finalizer that runs on scope close`` () =
 [<Fact>]
 let ``ensuring runs the finalizer on success`` () =
     let ran = ref false
-    let program = Effect.succeed 1 |> Effect.ensuring (Effect.sync (fun () -> ran.Value <- true))
+
+    let program =
+        Effect.succeed 1 |> Effect.ensuring (Effect.sync (fun () -> ran.Value <- true))
+
     Assert.Equal<Exit<int, string>>(Exit.succeed 1, run program)
     Assert.True(ran.Value)
 
@@ -72,7 +76,8 @@ let ``ensuring runs the finalizer on typed failure`` () =
     let ran = ref false
 
     let program: Effect<int, string, unit> =
-        Effect.fail "boom" |> Effect.ensuring (Effect.sync (fun () -> ran.Value <- true))
+        Effect.fail "boom"
+        |> Effect.ensuring (Effect.sync (fun () -> ran.Value <- true))
 
     Assert.Equal<Exit<int, string>>(Exit.fail "boom", run program)
     Assert.True(ran.Value)
@@ -103,10 +108,8 @@ let ``acquireUseRelease releases even when use fails`` () =
     let released = ref false
 
     let program: Effect<int, string, unit> =
-        Effect.acquireUseRelease
-            (Effect.succeed 1)
-            (fun _ -> Effect.fail "nope")
-            (fun _ _ -> Effect.sync (fun () -> released.Value <- true))
+        Effect.acquireUseRelease (Effect.succeed 1) (fun _ -> Effect.fail "nope") (fun _ _ ->
+            Effect.sync (fun () -> released.Value <- true))
 
     Assert.Equal<Exit<int, string>>(Exit.fail "nope", run program)
     Assert.True(released.Value)
@@ -116,10 +119,8 @@ let ``acquireUseRelease skips release when acquire fails`` () =
     let released = ref false
 
     let program: Effect<int, string, unit> =
-        Effect.acquireUseRelease
-            (Effect.fail "acq")
-            (fun _ -> Effect.succeed 1)
-            (fun _ _ -> Effect.sync (fun () -> released.Value <- true))
+        Effect.acquireUseRelease (Effect.fail "acq") (fun _ -> Effect.succeed 1) (fun _ _ ->
+            Effect.sync (fun () -> released.Value <- true))
 
     Assert.Equal<Exit<int, string>>(Exit.fail "acq", run program)
     Assert.False(released.Value)
@@ -132,7 +133,8 @@ let ``scoped closes its scope on success`` () =
         Scope.scoped (fun scope ->
             effect {
                 let! r =
-                    Scope.acquireRelease scope (Effect.succeed "db") (fun _ _ -> Effect.sync (fun () -> released.Value <- true))
+                    Scope.acquireRelease scope (Effect.succeed "db") (fun _ _ ->
+                        Effect.sync (fun () -> released.Value <- true))
 
                 return r
             })
@@ -147,7 +149,10 @@ let ``scoped closes its scope on failure`` () =
     let program: Effect<string, string, unit> =
         Scope.scoped (fun scope ->
             effect {
-                do! Scope.addFinalizer scope (Effect.sync (fun () -> released.Value <- true)) |> Effect.map ignore
+                do!
+                    Scope.addFinalizer scope (Effect.sync (fun () -> released.Value <- true))
+                    |> Effect.map ignore
+
                 return! Effect.fail "boom"
             })
 

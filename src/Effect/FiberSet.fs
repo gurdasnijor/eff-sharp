@@ -12,7 +12,6 @@ namespace Effect
 /// fibers are pruned lazily on read (no `addObserver`); `join` awaits all members
 /// and surfaces the first typed failure. Dropped: `runtime`/`*Promise`,
 /// `propagateInterruption`, the `deferred` field, `TypeId`.
-
 /// A supervised set of fibers.
 type FiberSet<'A, 'E> =
     internal
@@ -35,7 +34,9 @@ module FiberSet =
 
     /// Create an empty set outside the `Effect` context. (FiberSet.makeUnsafe)
     let makeUnsafe<'A, 'E> () : FiberSet<'A, 'E> =
-        { Fibers = ResizeArray(); Closed = false; Gate = System.Object() }
+        { Fibers = ResizeArray()
+          Closed = false
+          Gate = System.Object() }
 
     let private closeEffect (self: FiberSet<'A, 'E>) : Effect<unit, 'E2, 'R> =
         Effect.suspend (fun () ->

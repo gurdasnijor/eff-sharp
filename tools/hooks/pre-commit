@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# eff-sharp pre-commit hook: Fantomas format-check on STAGED F# files only.
+#
+# Measured at ~0.7s for a typical commit's worth of files, so it's cheap enough
+# to run on every commit. It only checks what you're committing — it never
+# reformats the historical tree (see the format-scope note in tools/ci/check.sh).
+#
+# Install (from repo root):  git config core.hooksPath tools/hooks
+# Bypass once:               git commit --no-verify
+set -euo pipefail
+
+# Staged, still-present .fs/.fsi files (Added/Copied/Modified), excluding repos/.
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACM -- '*.fs' '*.fsi' \
+                      | grep -v '^repos/' || true)
+
+[ "${#files[@]}" -eq 0 ] && exit 0
+
+if ! command -v dotnet >/dev/null 2>&1; then
+  echo "pre-commit: dotnet not on PATH; skipping Fantomas check." >&2
+  exit 0
+fi
+
+# Ensure the pinned Fantomas from the tool manifest is available (no-op if cached).
+dotnet tool restore >/dev/null 2>&1 || true
+
+echo "pre-commit: Fantomas --check on ${#files[@]} staged F# file(s)…"
+if ! dotnet fantomas --check "${files[@]}"; then
+  cat >&2 <<'MSG'
+
+pre-commit: some staged F# files are not formatted.
+  Fix:    dotnet fantomas <files>   (then re-stage and commit)
+  Bypass: git commit --no-verify
+MSG
+  exit 1
+fi
+echo "pre-commit: formatting OK."

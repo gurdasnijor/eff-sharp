@@ -23,37 +23,45 @@ type private CustomToString() =
 let private data = SensitiveData("my-secret-key")
 
 [<Fact>]
-let ``null`` () = Assert.Equal("null", Formatter.format null)
+let ``null`` () =
+    Assert.Equal("null", Formatter.format null)
 
 [<Fact>]
-let ``string`` () = Assert.Equal("\"a\"", Formatter.format (box "a"))
+let ``string`` () =
+    Assert.Equal("\"a\"", Formatter.format (box "a"))
 
 [<Fact>]
-let ``number`` () = Assert.Equal("123", Formatter.format (box 123))
+let ``number`` () =
+    Assert.Equal("123", Formatter.format (box 123))
 
 [<Fact>]
-let ``float`` () = Assert.Equal("1.5", Formatter.format (box 1.5))
+let ``float`` () =
+    Assert.Equal("1.5", Formatter.format (box 1.5))
 
 [<Fact>]
-let ``boolean`` () = Assert.Equal("true", Formatter.format (box true))
+let ``boolean`` () =
+    Assert.Equal("true", Formatter.format (box true))
 
 [<Fact>]
-let ``bigint`` () = Assert.Equal("123n", Formatter.format (box (System.Numerics.BigInteger 123)))
+let ``bigint`` () =
+    Assert.Equal("123n", Formatter.format (box (System.Numerics.BigInteger 123)))
 
 [<Fact>]
-let ``custom toString method`` () = Assert.Equal("custom", Formatter.format (box (CustomToString())))
+let ``custom toString method`` () =
+    Assert.Equal("custom", Formatter.format (box (CustomToString())))
 
 [<Fact>]
 let ``array`` () =
-    let arr : obj[] = [| box 1; box 2; box (System.Numerics.BigInteger 3) |]
+    let arr: obj[] = [| box 1; box 2; box (System.Numerics.BigInteger 3) |]
     Assert.Equal("[1,2,3n]", Formatter.format (box arr))
 
 [<Fact>]
-let ``F# list`` () = Assert.Equal("[1,2,3]", Formatter.format (box [ 1; 2; 3 ]))
+let ``F# list`` () =
+    Assert.Equal("[1,2,3]", Formatter.format (box [ 1; 2; 3 ]))
 
 [<Fact>]
 let ``circular array`` () =
-    let arr : obj[] = Array.zeroCreate 2
+    let arr: obj[] = Array.zeroCreate 2
     arr.[0] <- box 1
     arr.[1] <- box arr
     Assert.Equal("[1,[Circular]]", Formatter.format (box arr))
@@ -62,7 +70,7 @@ let ``circular array`` () =
 let ``object (anonymous record)`` () =
     Assert.Equal("{\"a\":1}", Formatter.format (box {| a = 1 |}))
     Assert.Equal("{\"a\":1,\"b\":2}", Formatter.format (box {| a = 1; b = 2 |}))
-    let b : obj[] = [| box 1; box 2; box (System.Numerics.BigInteger 3) |]
+    let b: obj[] = [| box 1; box 2; box (System.Numerics.BigInteger 3) |]
     Assert.Equal("{\"a\":1,\"b\":[1,2,3n]}", Formatter.format (box {| a = 1; b = b |}))
 
 type private Foo = { a: int }
@@ -72,10 +80,12 @@ let ``named record wraps with the type name`` () =
     Assert.Equal("Foo({\"a\":1})", Formatter.format (box { a = 1 }))
 
 [<Fact>]
-let ``RegExp`` () = Assert.Equal("/a/", Formatter.format (box (Regex "a")))
+let ``RegExp`` () =
+    Assert.Equal("/a/", Formatter.format (box (Regex "a")))
 
 [<Fact>]
-let ``Set`` () = Assert.Equal("Set([1,2,3])", Formatter.format (box (Set [ 1; 2; 3 ])))
+let ``Set`` () =
+    Assert.Equal("Set([1,2,3])", Formatter.format (box (Set [ 1; 2; 3 ])))
 
 [<Fact>]
 let ``Map`` () =
@@ -87,15 +97,15 @@ let ``Date`` () =
     Assert.Equal("1970-01-01T00:00:00.000Z", Formatter.format (box d))
 
 [<Fact>]
-let ``Redacted`` () = Assert.Equal("<redacted>", Formatter.format (box (Redacted.make "a")))
+let ``Redacted`` () =
+    Assert.Equal("<redacted>", Formatter.format (box (Redacted.make "a")))
 
 [<Fact>]
 let ``Error`` () =
     Assert.Equal("Exception: a", Formatter.format (box (Exception "a")))
     // Upstream a JS Error cause is any value; .NET's InnerException is itself an
     // exception, so the cause renders as a formatted exception.
-    Assert.Equal("Exception: a (cause: Exception: b)",
-                 Formatter.format (box (Exception("a", Exception "b"))))
+    Assert.Equal("Exception: a (cause: Exception: b)", Formatter.format (box (Exception("a", Exception "b"))))
 
 [<Fact>]
 let ``Option (discriminated union)`` () =
@@ -108,8 +118,15 @@ let ``Option (discriminated union)`` () =
 let ``whitespace object`` () =
     Assert.Equal("{\"a\":1}", Formatter.formatWith 2 (box {| a = 1 |}))
     Assert.Equal("{\n  \"a\": 1,\n  \"b\": 2\n}", Formatter.formatWith 2 (box {| a = 1; b = 2 |}))
-    Assert.Equal("{\n  \"a\": 1,\n  \"b\": [\n    1,\n    2,\n    3n\n  ]\n}",
-                 Formatter.formatWith 2 (box {| a = 1; b = ([| box 1; box 2; box (System.Numerics.BigInteger 3) |]) |}))
+
+    Assert.Equal(
+        "{\n  \"a\": 1,\n  \"b\": [\n    1,\n    2,\n    3n\n  ]\n}",
+        Formatter.formatWith
+            2
+            (box
+                {| a = 1
+                   b = ([| box 1; box 2; box (System.Numerics.BigInteger 3) |]) |})
+    )
 
 [<Fact>]
 let ``should redact sensitive data`` () =
@@ -122,7 +139,7 @@ let ``should redact sensitive data`` () =
 /// its properties are visible to cross-assembly reflection in `formatJson`.
 type JsonCircular() =
     member val a = 1 with get, set
-    member val self : obj = null with get, set
+    member val self: obj = null with get, set
 
 [<Fact>]
 let ``formatJson omits circular references`` () =
@@ -133,8 +150,11 @@ let ``formatJson omits circular references`` () =
 [<Fact>]
 let ``formatJson preserves repeated non-circular references`` () =
     let shared = {| a = 1 |}
-    Assert.Equal("{\"left\":{\"a\":1},\"right\":{\"a\":1}}",
-                 Formatter.formatJson (box {| left = shared; right = shared |}))
+
+    Assert.Equal(
+        "{\"left\":{\"a\":1},\"right\":{\"a\":1}}",
+        Formatter.formatJson (box {| left = shared; right = shared |})
+    )
 
 [<Fact>]
 let ``formatJson redacts sensitive data`` () =

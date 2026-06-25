@@ -18,11 +18,15 @@ open EffSharp.AiDocs.Shared
 // ---------------------------------------------------------------------------
 
 /// A low-level capability. Its single method is itself an effect.
-type Clock = { CurrentMillis: Effect<int64, string, Context> }
+type Clock =
+    { CurrentMillis: Effect<int64, string, Context> }
+
 let clockTag: Tag<Clock> = Tag.make<Clock> "app/Clock"
 
 /// A higher-level service that DEPENDS on `Clock`.
-type Greeter = { Greet: string -> Effect<string, string, Context> }
+type Greeter =
+    { Greet: string -> Effect<string, string, Context> }
+
 let greeterTag: Tag<Greeter> = Tag.make<Greeter> "app/Greeter"
 
 // ---------------------------------------------------------------------------
@@ -53,6 +57,7 @@ let greeterLayer: Layer<string, Context> =
         greeterTag
         (effect {
             let! clock = Effect.service clockTag
+
             return
                 { Greet =
                     fun name ->

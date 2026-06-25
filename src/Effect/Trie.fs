@@ -103,8 +103,7 @@ module Trie =
         withPrefix self prefix :> (string * 'V) seq
 
     /// Entries whose keys have the given prefix, as an array.
-    let toEntriesWithPrefix (self: Trie<'V>) (prefix: string) : (string * 'V)[] =
-        withPrefix self prefix
+    let toEntriesWithPrefix (self: Trie<'V>) (prefix: string) : (string * 'V)[] = withPrefix self prefix
 
     /// The longest stored key that is a prefix of `input`, with its value.
     let longestPrefixOf (self: Trie<'V>) (input: string) : (string * 'V) option =
@@ -130,6 +129,7 @@ module Trie =
             match f v k with
             | Ok w -> Map.add k w acc
             | Error _ -> acc
+
         { Entries = Map.fold folder Map.empty self.Entries }
 
     /// Keep the `Some` values of an option-valued trie.
@@ -138,6 +138,7 @@ module Trie =
             match v with
             | Some w -> Map.add k w acc
             | None -> acc
+
         { Entries = Map.fold folder Map.empty self.Entries }
 
     /// Apply `f` to the value at `key` if present; otherwise unchanged.
@@ -170,4 +171,5 @@ module Trie =
             self.Entries
             |> Map.toList
             |> List.map (fun (k, v) -> sprintf "[\"%s\",%s]" k (renderValue (box v)))
+
         "Trie([" + String.concat "," parts + "])"

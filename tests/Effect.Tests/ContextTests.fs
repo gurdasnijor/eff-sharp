@@ -91,7 +91,7 @@ let ``provideContext supplies several services at once`` () =
         effect {
             let! logger = Effect.service loggerTag
             let! counter = Effect.service counterTag
-            return logger.Log (string counter.Count)
+            return logger.Log(string counter.Count)
         }
 
     let ctx =

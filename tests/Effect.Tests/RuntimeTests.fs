@@ -28,8 +28,7 @@ let ``runSyncExit surfaces a typed failure as an Exit`` () =
 
 [<Fact>]
 let ``runSync raises on a typed failure`` () =
-    Assert.ThrowsAny<System.Exception>(fun () ->
-        Runtime.runSync Runtime.defaultRuntime (Effect.fail "boom") |> ignore)
+    Assert.ThrowsAny<System.Exception>(fun () -> Runtime.runSync Runtime.defaultRuntime (Effect.fail "boom") |> ignore)
     |> ignore
 
 // --- make from a Context ---
@@ -51,7 +50,8 @@ let ``context exposes the bundled services`` () =
 
 [<Fact>]
 let ``a missing service dies as a defect`` () =
-    let program: Effect<int, string, Context> = Effect.service configTag |> Effect.map (fun c -> c.Factor)
+    let program: Effect<int, string, Context> =
+        Effect.service configTag |> Effect.map (fun c -> c.Factor)
 
     match Runtime.runSyncExit Runtime.defaultRuntime program with
     | Failure cause -> Assert.False(List.isEmpty (Cause.defects cause), "expected a defect")
@@ -61,12 +61,19 @@ let ``a missing service dies as a defect`` () =
 
 [<Fact>]
 let ``runExit returns the Exit asynchronously`` () =
-    let exit = Runtime.runExit Runtime.defaultRuntime (Effect.succeed 7) |> Async.RunSynchronously
+    let exit =
+        Runtime.runExit Runtime.defaultRuntime (Effect.succeed 7)
+        |> Async.RunSynchronously
+
     Assert.Equal<Exit<int, string>>(Exit.succeed 7, exit)
 
 [<Fact>]
 let ``runPromise resolves with the success value`` () =
-    let value = Runtime.runPromise Runtime.defaultRuntime (Effect.succeed 99) |> Async.AwaitTask |> Async.RunSynchronously
+    let value =
+        Runtime.runPromise Runtime.defaultRuntime (Effect.succeed 99)
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
     Assert.Equal(99, value)
 
 [<Fact>]

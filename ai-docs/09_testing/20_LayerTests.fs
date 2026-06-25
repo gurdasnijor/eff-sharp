@@ -16,7 +16,9 @@ type IdGen = { Next: Effect<int, string, Context> }
 let idTag: Tag<IdGen> = Tag.make<IdGen> "app/IdGen"
 
 // The service under test depends on `IdGen`.
-type Widgets = { Make: string -> Effect<int * string, string, Context> }
+type Widgets =
+    { Make: string -> Effect<int * string, string, Context> }
+
 let widgetTag: Tag<Widgets> = Tag.make<Widgets> "app/Widgets"
 
 let widgetLayer: Layer<string, Context> =
@@ -44,8 +46,7 @@ let idLive: Layer<string, unit> =
         })
 
 // A STUB IdGen for tests — deterministic, always 42.
-let idStub: Layer<string, unit> =
-    Layer.succeed idTag { Next = Effect.succeed 42 }
+let idStub: Layer<string, unit> = Layer.succeed idTag { Next = Effect.succeed 42 }
 
 let private program: Effect<int * string, string, Context> =
     effect {

@@ -23,13 +23,17 @@ module NonEmptyIterable =
     /// type is meant to be non-empty).
     let unprepend (self: NonEmptyIterable<'a>) : 'a * seq<'a> =
         let enumerator = self.GetEnumerator()
+
         if not (enumerator.MoveNext()) then
             failwith
                 "BUG: NonEmptyIterable should not be empty - please report an issue at https://github.com/Effect-TS/effect/issues"
+
         let head = enumerator.Current
+
         let rest =
             seq {
                 while enumerator.MoveNext() do
                     yield enumerator.Current
             }
+
         head, rest

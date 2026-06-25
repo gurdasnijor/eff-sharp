@@ -30,7 +30,7 @@ module BigInt =
     let private maxSafeFloat = 9007199254740991.0
     let private minSafeFloat = -9007199254740991.0
 
-    let private ord : Order<bigint> = Order.BigInt
+    let private ord: Order<bigint> = Order.BigInt
 
     // --- math ---
 
@@ -66,7 +66,8 @@ module BigInt =
     let abs (n: bigint) : bigint = if n < zero then -n else n
 
     /// Greatest common divisor (non-negative). (BigInt.gcd)
-    let gcd (self: bigint) (that: bigint) : bigint = BigInteger.GreatestCommonDivisor(self, that)
+    let gcd (self: bigint) (that: bigint) : bigint =
+        BigInteger.GreatestCommonDivisor(self, that)
 
     /// Least common multiple. (BigInt.lcm)
     let lcm (self: bigint) (that: bigint) : bigint = (self * that) / gcd self that
@@ -80,6 +81,7 @@ module BigInt =
         else
             let rec loop x =
                 if x * x > n then loop (((n / x) + x) / two) else x
+
             loop (n / two)
 
     /// Integer square root; `None` for negative input. (BigInt.sqrt)
@@ -95,12 +97,14 @@ module BigInt =
         let mutable acc = one
         let mutable stop = false
         use e = collection.GetEnumerator()
+
         while not stop && e.MoveNext() do
             if e.Current = zero then
                 acc <- zero
                 stop <- true
             else
                 acc <- acc * e.Current
+
         acc
 
     // --- comparison predicates ---
@@ -115,15 +119,15 @@ module BigInt =
     let isGreaterThan (self: bigint) (that: bigint) : bool = Order.isGreaterThan ord self that
 
     /// `true` when `self >= that`. (BigInt.isGreaterThanOrEqualTo)
-    let isGreaterThanOrEqualTo (self: bigint) (that: bigint) : bool = Order.isGreaterThanOrEqualTo ord self that
+    let isGreaterThanOrEqualTo (self: bigint) (that: bigint) : bool =
+        Order.isGreaterThanOrEqualTo ord self that
 
     /// `true` when `self` is within the inclusive `[minimum, maximum]` range. (BigInt.between)
     let between (minimum: bigint) (maximum: bigint) (self: bigint) : bool =
         Order.isBetween ord minimum maximum self
 
     /// Clamps `self` into the inclusive `[minimum, maximum]` range. (BigInt.clamp)
-    let clamp (minimum: bigint) (maximum: bigint) (self: bigint) : bigint =
-        Order.clamp ord minimum maximum self
+    let clamp (minimum: bigint) (maximum: bigint) (self: bigint) : bigint = Order.clamp ord minimum maximum self
 
     /// The smaller of two integers. (BigInt.min)
     let min (self: bigint) (that: bigint) : bigint = Order.min ord self that
@@ -135,11 +139,15 @@ module BigInt =
 
     /// Converts to a `float`; `None` outside JavaScript's safe-integer range. (BigInt.toNumber)
     let toNumber (b: bigint) : float option =
-        if b > maxSafeInteger || b < minSafeInteger then None else Some(float b)
+        if b > maxSafeInteger || b < minSafeInteger then
+            None
+        else
+            Some(float b)
 
     /// Parses a string into an integer; `None` for blank or invalid input. (BigInt.fromString)
     let fromString (s: string) : bigint option =
         let trimmed = s.Trim()
+
         if trimmed = "" then
             None
         else
@@ -158,19 +166,19 @@ module BigInt =
     // --- instances ---
 
     /// `Order` instance for integers. (BigInt.Order)
-    let Order : Order<bigint> = ord
+    let Order: Order<bigint> = ord
 
     /// `Equivalence` instance for integers (strict equality). (BigInt.Equivalence)
-    let Equivalence : Equivalence<bigint> = Equivalence.BigInt
+    let Equivalence: Equivalence<bigint> = Equivalence.BigInt
 
     /// `Reducer` that sums integers (identity `0`). (BigInt.ReducerSum)
-    let ReducerSum : Reducer<bigint> = Reducer.make (+) zero
+    let ReducerSum: Reducer<bigint> = Reducer.make (+) zero
 
     /// `Reducer` that multiplies integers (identity `1`), short-circuiting on `0`. (BigInt.ReducerMultiply)
-    let ReducerMultiply : Reducer<bigint> = Reducer.makeWith (*) one multiplyAll
+    let ReducerMultiply: Reducer<bigint> = Reducer.makeWith (*) one multiplyAll
 
     /// `Combiner` that keeps the larger integer. (BigInt.CombinerMax)
-    let CombinerMax : Combiner<bigint> = Combiner.max ord
+    let CombinerMax: Combiner<bigint> = Combiner.max ord
 
     /// `Combiner` that keeps the smaller integer. (BigInt.CombinerMin)
-    let CombinerMin : Combiner<bigint> = Combiner.min ord
+    let CombinerMin: Combiner<bigint> = Combiner.min ord

@@ -1,0 +1,369 @@
+{
+    "//": "eff-sharp lint config. Derived from FSharpLint's default config, then tuned to PASS the current hand-written F# port with zero churn. Rules disabled below each fire on existing, intentional style (Effect-TS parity naming, single-line if/elif, nested recursive helpers). Useful rules (redundant new, tab chars, useless bindings, re-raise, etc.) stay ON as a forward gate. Re-enable a rule and clean its hits in a separate PR if desired.",
+    "ignoreFiles": [
+        "assemblyinfo.*"
+    ],
+    "global": {
+        "numIndentationSpaces": 4
+    },
+    "typedItemSpacing": {
+        "enabled": false,
+        "config": {
+            "typedItemStyle": "NoSpaces"
+        }
+    },
+    "typePrefixing": {
+        "enabled": false,
+        "config": {
+            "mode": "Hybrid"
+        }
+    },
+    "unionDefinitionIndentation": { "enabled": false },
+    "moduleDeclSpacing": { "enabled": false },
+    "classMemberSpacing": { "enabled": false },
+    "tupleCommaSpacing": { "enabled": false },
+    "tupleIndentation": { "enabled": false },
+    "tupleParentheses": { "enabled": false },
+    "patternMatchClausesOnNewLine": { "enabled": false },
+    "patternMatchOrClausesOnNewLine": { "enabled": false },
+    "patternMatchClauseIndentation": { "enabled": false },
+    "patternMatchExpressionIndentation": { "enabled": false },
+    "recursiveAsyncFunction": { "enabled": false },
+    "redundantNewKeyword": { "enabled": true },
+    "nestedStatements": {
+        "enabled": false,
+        "config": {
+            "depth": 8
+        }
+    },
+    "cyclomaticComplexity": {
+        "enabled": false,
+        "config": {
+            "maxComplexity": 40
+        }
+    },
+    "reimplementsFunction": { "enabled": false },
+    "canBeReplacedWithComposition": { "enabled": false },
+    "avoidSinglePipeOperator": { "enabled": false },
+    "usedUnderscorePrefixedElements": { "enabled": true },
+    "failwithWithSingleArgument": { "enabled": true },
+    "raiseWithSingleArgument": { "enabled": true },
+    "nullArgWithSingleArgument": { "enabled": true },
+    "invalidOpWithSingleArgument": { "enabled": true },
+    "invalidArgWithTwoArguments": { "enabled": true },
+    "failwithfWithArgumentsMatchingFormatString": { "enabled": true },
+    "failwithBadUsage": { "enabled": false },
+    "maxLinesInLambdaFunction": {
+        "enabled": false,
+        "config": {
+            "maxLines": 7
+        }
+    },
+    "maxLinesInMatchLambdaFunction": {
+        "enabled": false,
+        "config": {
+            "maxLines": 100
+        }
+    },
+    "maxLinesInValue": {
+        "enabled": false,
+        "config": {
+            "maxLines": 100
+        }
+    },
+    "maxLinesInFunction": {
+        "enabled": false,
+        "config": {
+            "maxLines": 100
+        }
+    },
+    "maxLinesInMember": {
+        "enabled": false,
+        "config": {
+            "maxLines": 100
+        }
+    },
+    "maxLinesInConstructor": {
+        "enabled": false,
+        "config": {
+            "maxLines": 100
+        }
+    },
+    "maxLinesInProperty": {
+        "enabled": false,
+        "config": {
+            "maxLines": 70
+        }
+    },
+    "maxLinesInModule": {
+        "enabled": false,
+        "config": {
+            "maxLines": 1000
+        }
+    },
+    "maxLinesInRecord": {
+        "enabled": false,
+        "config": {
+            "maxLines": 500
+        }
+    },
+    "maxLinesInEnum": {
+        "enabled": false,
+        "config": {
+            "maxLines": 500
+        }
+    },
+    "maxLinesInUnion": {
+        "enabled": false,
+        "config": {
+            "maxLines": 500
+        }
+    },
+    "maxLinesInClass": {
+        "enabled": false,
+        "config": {
+            "maxLines": 500
+        }
+    },
+    "interfaceNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None",
+            "prefix": "I"
+        }
+    },
+    "exceptionNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None",
+            "suffix": "Exception"
+        }
+    },
+    "typeNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "recordFieldNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "enumCasesNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "unionCasesNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "moduleNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "literalNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "namespaceNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "memberNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "AllowPrefix"
+        }
+    },
+    "parameterNames": {
+        "enabled": false,
+        "config": {
+            "naming": "CamelCase",
+            "underscores": "AllowPrefix"
+        }
+    },
+    "measureTypeNames": {
+        "enabled": true,
+        "config": {
+            "underscores": "None"
+        }
+    },
+    "activePatternNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "genericTypesNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "publicValuesNames": {
+        "enabled": false,
+        "config": {
+            "underscores": "AllowPrefix"
+        }
+    },
+    "privateValuesNames": {
+        "enabled": false,
+        "config": {
+            "naming": "CamelCase",
+            "underscores": "AllowPrefix"
+        }
+    },
+    "internalValuesNames": {
+        "enabled": false,
+        "config": {
+            "naming": "CamelCase",
+            "underscores": "AllowPrefix"
+        }
+    },
+    "unnestedFunctionNames": {
+        "enabled": false,
+        "config": {
+            "naming": "PascalCase",
+            "underscores": "None"
+        }
+    },
+    "nestedFunctionNames": {
+        "enabled": false,
+        "config": {
+            "naming": "CamelCase",
+            "underscores": "None"
+        }
+    },
+    "maxNumberOfItemsInTuple": {
+        "enabled": false,
+        "config": {
+            "maxItems": 4
+        }
+    },
+    "maxNumberOfFunctionParameters": {
+        "enabled": false,
+        "config": {
+            "maxItems": 5
+        }
+    },
+    "maxNumberOfMembers": {
+        "enabled": false,
+        "config": {
+            "maxItems": 32
+        }
+    },
+    "maxNumberOfBooleanOperatorsInCondition": {
+        "enabled": false,
+        "config": {
+            "maxItems": 4
+        }
+    },
+    "favourIgnoreOverLetWild": { "enabled": true },
+    "wildcardNamedWithAsPattern": { "enabled": true },
+    "uselessBinding": { "enabled": true },
+    "tupleOfWildcards": { "enabled": true },
+    "favourTypedIgnore": { "enabled": false },
+    "favourNonMutablePropertyInitialization": { "enabled": false },
+    "favourReRaise": { "enabled": true },
+    "favourStaticEmptyFields": { "enabled": false },
+    "favourConsistentThis": {
+        "enabled": false,
+        "config": {
+            "symbol": "this"
+        }
+    },
+    "suggestUseAutoProperty": { "enabled": false },
+    "avoidTooShortNames": { "enabled": false },
+    "asyncExceptionWithoutReturn": { "enabled": false },
+    "unneededRecKeyword": { "enabled": false },
+    "indentation": {
+        "enabled": false
+    },
+    "maxCharactersOnLine": {
+        "enabled": false,
+        "config": {
+            "maxCharactersOnLine": 120
+        }
+    },
+    "trailingWhitespaceOnLine": {
+        "enabled": false,
+        "config": {
+            "numberOfSpacesAllowed": 1,
+            "oneSpaceAllowedAfterOperator": true,
+            "ignoreBlankLines": true
+        }
+    },
+    "maxLinesInFile": {
+        "enabled": false,
+        "config": {
+            "maxLinesInFile": 1000
+        }
+    },
+    "trailingNewLineInFile": { "enabled": false },
+    "noTabCharacters": { "enabled": true },
+    "noPartialFunctions": {
+        "enabled": false,
+        "config": {
+            "allowedPartials": [],
+            "additionalPartials": []
+        }
+    },
+    "ensureTailCallDiagnosticsInRecursiveFunctions": { "enabled": false },
+    "favourAsKeyword": { "enabled": true },
+    "interpolatedStringWithNoSubstitution": { "enabled": false },
+    "indexerAccessorStyleConsistency": {
+        "enabled": false,
+        "config": {
+            "style": "OCaml"
+        }
+    },
+    "favourSingleton": { "enabled": false },
+    "noAsyncRunSynchronouslyInLibrary": { "enabled": false },
+    "favourNestedFunctions": { "enabled": false },
+    "disallowShadowing": { "enabled": false },
+    "discourageStringInterpolationWithStringFormat": {
+        "enabled": false
+    },
+    "favourNamedMembers": { "enabled": false },
+    "synchronousFunctionNames": { "enabled": true },
+    "asynchronousFunctionNames": {
+        "enabled": true,
+        "config": {
+            "mode": "OnlyPublicAPIsInLibraries"
+        }
+    },
+    "simpleAsyncComplementaryHelpers": {
+        "enabled": false,
+        "config": {
+            "mode": "OnlyPublicAPIsInLibraries"
+        }
+    },
+    "//hints": "FSharpLint's hint matcher (reported as FL0065) is disabled here: its refactor suggestions (e.g. 'if x then y else y ===> y') flag intentional parity-faithful code in this port. Disabling the whole category keeps the lint gate quiet on the current tree; re-introduce a curated 'add' list in a later PR if desired.",
+    "hints": {
+        "add": []
+    }
+}

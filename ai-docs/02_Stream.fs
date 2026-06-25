@@ -20,19 +20,24 @@ open EffSharp.AiDocs.Demo
 
 /// Built with combinators. This is the ONLY style Effect's TS offers: every
 /// step is a function call you thread together.
-let combinatorStyle : Stream<int, string, unit> =
-    Stream.range 1 3                         // 1,2,3
-    |> Stream.concat (Stream.fromIterable [ 10; 20 ])   // … then 10,20
-    |> Stream.map (fun x -> x * x)           // square each
+let combinatorStyle: Stream<int, string, unit> =
+    Stream.range 1 3 // 1,2,3
+    |> Stream.concat (Stream.fromIterable [ 10; 20 ]) // … then 10,20
+    |> Stream.map (fun x -> x * x) // square each
 
 /// The SAME stream, authored with the `stream { }` CE. `yield` emits one
 /// element; `yield!` splices in another whole stream; `for … do yield` maps over
 /// a collection. Reads top-to-bottom like a generator — no pipe threading.
-let ceStyle : Stream<int, string, unit> =
+let ceStyle: Stream<int, string, unit> =
     stream {
         for x in [ 1; 2; 3 ] do
-            yield x * x          // yield squares of 1..3
-        yield! stream { for y in [ 10; 20 ] do yield y * y } // splice another stream
+            yield x * x // yield squares of 1..3
+
+        yield!
+            stream {
+                for y in [ 10; 20 ] do
+                    yield y * y
+            } // splice another stream
     }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -42,11 +47,11 @@ let ceStyle : Stream<int, string, unit> =
 /// `flatMap` expands each element into a sub-stream and flattens — here every n
 /// becomes the pair (n, n*10). `take` stops the producer early (important for
 /// infinite producers: it raises an internal stop signal caught at the boundary).
-let pipeline : Stream<int, string, unit> =
+let pipeline: Stream<int, string, unit> =
     Stream.range 1 100
-    |> Stream.filter (fun n -> n % 2 = 0)            // keep evens
+    |> Stream.filter (fun n -> n % 2 = 0) // keep evens
     |> Stream.flatMap (fun n -> Stream.fromIterable [ n; n * 10 ])
-    |> Stream.take 6                                 // 2,20,4,40,6,60
+    |> Stream.take 6 // 2,20,4,40,6,60
 
 // ───────────────────────────────────────────────────────────────────────────
 // 3. Effectful streams: `mapEffect` and `tap` run an Effect per element
@@ -55,7 +60,7 @@ let pipeline : Stream<int, string, unit> =
 /// `tap` runs an effect for each element and passes the element through
 /// unchanged — the idiomatic place for logging/metrics inside a stream.
 /// `mapEffect` runs an effect per element and emits its *result*.
-let effectful : Stream<string, string, unit> =
+let effectful: Stream<string, string, unit> =
     Stream.range 1 3
     |> Stream.tap (fun n -> Effect.sync (fun () -> printfn "    processing %d" n))
     |> Stream.mapEffect (fun n -> Effect.succeed (sprintf "item-%d" n))

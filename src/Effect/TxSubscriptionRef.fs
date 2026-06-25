@@ -70,8 +70,7 @@ module TxSubscriptionRef =
         TxRef.atomically (modifyStm self f)
 
     /// (TxSubscriptionRef.set)
-    let set (self: TxSubscriptionRef<'A>) (value: 'A) : Effect<unit, 'Err, 'R> =
-        modify self (fun _ -> ((), value))
+    let set (self: TxSubscriptionRef<'A>) (value: 'A) : Effect<unit, 'Err, 'R> = modify self (fun _ -> ((), value))
 
     /// (TxSubscriptionRef.update)
     let update (self: TxSubscriptionRef<'A>) (f: 'A -> 'A) : Effect<unit, 'Err, 'R> =

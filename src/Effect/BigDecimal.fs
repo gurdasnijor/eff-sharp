@@ -55,10 +55,11 @@ module BigDecimal =
     let makeNormalizedUnsafe (value: bigint) (scale: int) : BigDecimal =
         if value <> BigInteger.Zero && value % bigint10 = BigInteger.Zero then
             raise (System.ArgumentException "Value must be normalized")
+
         { Value = value; Scale = scale }
 
-    let zero : BigDecimal = makeNormalizedUnsafe BigInteger.Zero 0
-    let one : BigDecimal = makeNormalizedUnsafe BigInteger.One 0
+    let zero: BigDecimal = makeNormalizedUnsafe BigInteger.Zero 0
+    let one: BigDecimal = makeNormalizedUnsafe BigInteger.One 0
 
     /// Remove trailing zeros, canonicalizing the representation.
     let normalize (self: BigDecimal) : BigDecimal =
@@ -69,21 +70,26 @@ module BigDecimal =
             let mutable trail = 0
             let mutable i = digits.Length - 1
             let mutable stop = false
+
             while i >= 0 && not stop do
                 if digits.[i] = '0' then
                     trail <- trail + 1
                     i <- i - 1
                 else
                     stop <- true
+
             let value = BigInteger.Parse(digits.Substring(0, digits.Length - trail))
             makeNormalizedUnsafe value (self.Scale - trail)
 
     /// Change a `BigDecimal` to the given scale (truncating toward zero when the
     /// scale shrinks).
     let scale (s: int) (self: BigDecimal) : BigDecimal =
-        if s > self.Scale then make (self.Value * BigInteger.Pow(bigint10, s - self.Scale)) s
-        elif s < self.Scale then make (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) s
-        else self
+        if s > self.Scale then
+            make (self.Value * BigInteger.Pow(bigint10, s - self.Scale)) s
+        elif s < self.Scale then
+            make (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) s
+        else
+            self
 
     // --- sign / magnitude ---
 
@@ -95,7 +101,10 @@ module BigDecimal =
     let isPositive (n: BigDecimal) : bool = n.Value > BigInteger.Zero
 
     let abs (n: BigDecimal) : BigDecimal =
-        if n.Value < BigInteger.Zero then make (-n.Value) n.Scale else n
+        if n.Value < BigInteger.Zero then
+            make (-n.Value) n.Scale
+        else
+            n
 
     let negate (n: BigDecimal) : BigDecimal = make (-n.Value) n.Scale
 
@@ -103,9 +112,12 @@ module BigDecimal =
 
     /// Numeric equivalence (scale-insensitive).
     let equivalence (self: BigDecimal) (that: BigDecimal) : bool =
-        if self.Scale > that.Scale then (scale self.Scale that).Value = self.Value
-        elif self.Scale < that.Scale then (scale that.Scale self).Value = that.Value
-        else self.Value = that.Value
+        if self.Scale > that.Scale then
+            (scale self.Scale that).Value = self.Value
+        elif self.Scale < that.Scale then
+            (scale that.Scale self).Value = that.Value
+        else
+            self.Value = that.Value
 
     let equals (self: BigDecimal) (that: BigDecimal) : bool = equivalence self that
 
@@ -114,10 +126,15 @@ module BigDecimal =
     /// Total order returning -1/0/1.
     let order (self: BigDecimal) (that: BigDecimal) : int =
         let scmp = compare (sign self) (sign that)
-        if scmp <> 0 then scmp
-        elif self.Scale > that.Scale then cmpBig self.Value (scale self.Scale that).Value
-        elif self.Scale < that.Scale then cmpBig (scale that.Scale self).Value that.Value
-        else cmpBig self.Value that.Value
+
+        if scmp <> 0 then
+            scmp
+        elif self.Scale > that.Scale then
+            cmpBig self.Value (scale self.Scale that).Value
+        elif self.Scale < that.Scale then
+            cmpBig (scale that.Scale self).Value that.Value
+        else
+            cmpBig self.Value that.Value
 
     let isLessThan (self: BigDecimal) (that: BigDecimal) : bool = order self that < 0
     let isLessThanOrEqualTo (self: BigDecimal) (that: BigDecimal) : bool = order self that <= 0
@@ -143,27 +160,39 @@ module BigDecimal =
     // --- arithmetic ---
 
     let sum (self: BigDecimal) (that: BigDecimal) : BigDecimal =
-        if that.Value = BigInteger.Zero then self
-        elif self.Value = BigInteger.Zero then that
-        elif self.Scale > that.Scale then make ((scale self.Scale that).Value + self.Value) self.Scale
-        elif self.Scale < that.Scale then make ((scale that.Scale self).Value + that.Value) that.Scale
-        else make (self.Value + that.Value) self.Scale
+        if that.Value = BigInteger.Zero then
+            self
+        elif self.Value = BigInteger.Zero then
+            that
+        elif self.Scale > that.Scale then
+            make ((scale self.Scale that).Value + self.Value) self.Scale
+        elif self.Scale < that.Scale then
+            make ((scale that.Scale self).Value + that.Value) that.Scale
+        else
+            make (self.Value + that.Value) self.Scale
 
     let sumAll (collection: BigDecimal seq) : BigDecimal = Seq.fold sum zero collection
 
     let multiply (self: BigDecimal) (that: BigDecimal) : BigDecimal =
-        if that.Value = BigInteger.Zero || self.Value = BigInteger.Zero then zero
-        else make (self.Value * that.Value) (self.Scale + that.Scale)
+        if that.Value = BigInteger.Zero || self.Value = BigInteger.Zero then
+            zero
+        else
+            make (self.Value * that.Value) (self.Scale + that.Scale)
 
     let multiplyAll (collection: BigDecimal seq) : BigDecimal =
         Seq.fold (fun acc n -> if n.Value = BigInteger.Zero then zero else multiply acc n) one collection
 
     let subtract (self: BigDecimal) (that: BigDecimal) : BigDecimal =
-        if that.Value = BigInteger.Zero then self
-        elif self.Value = BigInteger.Zero then make (-that.Value) that.Scale
-        elif self.Scale > that.Scale then make (self.Value - (scale self.Scale that).Value) self.Scale
-        elif self.Scale < that.Scale then make ((scale that.Scale self).Value - that.Value) that.Scale
-        else make (self.Value - that.Value) self.Scale
+        if that.Value = BigInteger.Zero then
+            self
+        elif self.Value = BigInteger.Zero then
+            make (-that.Value) that.Scale
+        elif self.Scale > that.Scale then
+            make (self.Value - (scale self.Scale that).Value) self.Scale
+        elif self.Scale < that.Scale then
+            make ((scale that.Scale self).Value - that.Value) that.Scale
+        else
+            make (self.Value - that.Value) self.Scale
 
     // --- division ---
 
@@ -171,7 +200,11 @@ module BigDecimal =
     let roundTerminal (n: bigint) : bigint =
         let s = string n
         let pos = if n >= BigInteger.Zero then 0 else 1
-        if int (string s.[pos]) < 5 then BigInteger.Zero else BigInteger.One
+
+        if int (string s.[pos]) < 5 then
+            BigInteger.Zero
+        else
+            BigInteger.One
 
     let private divideWithPrecision (num0: bigint) (den0: bigint) (scale0: int) (precision: int) : BigDecimal =
         let numNeg = num0 < BigInteger.Zero
@@ -180,16 +213,20 @@ module BigDecimal =
         let mutable num = if numNeg then -num0 else num0
         let den = if denNeg then -den0 else den0
         let mutable scaleAcc = scale0
+
         while num < den do
             num <- num * bigint10
             scaleAcc <- scaleAcc + 1
+
         let mutable quotient = num / den
         let mutable remainder = num % den
+
         if remainder = BigInteger.Zero then
             make (if negateResult then -quotient else quotient) scaleAcc
         else
             let mutable count = (string quotient).Length
             remainder <- remainder * bigint10
+
             while remainder <> BigInteger.Zero && count < precision do
                 let q = remainder / den
                 let r = remainder % den
@@ -197,40 +234,64 @@ module BigDecimal =
                 remainder <- r * bigint10
                 count <- count + 1
                 scaleAcc <- scaleAcc + 1
+
             if remainder <> BigInteger.Zero then
                 quotient <- quotient + roundTerminal (remainder / den)
+
             make (if negateResult then -quotient else quotient) scaleAcc
 
     /// Safe division; `None` when dividing by zero.
     let divide (self: BigDecimal) (that: BigDecimal) : BigDecimal option =
-        if that.Value = BigInteger.Zero then None
-        elif self.Value = BigInteger.Zero then Some zero
+        if that.Value = BigInteger.Zero then
+            None
+        elif self.Value = BigInteger.Zero then
+            Some zero
         else
             let sc = self.Scale - that.Scale
-            if self.Value = that.Value then Some(make BigInteger.One sc)
-            else Some(divideWithPrecision self.Value that.Value sc DEFAULT_PRECISION)
+
+            if self.Value = that.Value then
+                Some(make BigInteger.One sc)
+            else
+                Some(divideWithPrecision self.Value that.Value sc DEFAULT_PRECISION)
 
     /// Division that throws on a zero divisor.
     let divideUnsafe (self: BigDecimal) (that: BigDecimal) : BigDecimal =
-        if that.Value = BigInteger.Zero then invalidOp "Division by zero"
-        elif self.Value = BigInteger.Zero then zero
+        if that.Value = BigInteger.Zero then
+            invalidOp "Division by zero"
+        elif self.Value = BigInteger.Zero then
+            zero
         else
             let sc = self.Scale - that.Scale
-            if self.Value = that.Value then make BigInteger.One sc
-            else divideWithPrecision self.Value that.Value sc DEFAULT_PRECISION
+
+            if self.Value = that.Value then
+                make BigInteger.One sc
+            else
+                divideWithPrecision self.Value that.Value sc DEFAULT_PRECISION
 
     /// Safe decimal remainder; `None` when dividing by zero.
     let remainder (self: BigDecimal) (divisor: BigDecimal) : BigDecimal option =
-        if divisor.Value = BigInteger.Zero then None
+        if divisor.Value = BigInteger.Zero then
+            None
         else
-            let m = if self.Scale > divisor.Scale then self.Scale else divisor.Scale
+            let m =
+                if self.Scale > divisor.Scale then
+                    self.Scale
+                else
+                    divisor.Scale
+
             Some(make ((scale m self).Value % (scale m divisor).Value) m)
 
     /// Decimal remainder that throws on a zero divisor.
     let remainderUnsafe (self: BigDecimal) (divisor: BigDecimal) : BigDecimal =
-        if divisor.Value = BigInteger.Zero then invalidOp "Division by zero"
+        if divisor.Value = BigInteger.Zero then
+            invalidOp "Division by zero"
         else
-            let m = if self.Scale > divisor.Scale then self.Scale else divisor.Scale
+            let m =
+                if self.Scale > divisor.Scale then
+                    self.Scale
+                else
+                    divisor.Scale
+
             make ((scale m self).Value % (scale m divisor).Value) m
 
     // --- constructors from other representations ---
@@ -250,6 +311,7 @@ module BigDecimal =
                 | Some i ->
                     let trail = s.Substring(i + 1)
                     let baseStr = s.Substring(0, i)
+
                     match System.Int32.TryParse(trail, NumberStyles.AllowLeadingSign, inv) with
                     | true, exp when baseStr <> "" && finiteIntRegex.IsMatch(trail) -> Some(baseStr, exp)
                     | _ -> None
@@ -260,6 +322,7 @@ module BigDecimal =
             | Some(baseStr, exp) ->
                 let digits, offset =
                     let dot = baseStr.IndexOf '.'
+
                     if dot >= 0 then
                         let lead = baseStr.Substring(0, dot)
                         let trail = baseStr.Substring(dot + 1)
@@ -267,8 +330,10 @@ module BigDecimal =
                     else
                         baseStr, 0
 
-                if not (finiteIntRegex.IsMatch digits) then None
-                else Some(make (BigInteger.Parse(digits, NumberStyles.AllowLeadingSign, inv)) (offset - exp))
+                if not (finiteIntRegex.IsMatch digits) then
+                    None
+                else
+                    Some(make (BigInteger.Parse(digits, NumberStyles.AllowLeadingSign, inv)) (offset - exp))
 
     let fromStringUnsafe (s: string) : BigDecimal =
         match fromString s with
@@ -280,10 +345,12 @@ module BigDecimal =
             None
         else
             let str = n.ToString("R", inv)
+
             if str.IndexOfAny([| 'e'; 'E' |]) >= 0 then
                 fromString str
             else
                 let dot = str.IndexOf '.'
+
                 if dot >= 0 then
                     let lead = str.Substring(0, dot)
                     let trail = str.Substring(dot + 1)
@@ -300,18 +367,24 @@ module BigDecimal =
 
     let rec format (n: BigDecimal) : string =
         let normalized = normalize n
+
         if System.Math.Abs normalized.Scale >= 16 then
             toExponential normalized
         else
             let negative = normalized.Value < BigInteger.Zero
+
             let absolute =
-                if negative then (string normalized.Value).Substring(1) else string normalized.Value
+                if negative then
+                    (string normalized.Value).Substring(1)
+                else
+                    string normalized.Value
 
             let before, after =
                 if normalized.Scale >= absolute.Length then
                     "0", System.String('0', normalized.Scale - absolute.Length) + absolute
                 else
                     let location = absolute.Length - normalized.Scale
+
                     if location > absolute.Length then
                         absolute + System.String('0', location - absolute.Length), ""
                     else
@@ -329,7 +402,13 @@ module BigDecimal =
             let head = digits.Substring(0, 1)
             let tail = digits.Substring 1
             let signStr = if isNegative normalized then "-" else ""
-            let baseOut = if tail <> "" then signStr + head + "." + tail else signStr + head
+
+            let baseOut =
+                if tail <> "" then
+                    signStr + head + "." + tail
+                else
+                    signStr + head
+
             let exp = tail.Length - normalized.Scale
             baseOut + (if exp >= 0 then sprintf "e+%d" exp else sprintf "e%d" exp)
 
@@ -351,27 +430,37 @@ module BigDecimal =
 
     /// The digit at the given scale position (used by `half-even`/`half-odd`).
     let digitAt (s: int) (self: BigDecimal) : bigint =
-        if self.Scale < s then BigInteger.Zero
-        else (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) % bigint10
+        if self.Scale < s then
+            BigInteger.Zero
+        else
+            (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) % bigint10
 
     // --- rounding ---
 
     /// Truncate toward zero at the given scale.
     let truncate (s: int) (self: BigDecimal) : BigDecimal =
-        if self.Scale <= s then self
-        else make (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) s
+        if self.Scale <= s then
+            self
+        else
+            make (self.Value / BigInteger.Pow(bigint10, self.Scale - s)) s
 
     /// Round toward positive infinity at the given scale.
     let ceil (s: int) (self: BigDecimal) : BigDecimal =
         let truncated = truncate s self
-        if isPositive self && isLessThan truncated self then sum truncated (make BigInteger.One s)
-        else truncated
+
+        if isPositive self && isLessThan truncated self then
+            sum truncated (make BigInteger.One s)
+        else
+            truncated
 
     /// Round toward negative infinity at the given scale.
     let floor (s: int) (self: BigDecimal) : BigDecimal =
         let truncated = truncate s self
-        if isNegative self && isGreaterThan truncated self then sum truncated (make BigInteger.MinusOne s)
-        else truncated
+
+        if isNegative self && isGreaterThan truncated self then
+            sum truncated (make BigInteger.MinusOne s)
+        else
+            truncated
 
     let private big5 = BigInteger 5
     let private bigMinus5 = BigInteger -5
@@ -386,17 +475,28 @@ module BigDecimal =
         | HalfCeil -> floor s (sum self (make big5 (s + 1)))
         | HalfFloor -> ceil s (sum self (make bigMinus5 (s + 1)))
         | HalfToZero ->
-            if isNegative self then floor s (sum self (make big5 (s + 1)))
-            else ceil s (sum self (make bigMinus5 (s + 1)))
+            if isNegative self then
+                floor s (sum self (make big5 (s + 1)))
+            else
+                ceil s (sum self (make bigMinus5 (s + 1)))
         | HalfFromZero ->
-            if isNegative self then ceil s (sum self (make bigMinus5 (s + 1)))
-            else floor s (sum self (make big5 (s + 1)))
+            if isNegative self then
+                ceil s (sum self (make bigMinus5 (s + 1)))
+            else
+                floor s (sum self (make big5 (s + 1)))
         | HalfEven
         | HalfOdd ->
             let halfCeil = floor s (sum self (make big5 (s + 1)))
             let halfFloor = ceil s (sum self (make bigMinus5 (s + 1)))
             let digit = digitAt s halfCeil
             let even = digit % BigInteger 2 = BigInteger.Zero
+
             match mode with
-            | HalfEven -> if equals halfCeil halfFloor then halfCeil elif even then halfCeil else halfFloor
-            | _ -> if equals halfCeil halfFloor then halfCeil elif even then halfFloor else halfCeil
+            | HalfEven ->
+                if equals halfCeil halfFloor then halfCeil
+                elif even then halfCeil
+                else halfFloor
+            | _ ->
+                if equals halfCeil halfFloor then halfCeil
+                elif even then halfFloor
+                else halfCeil

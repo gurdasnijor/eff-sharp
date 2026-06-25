@@ -35,15 +35,18 @@ module Hash =
     let string (str: string) : int =
         let mutable h = 5381
         let mutable i = str.Length
+
         while i > 0 do
             i <- i - 1
             h <- (h * 33) ^^^ int str.[i]
+
         optimize h
 
     // JS `ToInt32`: truncate toward zero, then take the value mod 2^32 as a
     // signed 32-bit integer. Used by `number` to mirror `n | 0` and `n ^ m`.
     let private toInt32 (x: float) : int =
-        if System.Double.IsNaN x || System.Double.IsInfinity x then 0
+        if System.Double.IsNaN x || System.Double.IsInfinity x then
+            0
         else
             let t = System.Math.Truncate x
             let m = t % 4294967296.0
@@ -53,25 +56,34 @@ module Hash =
 
     /// Numeric hash, with distinct values for `NaN`, `Infinity`, `-Infinity`.
     let number (n: float) : int =
-        if System.Double.IsNaN n then string "NaN"
-        elif n = System.Double.PositiveInfinity then string "Infinity"
-        elif n = System.Double.NegativeInfinity then string "-Infinity"
+        if System.Double.IsNaN n then
+            string "NaN"
+        elif n = System.Double.PositiveInfinity then
+            string "Infinity"
+        elif n = System.Double.NegativeInfinity then
+            string "-Infinity"
         else
             let mutable h = toInt32 n
+
             if float h <> n then
                 h <- h ^^^ toInt32 (n * 4294967295.0)
+
             let mutable nn = n
+
             while nn > 4294967295.0 do
                 nn <- nn / 4294967295.0
                 h <- h ^^^ toInt32 nn
+
             optimize h
 
     /// Hashes an iterable by XOR-folding element hashes from the seed `6151`.
     /// Because the fold uses XOR, reordered inputs can collide.
     let array (xs: seq<int>) : int =
         let mutable h = 6151
+
         for el in xs do
             h <- h ^^^ el
+
         optimize h
 
     /// Generic hash dispatcher. Primitives use the numeric/string hashes above;

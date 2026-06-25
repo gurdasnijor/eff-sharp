@@ -34,7 +34,10 @@ let ``BigInt`` () =
 [<Fact>]
 let ``mapInput derives equivalence from a field`` () =
     // Person = name * age; compare by name only.
-    let eqPerson = Equivalence.strictEqual<string> () |> Equivalence.mapInput (fun (name, _age) -> name)
+    let eqPerson =
+        Equivalence.strictEqual<string> ()
+        |> Equivalence.mapInput (fun (name, _age) -> name)
+
     Assert.True(eqPerson ("a", 1) ("a", 2))
     Assert.True(eqPerson ("a", 1) ("a", 1))
     Assert.False(eqPerson ("a", 1) ("b", 1))
@@ -43,8 +46,12 @@ let ``mapInput derives equivalence from a field`` () =
 [<Fact>]
 let ``combine ANDs two equivalences`` () =
     // T = string * int * bool; combine equivalence on fst and snd.
-    let e0 = Equivalence.strictEqual<string> () |> Equivalence.mapInput (fun (a, _, _) -> a)
-    let e1 = Equivalence.strictEqual<int> () |> Equivalence.mapInput (fun (_, b, _) -> b)
+    let e0 =
+        Equivalence.strictEqual<string> () |> Equivalence.mapInput (fun (a, _, _) -> a)
+
+    let e1 =
+        Equivalence.strictEqual<int> () |> Equivalence.mapInput (fun (_, b, _) -> b)
+
     let eq = Equivalence.combine e1 e0
     Assert.True(eq ("a", 1, true) ("a", 1, true))
     Assert.True(eq ("a", 1, true) ("a", 1, false))
@@ -53,9 +60,15 @@ let ``combine ANDs two equivalences`` () =
 
 [<Fact>]
 let ``combineAll ANDs many equivalences`` () =
-    let e0 = Equivalence.strictEqual<string> () |> Equivalence.mapInput (fun (a, _, _) -> a)
-    let e1 = Equivalence.strictEqual<int> () |> Equivalence.mapInput (fun (_, b, _) -> b)
-    let e2 = Equivalence.strictEqual<bool> () |> Equivalence.mapInput (fun (_, _, c) -> c)
+    let e0 =
+        Equivalence.strictEqual<string> () |> Equivalence.mapInput (fun (a, _, _) -> a)
+
+    let e1 =
+        Equivalence.strictEqual<int> () |> Equivalence.mapInput (fun (_, b, _) -> b)
+
+    let e2 =
+        Equivalence.strictEqual<bool> () |> Equivalence.mapInput (fun (_, _, c) -> c)
+
     let eq = Equivalence.combineAll [ e0; e1; e2 ]
     Assert.True(eq ("a", 1, true) ("a", 1, true))
     Assert.False(eq ("a", 1, true) ("b", 1, true))
@@ -69,14 +82,16 @@ let ``combineAll empty is always true`` () =
 
 [<Fact>]
 let ``tuple2`` () =
-    let eq = Equivalence.tuple2 (Equivalence.strictEqual<string> ()) (Equivalence.strictEqual<int> ())
+    let eq =
+        Equivalence.tuple2 (Equivalence.strictEqual<string> ()) (Equivalence.strictEqual<int> ())
+
     Assert.True(eq ("a", 1) ("a", 1))
     Assert.False(eq ("a", 1) ("c", 1))
     Assert.False(eq ("a", 1) ("a", 2))
 
 [<Fact>]
 let ``Array compares element-wise with length`` () =
-    let eq = Equivalence.Array (Equivalence.strictEqual<int> ())
+    let eq = Equivalence.Array(Equivalence.strictEqual<int> ())
     Assert.True(eq [] [])
     Assert.True(eq [ 1; 2; 3 ] [ 1; 2; 3 ])
     Assert.False(eq [ 1; 2; 3 ] [ 1; 2; 4 ])

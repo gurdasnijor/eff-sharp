@@ -48,23 +48,49 @@ let ``remove`` () =
 [<Fact>]
 let ``chunksOf`` () =
     Assert.Equal(Chunk.empty, Chunk.chunksOf 2 Chunk.empty)
+
     Assert.Equal(
         Chunk.make [ Chunk.make [ 1; 2 ]; Chunk.make [ 3; 4 ]; Chunk.make [ 5 ] ],
-        Chunk.chunksOf 2 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+        Chunk.chunksOf 2 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
+
     Assert.Equal(
         Chunk.make [ Chunk.make [ 1; 2 ]; Chunk.make [ 3; 4 ]; Chunk.make [ 5; 6 ] ],
-        Chunk.chunksOf 2 (Chunk.make [ 1; 2; 3; 4; 5; 6 ]))
+        Chunk.chunksOf 2 (Chunk.make [ 1; 2; 3; 4; 5; 6 ])
+    )
+
     Assert.Equal(
-        Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ]; Chunk.make [ 3 ]; Chunk.make [ 4 ]; Chunk.make [ 5 ] ],
-        Chunk.chunksOf 1 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+        Chunk.make
+            [ Chunk.make [ 1 ]
+              Chunk.make [ 2 ]
+              Chunk.make [ 3 ]
+              Chunk.make [ 4 ]
+              Chunk.make [ 5 ] ],
+        Chunk.chunksOf 1 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
+
     Assert.Equal(Chunk.make [ Chunk.make [ 1; 2; 3; 4; 5 ] ], Chunk.chunksOf 5 (Chunk.make [ 1; 2; 3; 4; 5 ]))
     // out of bounds (n <= 0) yields singletons
     Assert.Equal(
-        Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ]; Chunk.make [ 3 ]; Chunk.make [ 4 ]; Chunk.make [ 5 ] ],
-        Chunk.chunksOf 0 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+        Chunk.make
+            [ Chunk.make [ 1 ]
+              Chunk.make [ 2 ]
+              Chunk.make [ 3 ]
+              Chunk.make [ 4 ]
+              Chunk.make [ 5 ] ],
+        Chunk.chunksOf 0 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
+
     Assert.Equal(
-        Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ]; Chunk.make [ 3 ]; Chunk.make [ 4 ]; Chunk.make [ 5 ] ],
-        Chunk.chunksOf -1 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+        Chunk.make
+            [ Chunk.make [ 1 ]
+              Chunk.make [ 2 ]
+              Chunk.make [ 3 ]
+              Chunk.make [ 4 ]
+              Chunk.make [ 5 ] ],
+        Chunk.chunksOf -1 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
+
     Assert.Equal(Chunk.make [ Chunk.make [ 1; 2; 3; 4; 5 ] ], Chunk.chunksOf 10 (Chunk.make [ 1; 2; 3; 4; 5 ]))
 
 [<Fact>]
@@ -82,13 +108,15 @@ let ``toReadonlyArray`` () =
     Assert.Equal<int[]>([||], Chunk.toReadonlyArray Chunk.empty<int>)
     // a moderately large chunk built by repeated appendAll round-trips intact
     let mutable chunk = Chunk.empty<int>
-    for i in 0 .. 999 do
+
+    for i in 0..999 do
         chunk <- Chunk.appendAll (Chunk.singleton i) chunk
-    Assert.Equal<int[]>(Array.rev [| 0 .. 999 |], Chunk.toReadonlyArray chunk)
+
+    Assert.Equal<int[]>(Array.rev [| 0..999 |], Chunk.toReadonlyArray chunk)
 
 [<Fact>]
 let ``fromSeq`` () =
-    let myIterable = seq { for i in 1 .. 5 -> i }
+    let myIterable = seq { for i in 1..5 -> i }
     Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2; 3; 4; 5 |], Chunk.fromSeq myIterable)
 
 [<Fact>]
@@ -99,8 +127,11 @@ let ``get`` () =
 
 [<Fact>]
 let ``getUnsafe`` () =
-    Assert.Throws<System.Exception>(fun () -> Chunk.getUnsafe 4 Chunk.empty |> ignore) |> ignore
-    Assert.Throws<System.Exception>(fun () -> Chunk.getUnsafe 4 (Chunk.append 1 Chunk.empty) |> ignore) |> ignore
+    Assert.Throws<System.Exception>(fun () -> Chunk.getUnsafe 4 Chunk.empty |> ignore)
+    |> ignore
+
+    Assert.Throws<System.Exception>(fun () -> Chunk.getUnsafe 4 (Chunk.append 1 Chunk.empty) |> ignore)
+    |> ignore
     // in-bounds returns the value
     Assert.Equal(1, Chunk.getUnsafe 1 (Chunk.append 3 (Chunk.make [ 0; 1; 2 ])))
     Assert.Equal(1, Chunk.getUnsafe 1 (Chunk.make [ 0; 1; 2 ]))
@@ -111,8 +142,10 @@ let ``append`` () =
     let a = [| 1; 2; 3 |]
     let b = [| 4; 5; 6 |]
     let mutable chunk = Chunk.fromArrayUnsafe a
+
     for e in b do
         chunk <- Chunk.append e chunk
+
     Assert.Equal<int[]>(Array.append a b, Chunk.toReadonlyArray chunk)
 
 [<Fact>]
@@ -128,8 +161,10 @@ let ``prepend`` () =
     let a = [| 1; 2; 3 |]
     let b = [| 7; 8; 9 |]
     let mutable chunk = Chunk.fromArrayUnsafe a
+
     for i in b.Length - 1 .. -1 .. 0 do
         chunk <- Chunk.prepend b.[i] chunk
+
     Assert.Equal<int[]>(Array.append b a, Chunk.toReadonlyArray chunk)
 
 [<Fact>]
@@ -138,7 +173,11 @@ let ``take`` () =
     Assert.Equal(Chunk.make [ 1; 2; 3 ], Chunk.take 5 (Chunk.make [ 1; 2; 3 ]))
     Assert.Equal(Chunk.make [ 1; 2; 3 ], Chunk.take 3 (Chunk.take 4 (Chunk.make [ 1; 2; 3; 4; 5 ])))
     Assert.Equal(Chunk.make [ 1 ], Chunk.take 2 (Chunk.make [ 1 ]))
-    Assert.Equal<int[]>([| 1; 2 |], Chunk.toReadonlyArray (Chunk.take 2 (Chunk.appendAll (Chunk.singleton 1) (Chunk.make [ 2; 3; 4 ]))))
+
+    Assert.Equal<int[]>(
+        [| 1; 2 |],
+        Chunk.toReadonlyArray (Chunk.take 2 (Chunk.appendAll (Chunk.singleton 1) (Chunk.make [ 2; 3; 4 ])))
+    )
 
 [<Fact>]
 let ``make returns the right size`` () =
@@ -153,7 +192,11 @@ let ``drop`` () =
     let self = Chunk.make [ 0; 1 ]
     Assert.Equal(self, Chunk.drop 0 self)
     Assert.Equal<int[]>([| 2; 3 |], Chunk.toReadonlyArray (Chunk.drop 1 (Chunk.drop 1 (Chunk.make [ 0; 1; 2; 3 ]))))
-    Assert.Equal<int[]>([| 3; 4 |], Chunk.toReadonlyArray (Chunk.drop 2 (Chunk.appendAll (Chunk.make [ 1 ]) (Chunk.make [ 2; 3; 4 ]))))
+
+    Assert.Equal<int[]>(
+        [| 3; 4 |],
+        Chunk.toReadonlyArray (Chunk.drop 2 (Chunk.appendAll (Chunk.make [ 1 ]) (Chunk.make [ 2; 3; 4 ])))
+    )
 
 [<Fact>]
 let ``dropRight`` () =
@@ -167,9 +210,21 @@ let ``dropWhile`` () =
 
 [<Fact>]
 let ``concat (appendAll)`` () =
-    Assert.Equal(Chunk.fromArrayUnsafe [| 0; 1; 2; 3 |], Chunk.appendAll (Chunk.fromArrayUnsafe [| 0; 1 |]) (Chunk.fromArrayUnsafe [| 2; 3 |]))
-    Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2; 3 |], Chunk.appendAll (Chunk.fromArrayUnsafe [| 1; 2 |]) (Chunk.fromArrayUnsafe [| 3 |]))
-    Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2; 3; 4 |], Chunk.appendAll (Chunk.fromArrayUnsafe [| 1 |]) (Chunk.fromArrayUnsafe [| 2; 3; 4 |]))
+    Assert.Equal(
+        Chunk.fromArrayUnsafe [| 0; 1; 2; 3 |],
+        Chunk.appendAll (Chunk.fromArrayUnsafe [| 0; 1 |]) (Chunk.fromArrayUnsafe [| 2; 3 |])
+    )
+
+    Assert.Equal(
+        Chunk.fromArrayUnsafe [| 1; 2; 3 |],
+        Chunk.appendAll (Chunk.fromArrayUnsafe [| 1; 2 |]) (Chunk.fromArrayUnsafe [| 3 |])
+    )
+
+    Assert.Equal(
+        Chunk.fromArrayUnsafe [| 1; 2; 3; 4 |],
+        Chunk.appendAll (Chunk.fromArrayUnsafe [| 1 |]) (Chunk.fromArrayUnsafe [| 2; 3; 4 |])
+    )
+
     Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2 |], Chunk.appendAll (Chunk.fromArrayUnsafe [| 1; 2 |]) Chunk.empty)
     Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2 |], Chunk.appendAll Chunk.empty (Chunk.fromArrayUnsafe [| 1; 2 |]))
     // chained
@@ -179,6 +234,7 @@ let ``concat (appendAll)`` () =
         |> fun c -> Chunk.appendAll c (Chunk.fromArrayUnsafe [| 2 |])
         |> fun c -> Chunk.appendAll c (Chunk.fromArrayUnsafe [| 3; 4 |])
         |> fun c -> Chunk.appendAll c (Chunk.fromArrayUnsafe [| 5; 6 |])
+
     Assert.Equal(Chunk.fromArrayUnsafe [| 1; 2; 3; 4; 5; 6 |], result)
 
 [<Fact>]
@@ -192,7 +248,10 @@ let ``zip`` () =
 let ``zipWith drops the leftover`` () =
     let left = Chunk.drop 1 (Chunk.make [ -1; 0; 1 ])
     let right = Chunk.drop 1 (Chunk.make [ 1; 0; 0; 1 ])
-    let zipped = Chunk.zipWith left (Chunk.take (Chunk.size left) right) (fun a b -> (a, b))
+
+    let zipped =
+        Chunk.zipWith left (Chunk.take (Chunk.size left) right) (fun a b -> (a, b))
+
     Assert.Equal<(int * int)[]>([| (0, 0); (1, 0) |], Chunk.toArray zipped)
 
 [<Fact>]
@@ -209,19 +268,31 @@ let ``map`` () =
 
 [<Fact>]
 let ``mapAccum`` () =
-    let state, chunk = Chunk.mapAccum (Chunk.make [ 1; 2; 3 ]) "-" (fun s a -> (s + string a, a + 1))
+    let state, chunk =
+        Chunk.mapAccum (Chunk.make [ 1; 2; 3 ]) "-" (fun s a -> (s + string a, a + 1))
+
     Assert.Equal("-123", state)
     Assert.Equal(Chunk.make [ 2; 3; 4 ], chunk)
 
 [<Fact>]
 let ``partition`` () =
-    let p1 = Chunk.partition Chunk.empty<int> (fun n _ -> if n > 2 then Ok n else Error n)
+    let p1 =
+        Chunk.partition Chunk.empty<int> (fun n _ -> if n > 2 then Ok n else Error n)
+
     Assert.Equal((Chunk.empty, Chunk.empty), p1)
-    let p2 = Chunk.partition (Chunk.make [ 1; 3 ]) (fun n _ -> if n > 2 then Ok n else Error n)
+
+    let p2 =
+        Chunk.partition (Chunk.make [ 1; 3 ]) (fun n _ -> if n > 2 then Ok n else Error n)
+
     Assert.Equal((Chunk.make [ 1 ], Chunk.make [ 3 ]), p2)
+
     let p3 =
         Chunk.partition (Chunk.make [ 1; 2 ]) (fun n i ->
-            if n + i > 2 then Ok(n + i) else Error(sprintf "negative:%d" (n + i)))
+            if n + i > 2 then
+                Ok(n + i)
+            else
+                Error(sprintf "negative:%d" (n + i)))
+
     Assert.Equal((Chunk.make [ "negative:1" ], Chunk.make [ 3 ]), p3)
 
 [<Fact>]
@@ -247,10 +318,16 @@ let ``split`` () =
     Assert.Equal(Chunk.empty, Chunk.split 2 Chunk.empty)
     Assert.Equal(Chunk.make [ Chunk.make [ 1 ] ], Chunk.split 2 (Chunk.make [ 1 ]))
     Assert.Equal(Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ] ], Chunk.split 2 (Chunk.make [ 1; 2 ]))
-    Assert.Equal(Chunk.make [ Chunk.make [ 1; 2; 3 ]; Chunk.make [ 4; 5 ] ], Chunk.split 2 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+
+    Assert.Equal(
+        Chunk.make [ Chunk.make [ 1; 2; 3 ]; Chunk.make [ 4; 5 ] ],
+        Chunk.split 2 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
+
     Assert.Equal(
         Chunk.make [ Chunk.make [ 1; 2 ]; Chunk.make [ 3; 4 ]; Chunk.make [ 5 ] ],
-        Chunk.split 3 (Chunk.make [ 1; 2; 3; 4; 5 ]))
+        Chunk.split 3 (Chunk.make [ 1; 2; 3; 4; 5 ])
+    )
 
 [<Fact>]
 let ``tail`` () =
@@ -260,24 +337,26 @@ let ``tail`` () =
 [<Fact>]
 let ``filter`` () =
     Assert.Equal(Chunk.make [ 1; 3 ], Chunk.filter (fun n -> n % 2 = 1) (Chunk.make [ 1; 2; 3 ]))
-    Assert.Equal(
-        Chunk.make [ Some 3; Some 1 ],
-        Chunk.filter Option.isSome (Chunk.make [ Some 3; None; Some 1 ]))
+    Assert.Equal(Chunk.make [ Some 3; Some 1 ], Chunk.filter Option.isSome (Chunk.make [ Some 3; None; Some 1 ]))
 
 [<Fact>]
 let ``filterMap`` () =
     Assert.Equal(
         Chunk.make [ 4; 8 ],
-        Chunk.filterMap (Chunk.make [ 1; 2; 3; 4 ]) (fun n _ -> if n % 2 = 0 then Ok(n * 2) else Error()))
+        Chunk.filterMap (Chunk.make [ 1; 2; 3; 4 ]) (fun n _ -> if n % 2 = 0 then Ok(n * 2) else Error())
+    )
+
     Assert.Equal(
         Chunk.make [ 1; 5 ],
-        Chunk.filterMap (Chunk.make [ 1; 2; 3; 4 ]) (fun n i -> if i % 2 = 0 then Ok(n + i) else Error()))
+        Chunk.filterMap (Chunk.make [ 1; 2; 3; 4 ]) (fun n i -> if i % 2 = 0 then Ok(n + i) else Error())
+    )
 
 [<Fact>]
 let ``filterMapWhile`` () =
     Assert.Equal(
         Chunk.make [ 1; 3 ],
-        Chunk.filterMapWhile (Chunk.make [ 1; 3; 4; 5 ]) (fun n -> if n % 2 = 1 then Ok n else Error()))
+        Chunk.filterMapWhile (Chunk.make [ 1; 3; 4; 5 ]) (fun n -> if n % 2 = 1 then Ok n else Error())
+    )
 
 [<Fact>]
 let ``compact`` () =
@@ -294,16 +373,19 @@ let ``dedupeAdjacent`` () =
 [<Fact>]
 let ``flatMap`` () =
     Assert.Equal(Chunk.make [ 1; 2 ], Chunk.flatMap (Chunk.make [ 1 ]) (fun n _ -> Chunk.make [ n; n + 1 ]))
+
     Assert.Equal(
         Chunk.make [ 1; 2; 2; 3; 3; 4 ],
-        Chunk.flatMap (Chunk.make [ 1; 2; 3 ]) (fun n _ -> Chunk.make [ n; n + 1 ]))
+        Chunk.flatMap (Chunk.make [ 1; 2; 3 ]) (fun n _ -> Chunk.make [ n; n + 1 ])
+    )
 
 [<Fact>]
 let ``flatMap passes the element index`` () =
     // parity with map/forEach: f gets (a, index)
     Assert.Equal(
         Chunk.make [ 0; 10; 1; 11; 2; 12 ],
-        Chunk.flatMap (Chunk.make [ 0; 1; 2 ]) (fun n i -> Chunk.make [ i; n + 10 ]))
+        Chunk.flatMap (Chunk.make [ 0; 1; 2 ]) (fun n i -> Chunk.make [ i; n + 10 ])
+    )
 
 [<Fact>]
 let ``union`` () =
@@ -326,7 +408,10 @@ let ``isEmpty`` () =
 let ``lastUnsafe`` () =
     Assert.Equal(1, Chunk.lastUnsafe (Chunk.make [ 1 ]))
     Assert.Equal(3, Chunk.lastUnsafe (Chunk.make [ 1; 2; 3 ]))
-    let ex = Assert.Throws<System.Exception>(fun () -> Chunk.lastUnsafe Chunk.empty |> ignore)
+
+    let ex =
+        Assert.Throws<System.Exception>(fun () -> Chunk.lastUnsafe Chunk.empty |> ignore)
+
     Assert.Equal("Index out of bounds: -1", ex.Message)
 
 [<Fact>]
@@ -353,9 +438,7 @@ let ``dedupe`` () =
 [<Fact>]
 let ``unzip`` () =
     Assert.Equal((Chunk.empty, Chunk.empty), Chunk.unzip Chunk.empty)
-    Assert.Equal(
-        (Chunk.make [ "a"; "b" ], Chunk.make [ 1; 2 ]),
-        Chunk.unzip (Chunk.make [ ("a", 1); ("b", 2) ]))
+    Assert.Equal((Chunk.make [ "a"; "b" ], Chunk.make [ 1; 2 ]), Chunk.unzip (Chunk.make [ ("a", 1); ("b", 2) ]))
 
 [<Fact>]
 let ``reverse`` () =
@@ -367,7 +450,8 @@ let ``reverse`` () =
 let ``flatten`` () =
     Assert.Equal(
         Chunk.make [ 1; 2; 3 ],
-        Chunk.flatten (Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ]; Chunk.make [ 3 ] ]))
+        Chunk.flatten (Chunk.make [ Chunk.make [ 1 ]; Chunk.make [ 2 ]; Chunk.make [ 3 ] ])
+    )
 
 [<Fact>]
 let ``makeBy`` () =
@@ -401,9 +485,7 @@ let ``forEach`` () =
 [<Fact>]
 let ``sortWith`` () =
     let chunk = Chunk.make [ {| a = "a"; b = 2 |}; {| a = "b"; b = 1 |} ]
-    Assert.Equal(
-        Chunk.make [ {| a = "b"; b = 1 |}; {| a = "a"; b = 2 |} ],
-        Chunk.sortWith chunk (fun x -> x.b) compare)
+    Assert.Equal(Chunk.make [ {| a = "b"; b = 1 |}; {| a = "a"; b = 2 |} ], Chunk.sortWith chunk (fun x -> x.b) compare)
 
 [<Fact>]
 let ``makeEquivalence`` () =
@@ -417,9 +499,7 @@ let ``makeEquivalence`` () =
 let ``differenceWith`` () =
     let eq (a: {| id: int |}) (b: {| id: int |}) = a.id = b.id
     let chunk = Chunk.make [ {| id = 1 |}; {| id = 2 |}; {| id = 3 |} ]
-    Assert.Equal(
-        Chunk.make [ {| id = 3 |} ],
-        Chunk.differenceWith eq chunk (Chunk.make [ {| id = 1 |}; {| id = 2 |} ]))
+    Assert.Equal(Chunk.make [ {| id = 3 |} ], Chunk.differenceWith eq chunk (Chunk.make [ {| id = 1 |}; {| id = 2 |} ]))
     Assert.Equal(Chunk.empty, Chunk.differenceWith eq Chunk.empty chunk)
     Assert.Equal(chunk, Chunk.differenceWith eq chunk Chunk.empty)
     Assert.Equal(Chunk.empty, Chunk.differenceWith eq chunk chunk)
@@ -439,6 +519,7 @@ let ``difference`` () =
 [<Fact>]
 let ``headUnsafe`` () =
     Assert.Equal(1, Chunk.headUnsafe (Chunk.make [ 1; 2; 3 ]))
+
     Assert.Throws<System.Exception>(fun () -> Chunk.headUnsafe (Chunk.empty: Chunk<int>) |> ignore)
     |> ignore
 
@@ -507,13 +588,19 @@ let ``every`` () =
 let ``reduce`` () =
     Assert.Equal(15, Chunk.reduce (Chunk.make [ 1; 2; 3; 4; 5 ]) 0 (fun acc n _ -> acc + n))
     // index-aware, left to right
-    Assert.Equal("0:a 1:b 2:c ", Chunk.reduce (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w))
+    Assert.Equal(
+        "0:a 1:b 2:c ",
+        Chunk.reduce (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w)
+    )
 
 [<Fact>]
 let ``reduceRight`` () =
     Assert.Equal(10, Chunk.reduceRight (Chunk.make [ 1; 2; 3; 4 ]) 0 (fun acc n _ -> acc + n))
     // right to left, with original index
-    Assert.Equal("2:c 1:b 0:a ", Chunk.reduceRight (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w))
+    Assert.Equal(
+        "2:c 1:b 0:a ",
+        Chunk.reduceRight (Chunk.make [ "a"; "b"; "c" ]) "" (fun acc w i -> acc + sprintf "%d:%s " i w)
+    )
 
 [<Fact>]
 let ``join`` () =

@@ -18,7 +18,6 @@ namespace Effect
 ///     unnecessary.
 ///   * `DigestAlgorithm` is a DU with a `.Name` (the upstream string).
 ///   * The `TypeId` brand is dropped (the F# type is the guard).
-
 /// Digest algorithms supported by the `Crypto` service. (`DigestAlgorithm`)
 type DigestAlgorithm =
     | SHA1
@@ -107,6 +106,7 @@ module Crypto =
         : Crypto =
         let nextDoubleUnsafe () =
             let bytes = randomBytesUnsafe 7
+
             let value =
                 float (bytes.[0] &&& 0x1fuy) * 2.0 ** 48.0
                 + float bytes.[1] * 2.0 ** 40.0
@@ -118,7 +118,8 @@ module Crypto =
 
             value / 2.0 ** 53.0
 
-        let nextIntUnsafe () = floor (nextDoubleUnsafe () * (maxSafe - minSafe + 1.0)) + minSafe
+        let nextIntUnsafe () =
+            floor (nextDoubleUnsafe () * (maxSafe - minSafe + 1.0)) + minSafe
 
         { NextDoubleUnsafe = nextDoubleUnsafe
           NextIntUnsafe = nextIntUnsafe
@@ -139,7 +140,8 @@ module Crypto =
           RandomShuffle =
             fun (elements: obj) ->
                 Effect.sync (fun () ->
-                    let buffer = (elements :?> System.Collections.IEnumerable) |> Seq.cast<obj> |> Seq.toArray
+                    let buffer =
+                        (elements :?> System.Collections.IEnumerable) |> Seq.cast<obj> |> Seq.toArray
 
                     for i in buffer.Length - 1 .. -1 .. 1 do
                         let index = min i (int (floor (nextDoubleUnsafe () * float (i + 1))))

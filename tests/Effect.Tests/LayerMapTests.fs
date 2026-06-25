@@ -56,10 +56,8 @@ let private awaitCount (latch: CountLatch) (n: int) : Effect<unit, string, unit>
 /// service it provides is irrelevant; the resource lifecycle is what we observe).
 let private makeLayer (acquired: CountLatch) (released: CountLatch) (key: string) : Layer<string, unit> =
     Layer.scoped dummyTag (fun scope ->
-        Scope.acquireRelease
-            scope
-            (Effect.sync (fun () -> acquired.Add key))
-            (fun _ _ -> Effect.sync (fun () -> released.Add key)))
+        Scope.acquireRelease scope (Effect.sync (fun () -> acquired.Add key)) (fun _ _ ->
+            Effect.sync (fun () -> released.Add key)))
 
 let private getScoped (lm: LayerMap<string, string>) (key: string) : Effect<unit, string, unit> =
     Scope.scoped (fun caller -> LayerMap.contextEffect lm key caller |> Effect.map ignore)
@@ -67,9 +65,14 @@ let private getScoped (lm: LayerMap<string, string>) (key: string) : Effect<unit
 [<Fact>]
 let ``make supports per-key idle time-to-live`` () =
     let tc = TestClock.make ()
-    let acquired = CountLatch ()
-    let released = CountLatch ()
-    let idleTTL (key: string) = if key.StartsWith "short" then Duration.millis 50.0 else Duration.millis 300.0
+    let acquired = CountLatch()
+    let released = CountLatch()
+
+    let idleTTL (key: string) =
+        if key.StartsWith "short" then
+            Duration.millis 50.0
+        else
+            Duration.millis 300.0
 
     let program: Effect<unit, string, unit> =
         effect {
@@ -100,13 +103,19 @@ let ``make supports per-key idle time-to-live`` () =
 [<Fact>]
 let ``fromRecord supports per-key idle time-to-live`` () =
     let tc = TestClock.make ()
-    let acquired = CountLatch ()
-    let released = CountLatch ()
+    let acquired = CountLatch()
+    let released = CountLatch()
 
     let layers =
-        Map.ofList [ "short", makeLayer acquired released "short"; "long", makeLayer acquired released "long" ]
+        Map.ofList
+            [ "short", makeLayer acquired released "short"
+              "long", makeLayer acquired released "long" ]
 
-    let idleTTL (key: string) = if key = "short" then Duration.millis 50.0 else Duration.millis 300.0
+    let idleTTL (key: string) =
+        if key = "short" then
+            Duration.millis 50.0
+        else
+            Duration.millis 300.0
 
     let program: Effect<unit, string, unit> =
         effect {
@@ -131,8 +140,8 @@ let ``fromRecord supports per-key idle time-to-live`` () =
 
 [<Fact>]
 let ``a key is built once and shared by concurrent borrowers`` () =
-    let acquired = CountLatch ()
-    let released = CountLatch ()
+    let acquired = CountLatch()
+    let released = CountLatch()
 
     let program: Effect<unit, string, unit> =
         effect {
@@ -161,14 +170,20 @@ let ``a key is built once and shared by concurrent borrowers`` () =
 [<Fact>]
 let ``invalidate releases an idle entry immediately`` () =
     let tc = TestClock.make ()
-    let acquired = CountLatch ()
-    let released = CountLatch ()
+    let acquired = CountLatch()
+    let released = CountLatch()
 
     let program: Effect<unit, string, unit> =
         effect {
             let mapScope = Scope.make<string, unit> ()
             // a long TTL so the entry would not auto-evict during the test
-            let! lm = LayerMap.makeWithClock (TestClock.clock tc) mapScope (fun _ -> Duration.millis 10_000.0) (makeLayer acquired released)
+            let! lm =
+                LayerMap.makeWithClock
+                    (TestClock.clock tc)
+                    mapScope
+                    (fun _ -> Duration.millis 10_000.0)
+                    (makeLayer acquired released)
+
             do! getScoped lm "k"
 
             do!

@@ -33,7 +33,7 @@ let routeOf (level: LogLevel) : string =
 /// `Logger.log` writes through the default logger *if* the level clears the
 /// minimum threshold. Debug/Trace sit below the default Info gate, so they are
 /// silently dropped — `LogLevel.isEnabled` is the predicate behind that.
-let logging : Effect<unit, string, unit> =
+let logging: Effect<unit, string, unit> =
     effect {
         do! Logger.log LogLevel.Info (box "service started")
         do! Logger.log LogLevel.Warn (box "cache nearly full")
@@ -47,13 +47,15 @@ let logging : Effect<unit, string, unit> =
 /// Build an in-memory console by copy-updating the live one — F# record update
 /// overrides just the methods we care about; everything else stays live.
 let makeCapturingConsole (sink: ResizeArray<string>) : Console =
-    let render (args: obj[]) = args |> Array.map string |> String.concat " "
+    let render (args: obj[]) =
+        args |> Array.map string |> String.concat " "
+
     { Console.live with
         Info = fun args -> sink.Add("INFO " + render args)
         Warn = fun args -> sink.Add("WARN " + render args) }
 
 /// A program written against the abstract `Console` service (env = `Context`).
-let consoleProgram : Effect<unit, string, Context> =
+let consoleProgram: Effect<unit, string, Context> =
     effect {
         do! Console.info [| box "processing order"; box 1001 |]
         do! Console.warn [| box "retrying payment" |]
@@ -72,8 +74,11 @@ let spanSummary (s: Span) : string =
 let run () : unit =
     section "08 Observability"
 
-    printfn "level routing    : Error→%s · Warn→%s · Info→%s"
-        (routeOf LogLevel.Error) (routeOf LogLevel.Warn) (routeOf LogLevel.Info)
+    printfn
+        "level routing    : Error→%s · Warn→%s · Info→%s"
+        (routeOf LogLevel.Error)
+        (routeOf LogLevel.Warn)
+        (routeOf LogLevel.Info)
 
     printfn "Logger.log (Debug is gated out by the Info minimum):"
     runUnit logging
@@ -81,14 +86,31 @@ let run () : unit =
     // Provide the capturing console; the SAME program now records instead of
     // printing. This is the payoff of routing IO through a Context service.
     let captured = ResizeArray<string>()
-    Effect.provideService Console.tag (makeCapturingConsole captured) consoleProgram |> runUnit
+
+    Effect.provideService Console.tag (makeCapturingConsole captured) consoleProgram
+    |> runUnit
+
     printfn "captured console : %A" (List.ofSeq captured)
 
     // Tracing: a server span and a child client span. The child inherits the
     // parent's TraceId — that propagation is what stitches a distributed trace.
     let tracer = Tracer.make ()
-    let parent = tracer.Span("http.request", { Tracer.defaultSpanOptions with Kind = Server })
-    let child = tracer.Span("db.query", { Tracer.defaultSpanOptions with Kind = Client; Parent = Some(LiveSpan parent) })
+
+    let parent =
+        tracer.Span(
+            "http.request",
+            { Tracer.defaultSpanOptions with
+                Kind = Server }
+        )
+
+    let child =
+        tracer.Span(
+            "db.query",
+            { Tracer.defaultSpanOptions with
+                Kind = Client
+                Parent = Some(LiveSpan parent) }
+        )
+
     child.Attributes <- child.Attributes |> Map.add "db.system" (box "postgres")
     child.Status <- Ended(0L, 12L) // pretend the query took 12ms
 

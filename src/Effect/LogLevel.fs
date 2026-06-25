@@ -59,4 +59,5 @@ module LogLevel =
     let isEnabled (self: LogLevel) (minimum: LogLevel) : bool = isGreaterThanOrEqualTo self minimum
 
     /// Upstream label string. (LogLevel toString)
-    let label (self: LogLevel) : string = (sprintf "%A" self).Replace("LogLevel.", "").ToUpperInvariant()
+    let label (self: LogLevel) : string =
+        (sprintf "%A" self).Replace("LogLevel.", "").ToUpperInvariant()

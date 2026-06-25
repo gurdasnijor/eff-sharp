@@ -17,7 +17,7 @@ namespace Effect
 ///   - `symbolRedactable` is kept as a `[<Literal>]` brand for parity only.
 type IRedactable =
     /// Return the redacted representation of this value.
-    abstract member Redact : unit -> obj
+    abstract member Redact: unit -> obj
 
 [<RequireQualifiedAccess>]
 module Redactable =

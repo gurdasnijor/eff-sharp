@@ -18,9 +18,11 @@ let ``memoizes the layer build`` () =
     let count = ref 0
 
     let layer: Layer<string, unit> =
-        Layer.effectContext (Effect.sync (fun () ->
-            incr count
-            Context.empty))
+        Layer.effectContext (
+            Effect.sync (fun () ->
+                incr count
+                Context.empty)
+        )
 
     let runtime = ManagedRuntime.make layer
     ManagedRuntime.runSync runtime (Effect.succeed ()) |> ignore
@@ -50,9 +52,11 @@ let ``allows sharing a MemoMap`` () =
     let count = ref 0
 
     let layer: Layer<string, unit> =
-        Layer.effectContext (Effect.sync (fun () ->
-            incr count
-            Context.empty))
+        Layer.effectContext (
+            Effect.sync (fun () ->
+                incr count
+                Context.empty)
+        )
 
     let runtimeA = ManagedRuntime.make layer
     let runtimeB = ManagedRuntime.makeWith (ManagedRuntime.memoMap runtimeA) layer
@@ -66,7 +70,12 @@ let ``allows sharing a MemoMap`` () =
 let ``runPromise resolves to the value`` () =
     let tag = Tag.make<string> "string"
     let runtime = ManagedRuntime.make (Layer.succeed tag "done")
-    let result = ManagedRuntime.runPromise runtime (Effect.service tag) |> Async.AwaitTask |> Async.RunSynchronously
+
+    let result =
+        ManagedRuntime.runPromise runtime (Effect.service tag)
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
     Effect.runSync () (ManagedRuntime.disposeEffect runtime) |> ignore
     Assert.Equal("done", result)
 

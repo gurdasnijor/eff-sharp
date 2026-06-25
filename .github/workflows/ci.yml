@@ -1,0 +1,79 @@
+name: CI
+
+# eff-sharp is an F# port of Effect-TS whose runtime target is Node/TS (via Fable).
+# Its build/test toolchain, however, is the .NET SDK — so CI runs on .NET. There is
+# no Fable/JS/npm pipeline in the repo yet; transpilation is a future, out-of-scope
+# phase. The xUnit suite (tests/Effect.Tests) is the gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: build · test · format · lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so the format gate can diff changed .fs files against the
+          # PR base / origin/main (see tools/ci/check.sh, step 5).
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          # Pinned to this repo's SDK; global.json (rollForward latestFeature)
+          # keeps the resolved version deterministic.
+          dotnet-version: '10.0.301'
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.fsproj', '.config/dotnet-tools.json', 'global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Run CI gate (tools/ci/check.sh)
+        env:
+          DOTNET_NOLOGO: 'true'
+          DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+        run: bash tools/ci/check.sh
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          trx=$(ls TestResults/*.trx 2>/dev/null | head -1 || true)
+          {
+            echo "## xUnit test results"
+            if [ -z "$trx" ]; then
+              echo "No .trx produced (the run failed before tests, e.g. build/scan)."
+            else
+              # The <Counters .../> element carries the totals.
+              line=$(grep -oE '<Counters[^/]*/>' "$trx" | head -1)
+              get() { echo "$line" | grep -oE "$1=\"[0-9]+\"" | grep -oE '[0-9]+'; }
+              echo "| Total | Passed | Failed | Skipped |"
+              echo "|------:|-------:|-------:|--------:|"
+              echo "| $(get total) | $(get passed) | $(get failed) | $(get '(notExecuted|skipped)') |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+          if-no-files-found: warn

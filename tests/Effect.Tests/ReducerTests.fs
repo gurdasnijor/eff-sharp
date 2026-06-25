@@ -28,10 +28,15 @@ let ``makeWith uses the custom combineAll`` () =
         Reducer.makeWith (*) 1 (fun collection ->
             let mutable acc = 1
             let mutable hitZero = false
+
             for n in collection do
-                if n = 0 then hitZero <- true
+                if n = 0 then
+                    hitZero <- true
+
                 acc <- acc * n
+
             if hitZero then 0 else acc)
+
     Assert.Equal(24, Product.combineAll [ 2; 3; 4 ])
     Assert.Equal(0, Product.combineAll [ 2; 0; 4 ])
     Assert.Equal(6, Product.combine 2 3)

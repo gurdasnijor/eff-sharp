@@ -70,30 +70,25 @@ module HashSet =
         { values = Set.difference self.values that.values }
 
     /// Whether every value of `self` is in `that`. (HashSet.isSubset)
-    let isSubset (self: HashSet<'V>) (that: HashSet<'V>) : bool =
-        Set.isSubset self.values that.values
+    let isSubset (self: HashSet<'V>) (that: HashSet<'V>) : bool = Set.isSubset self.values that.values
 
     // --- functional ops ---
 
     /// Map every value; duplicate results collapse. (HashSet.map)
-    let map (self: HashSet<'V>) (f: 'V -> 'U) : HashSet<'U> =
-        { values = Set.map f self.values }
+    let map (self: HashSet<'V>) (f: 'V -> 'U) : HashSet<'U> = { values = Set.map f self.values }
 
     /// Keep values matching the predicate. (HashSet.filter)
     let filter (self: HashSet<'V>) (predicate: 'V -> bool) : HashSet<'V> =
         { values = Set.filter predicate self.values }
 
     /// Whether any value matches the predicate. (HashSet.some)
-    let some (self: HashSet<'V>) (predicate: 'V -> bool) : bool =
-        Set.exists predicate self.values
+    let some (self: HashSet<'V>) (predicate: 'V -> bool) : bool = Set.exists predicate self.values
 
     /// Whether every value matches the predicate (vacuously true when empty). (HashSet.every)
-    let every (self: HashSet<'V>) (predicate: 'V -> bool) : bool =
-        Set.forall predicate self.values
+    let every (self: HashSet<'V>) (predicate: 'V -> bool) : bool = Set.forall predicate self.values
 
     /// Fold over the values. (HashSet.reduce)
-    let reduce (self: HashSet<'V>) (zero: 'U) (f: 'U -> 'V -> 'U) : 'U =
-        Set.fold f zero self.values
+    let reduce (self: HashSet<'V>) (zero: 'U) (f: 'U -> 'V -> 'U) : 'U = Set.fold f zero self.values
 
     // --- iteration / conversion ---
 

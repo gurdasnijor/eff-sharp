@@ -20,7 +20,6 @@ open System.Text
 ///     `resolveTopLevelRef` (`$` is not a valid F# identifier char).
 ///   * The anchored prefix regexes (`/^#\/definitions(?=\/|$)/` etc.) are
 ///     expressed as a boundary-aware `rewritePrefix` string helper.
-
 /// The JSON Schema dialects this module understands. (JsonSchema.Dialect)
 type Dialect =
     | Draft07
@@ -59,9 +58,12 @@ module JsonSchema =
     /// Replaces an anchored `#/...` ref prefix, honouring the `(?=/|$)` boundary
     /// of the upstream regexes (only matches at a path-segment boundary).
     let private rewritePrefix (segment: string) (replacement: string) (s: string) : string =
-        if s = segment then replacement
-        elif s.StartsWith(segment + "/") then replacement + s.Substring(segment.Length)
-        else s
+        if s = segment then
+            replacement
+        elif s.StartsWith(segment + "/") then
+            replacement + s.Substring(segment.Length)
+        else
+            s
 
     /// Recursively rewrites every `$ref` string value with `f`. (internal rewrite_refs)
     let rec private rewriteRefs (f: string -> string) (node: Json) : Json =
@@ -95,23 +97,68 @@ module JsonSchema =
             "_"
         else
             let sb = StringBuilder()
+
             for r in s.EnumerateRunes() do
-                if isValidKeyChar r.Value then sb.Append(r.ToString()) |> ignore
-                else sb.Append('_') |> ignore
+                if isValidKeyChar r.Value then
+                    sb.Append(r.ToString()) |> ignore
+                else
+                    sb.Append('_') |> ignore
+
             sb.ToString()
 
     // Keyword allow-lists (everything else is dropped during a walk).
     let private draft07Keep =
         set
-            [ "type"; "required"; "enum"; "const"; "title"; "description"; "default"; "examples"; "format"; "readOnly"
-              "writeOnly"; "pattern"; "minimum"; "maximum"; "exclusiveMinimum"; "exclusiveMaximum"; "minLength"
-              "maxLength"; "minItems"; "maxItems"; "minProperties"; "maxProperties"; "multipleOf"; "uniqueItems" ]
+            [ "type"
+              "required"
+              "enum"
+              "const"
+              "title"
+              "description"
+              "default"
+              "examples"
+              "format"
+              "readOnly"
+              "writeOnly"
+              "pattern"
+              "minimum"
+              "maximum"
+              "exclusiveMinimum"
+              "exclusiveMaximum"
+              "minLength"
+              "maxLength"
+              "minItems"
+              "maxItems"
+              "minProperties"
+              "maxProperties"
+              "multipleOf"
+              "uniqueItems" ]
 
     let private to07Keep =
         set
-            [ "$ref"; "type"; "required"; "enum"; "const"; "title"; "description"; "default"; "examples"; "format"
-              "pattern"; "minimum"; "maximum"; "exclusiveMinimum"; "exclusiveMaximum"; "minLength"; "maxLength"
-              "minItems"; "maxItems"; "minProperties"; "maxProperties"; "multipleOf"; "uniqueItems" ]
+            [ "$ref"
+              "type"
+              "required"
+              "enum"
+              "const"
+              "title"
+              "description"
+              "default"
+              "examples"
+              "format"
+              "pattern"
+              "minimum"
+              "maximum"
+              "exclusiveMinimum"
+              "exclusiveMaximum"
+              "minLength"
+              "maxLength"
+              "minItems"
+              "maxItems"
+              "minProperties"
+              "maxProperties"
+              "multipleOf"
+              "uniqueItems" ]
 
     // --- decoding ---
 
@@ -137,19 +184,34 @@ module JsonSchema =
                             match v with
                             | JString s -> JString(rewritePrefix "#/definitions" "#/$defs" s)
                             | _ -> v
+
                         out <- Map.add "$ref" nv out
                     | "definitions" ->
                         let mapped = walkObject v
+
                         if isRoot then
                             definitions <- mapped
                         else
-                            out <- Map.add "definitions" (match mapped with Some d -> JObject d | None -> v) out
+                            out <-
+                                Map.add
+                                    "definitions"
+                                    (match mapped with
+                                     | Some d -> JObject d
+                                     | None -> v)
+                                    out
                     | "items" -> prefixItems <- Some v
                     | "additionalItems" -> additionalItems <- Some v
                     | "properties"
                     | "patternProperties" ->
                         let mapped = walkObject v
-                        out <- Map.add k (match mapped with Some d -> JObject d | None -> v) out
+
+                        out <-
+                            Map.add
+                                k
+                                (match mapped with
+                                 | Some d -> JObject d
+                                 | None -> v)
+                                out
                     | "additionalProperties"
                     | "propertyNames" -> out <- Map.add k (walk v false) out
                     | "allOf"
@@ -159,6 +221,7 @@ module JsonSchema =
                             match v with
                             | JArray xs -> JArray(xs |> List.map (fun x -> walk x false))
                             | _ -> v
+
                         out <- Map.add k nv out
                     | _ when Set.contains k draft07Keep -> out <- Map.add k v out
                     | _ -> ()
@@ -167,6 +230,7 @@ module JsonSchema =
                 match prefixItems with
                 | Some(JArray xs) ->
                     out <- Map.add "prefixItems" (JArray(xs |> List.map (fun x -> walk x false))) out
+
                     match additionalItems with
                     | Some ai -> out <- Map.add "items" (walk ai false) out
                     | None -> ()
@@ -195,10 +259,14 @@ module JsonSchema =
                 match Map.tryFind "$defs" m with
                 | Some(JObject d) -> d
                 | _ -> Map.empty
+
             { Dialect = Draft2020_12
               Schema = JObject(Map.remove "$defs" m)
               Definitions = definitions }
-        | _ -> { Dialect = Draft2020_12; Schema = js; Definitions = Map.empty }
+        | _ ->
+            { Dialect = Draft2020_12
+              Schema = js
+              Definitions = Map.empty }
 
     /// Parses a raw OpenAPI 3.1 JSON Schema into a `Document`, rewriting
     /// `#/components/schemas/...` refs to `#/$defs/...`. (JsonSchema.fromSchemaOpenApi3_1)
@@ -210,10 +278,15 @@ module JsonSchema =
     let private widenType (node: Map<string, Json>) : Map<string, Json> =
         match Map.tryFind "type" node with
         | Some(JString t) ->
-            if t = "null" then node else Map.add "type" (JArray [ JString t; JString "null" ]) node
+            if t = "null" then
+                node
+            else
+                Map.add "type" (JArray [ JString t; JString "null" ]) node
         | Some(JArray ts) ->
-            if List.contains (JString "null") ts then node
-            else Map.add "type" (JArray(ts @ [ JString "null" ])) node
+            if List.contains (JString "null") ts then
+                node
+            else
+                Map.add "type" (JArray(ts @ [ JString "null" ])) node
         | _ -> node
 
     let private applyNullable (out: Map<string, Json>) : Map<string, Json> =
@@ -253,7 +326,8 @@ module JsonSchema =
 
             for KeyValue(k, v) in src do
                 match k, v with
-                | "$ref", JString s -> out <- Map.add "$ref" (JString(rewritePrefix "#/components/schemas" "#/definitions" s)) out
+                | "$ref", JString s ->
+                    out <- Map.add "$ref" (JString(rewritePrefix "#/components/schemas" "#/definitions" s)) out
                 | "example", _ ->
                     // Singular OpenAPI `example` becomes a Draft `examples` array,
                     // unless `examples` is already present; the `example` key is dropped.
@@ -263,7 +337,13 @@ module JsonSchema =
                 | _ -> out <- Map.add k v out
 
             let out = adjustExclusivity out
-            let out = if Map.tryFind "nullable" out = Some(JBool true) then applyNullable out else out
+
+            let out =
+                if Map.tryFind "nullable" out = Some(JBool true) then
+                    applyNullable out
+                else
+                    out
+
             JObject(Map.remove "nullable" out)
         | other -> other
 
@@ -295,7 +375,14 @@ module JsonSchema =
                             match v with
                             | JObject m -> Some(m |> Map.map (fun _ x -> walk x))
                             | _ -> None
-                        out <- Map.add k (match mapped with Some d -> JObject d | None -> v) out
+
+                        out <-
+                            Map.add
+                                k
+                                (match mapped with
+                                 | Some d -> JObject d
+                                 | None -> v)
+                                out
                     | "additionalProperties"
                     | "propertyNames" -> out <- Map.add k (walk v) out
                     | "allOf"
@@ -305,6 +392,7 @@ module JsonSchema =
                             match v with
                             | JArray xs -> JArray(xs |> List.map walk)
                             | _ -> v
+
                         out <- Map.add k nv out
                     | "prefixItems" -> prefixItems <- Some v
                     | "items" -> items <- Some v
@@ -315,6 +403,7 @@ module JsonSchema =
                 match prefixItems with
                 | Some(JArray xs) ->
                     out <- Map.add "items" (JArray(xs |> List.map walk)) out
+
                     match items with
                     | Some it -> out <- Map.add "additionalItems" (walk it) out
                     | None -> ()
@@ -354,14 +443,17 @@ module JsonSchema =
             rewriteRefs
                 (fun ref ->
                     let tokens = ref.Split('/')
+
                     let ref2 =
                         if tokens.Length > 0 then
                             let identifier = JsonPointer.unescapeToken (Array.last tokens)
+
                             match Map.tryFind identifier keyMap with
                             | Some sanitized -> (String.concat "/" tokens.[0 .. tokens.Length - 2]) + "/" + sanitized
                             | None -> ref
                         else
                             ref
+
                     rewritePrefix "#/$defs" "#/components/schemas" ref2)
                 schema
 
@@ -380,6 +472,7 @@ module JsonSchema =
     /// (JsonSchema.resolve$ref)
     let resolveRef (ref: string) (definitions: Definitions) : Json option =
         let tokens = ref.Split('/')
+
         if tokens.Length > 0 then
             Map.tryFind (JsonPointer.unescapeToken (Array.last tokens)) definitions
         else

@@ -138,7 +138,9 @@ let ``modify updates existing keys and ignores missing keys`` () =
     MutableHashMap.set map (key 0 0) (value 0 0) |> ignore
     MutableHashMap.set map (key 1 1) (value 1 1) |> ignore
 
-    MutableHashMap.modify map (key 0 0) (fun v -> value (v.C + 1) (v.D + 1)) |> ignore
+    MutableHashMap.modify map (key 0 0) (fun v -> value (v.C + 1) (v.D + 1))
+    |> ignore
+
     Assert.Equal(Some(value 1 1), MutableHashMap.get map (key 0 0))
 
     // Missing key (after removal) is left untouched.

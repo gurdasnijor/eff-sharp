@@ -63,8 +63,10 @@ module Chunk =
 
     /// The element at `i`; throws if out of bounds (upstream `getUnsafe`).
     let getUnsafe (i: int) (self: Chunk<'A>) : 'A =
-        if i >= 0 && i < self.Values.Length then self.Values.[i]
-        else failwithf "Index out of bounds: %d" i
+        if i >= 0 && i < self.Values.Length then
+            self.Values.[i]
+        else
+            failwithf "Index out of bounds: %d" i
 
     let head (self: Chunk<'A>) : 'A option = Array.tryHead self.Values
 
@@ -82,8 +84,11 @@ module Chunk =
 
     // --- append / prepend / concat ---
 
-    let append (a: 'A) (self: Chunk<'A>) : Chunk<'A> = { Values = Array.append self.Values [| a |] }
-    let prepend (a: 'A) (self: Chunk<'A>) : Chunk<'A> = { Values = Array.append [| a |] self.Values }
+    let append (a: 'A) (self: Chunk<'A>) : Chunk<'A> =
+        { Values = Array.append self.Values [| a |] }
+
+    let prepend (a: 'A) (self: Chunk<'A>) : Chunk<'A> =
+        { Values = Array.append [| a |] self.Values }
 
     /// `self` followed by `that`.
     let appendAll (self: Chunk<'A>) (that: Chunk<'A>) : Chunk<'A> =
@@ -100,6 +105,7 @@ module Chunk =
 
     let drop (n: int) (self: Chunk<'A>) : Chunk<'A> =
         let len = self.Values.Length
+
         if n <= 0 then self
         elif n >= len then empty
         else { Values = Array.sub self.Values n (len - n) }
@@ -124,7 +130,11 @@ module Chunk =
     /// Split a non-empty chunk at `n` (normalised to at least 1).
     let splitNonEmptyAt (self: Chunk<'A>) (n: int) : Chunk<'A> * Chunk<'A> =
         let n' = max 1 n
-        if n' >= self.Values.Length then self, empty else take n' self, drop n' self
+
+        if n' >= self.Values.Length then
+            self, empty
+        else
+            take n' self, drop n' self
 
     /// Split on the first element matching the predicate; the match goes right.
     let splitWhere (self: Chunk<'A>) (predicate: 'A -> bool) : Chunk<'A> * Chunk<'A> =
@@ -132,6 +142,7 @@ module Chunk =
             match Array.tryFindIndex predicate self.Values with
             | Some idx -> idx
             | None -> self.Values.Length
+
         splitAt i self
 
     /// Group into consecutive chunks of `n` elements (the last may be smaller).
@@ -139,12 +150,17 @@ module Chunk =
     let chunksOf (n: int) (self: Chunk<'A>) : Chunk<Chunk<'A>> =
         let groups = ResizeArray<Chunk<'A>>()
         let current = ResizeArray<'A>()
+
         for a in self.Values do
             current.Add a
+
             if current.Count >= n then
                 groups.Add { Values = current.ToArray() }
                 current.Clear()
-        if current.Count > 0 then groups.Add { Values = current.ToArray() }
+
+        if current.Count > 0 then
+            groups.Add { Values = current.ToArray() }
+
         { Values = groups.ToArray() }
 
     /// Split into up to `n` chunks, distributing elements in order.
@@ -162,11 +178,13 @@ module Chunk =
     let mapAccum (self: Chunk<'A>) (s: 'S) (f: 'S -> 'A -> 'S * 'B) : 'S * Chunk<'B> =
         let mutable state = s
         let out = Array.zeroCreate self.Values.Length
+
         self.Values
         |> Array.iteri (fun i a ->
             let s', b = f state a
             state <- s'
             out.[i] <- b)
+
         state, { Values = out }
 
     /// Map each element to a chunk and concatenate. `f` gets `(a, index)`
@@ -187,11 +205,13 @@ module Chunk =
     /// Keep the `Ok` results of `f`, discarding `Error`s. `f` gets `(a, index)`.
     let filterMap (self: Chunk<'A>) (f: 'A -> int -> Result<'B, 'X>) : Chunk<'B> =
         let out = ResizeArray<'B>()
+
         self.Values
         |> Array.iteri (fun i a ->
             match f a i with
             | Ok b -> out.Add b
             | Error _ -> ())
+
         { Values = out.ToArray() }
 
     /// Like `filterMap`, but stop at the first `Error`.
@@ -199,12 +219,14 @@ module Chunk =
         let out = ResizeArray<'B>()
         let mutable go = true
         let mutable i = 0
+
         while go && i < self.Values.Length do
             match f self.Values.[i] with
             | Ok b ->
                 out.Add b
                 i <- i + 1
             | Error _ -> go <- false
+
         { Values = out.ToArray() }
 
     /// Keep the `Some` values of an `option` chunk.
@@ -216,16 +238,17 @@ module Chunk =
     let partition (self: Chunk<'A>) (f: 'A -> int -> Result<'Pass, 'Fail>) : Chunk<'Fail> * Chunk<'Pass> =
         let fails = ResizeArray<'Fail>()
         let passes = ResizeArray<'Pass>()
+
         self.Values
         |> Array.iteri (fun i a ->
             match f a i with
             | Ok p -> passes.Add p
             | Error e -> fails.Add e)
+
         { Values = fails.ToArray() }, { Values = passes.ToArray() }
 
     /// Separate a chunk of `Result`s into `(failures, successes)`.
-    let separate (self: Chunk<Result<'A, 'E>>) : Chunk<'E> * Chunk<'A> =
-        partition self (fun r _ -> r)
+    let separate (self: Chunk<Result<'A, 'E>>) : Chunk<'E> * Chunk<'A> = partition self (fun r _ -> r)
 
     // --- zipping ---
 
@@ -233,8 +256,7 @@ module Chunk =
         let n = min self.Values.Length that.Values.Length
         { Values = Array.init n (fun i -> f self.Values.[i] that.Values.[i]) }
 
-    let zip (self: Chunk<'A>) (that: Chunk<'B>) : Chunk<'A * 'B> =
-        zipWith self that (fun a b -> a, b)
+    let zip (self: Chunk<'A>) (that: Chunk<'B>) : Chunk<'A * 'B> = zipWith self that (fun a b -> a, b)
 
     let unzip (self: Chunk<'A * 'B>) : Chunk<'A> * Chunk<'B> =
         let a, b = Array.unzip self.Values
@@ -257,7 +279,8 @@ module Chunk =
     /// Delete the element at `i`; out-of-bounds returns the chunk unchanged.
     let remove (self: Chunk<'A>) (i: int) : Chunk<'A> =
         if i >= 0 && i < self.Values.Length then
-            { Values = Array.append (Array.sub self.Values 0 i) (Array.sub self.Values (i + 1) (self.Values.Length - i - 1)) }
+            { Values =
+                Array.append (Array.sub self.Values 0 i) (Array.sub self.Values (i + 1) (self.Values.Length - i - 1)) }
         else
             self
 
@@ -280,16 +303,14 @@ module Chunk =
         self.Values |> Array.exists (isEquivalent a)
 
     /// The first element satisfying `predicate`, or `None`.
-    let findFirst (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option =
-        Array.tryFind predicate self.Values
+    let findFirst (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option = Array.tryFind predicate self.Values
 
     /// The index of the first element satisfying `predicate`, or `None`.
     let findFirstIndex (self: Chunk<'A>) (predicate: 'A -> bool) : int option =
         Array.tryFindIndex predicate self.Values
 
     /// The last element satisfying `predicate`, or `None`.
-    let findLast (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option =
-        Array.tryFindBack predicate self.Values
+    let findLast (self: Chunk<'A>) (predicate: 'A -> bool) : 'A option = Array.tryFindBack predicate self.Values
 
     /// The index of the last element satisfying `predicate`, or `None`.
     let findLastIndex (self: Chunk<'A>) (predicate: 'A -> bool) : int option =
@@ -300,16 +321,20 @@ module Chunk =
     /// Left-to-right fold; `f` gets `(acc, element, index)`.
     let reduce (self: Chunk<'A>) (b: 'B) (f: 'B -> 'A -> int -> 'B) : 'B =
         let mutable acc = b
+
         for i in 0 .. self.Values.Length - 1 do
             acc <- f acc self.Values.[i] i
+
         acc
 
     /// Right-to-left fold; `f` gets `(acc, element, index)` where `index` is the
     /// element's original position.
     let reduceRight (self: Chunk<'A>) (b: 'B) (f: 'B -> 'A -> int -> 'B) : 'B =
         let mutable acc = b
+
         for i in self.Values.Length - 1 .. -1 .. 0 do
             acc <- f acc self.Values.[i] i
+
         acc
 
     /// Join a chunk of strings with `sep` between elements.
@@ -335,8 +360,11 @@ module Chunk =
     /// Remove runs of adjacent identical elements.
     let dedupeAdjacent (self: Chunk<'A>) : Chunk<'A> =
         let out = ResizeArray<'A>()
+
         for a in self.Values do
-            if out.Count = 0 || out.[out.Count - 1] <> a then out.Add a
+            if out.Count = 0 || out.[out.Count - 1] <> a then
+                out.Add a
+
         { Values = out.ToArray() }
 
     /// Concatenation with duplicates removed (first occurrence wins).
@@ -353,7 +381,9 @@ module Chunk =
 
     /// `difference` under a caller-supplied equivalence.
     let differenceWith (isEquivalent: 'A -> 'A -> bool) (self: Chunk<'A>) (that: Chunk<'A>) : Chunk<'A> =
-        { Values = self.Values |> Array.filter (fun a -> not (that.Values |> Array.exists (isEquivalent a))) }
+        { Values =
+            self.Values
+            |> Array.filter (fun a -> not (that.Values |> Array.exists (isEquivalent a))) }
 
     // --- generators ---
 
@@ -363,8 +393,10 @@ module Chunk =
     /// Consecutive integers from `start` to `end` inclusive; if `start > end`,
     /// a single-element chunk `[start]`.
     let range (start: int) (endInclusive: int) : Chunk<int> =
-        if start <= endInclusive then makeBy (endInclusive - start + 1) (fun i -> start + i)
-        else singleton start
+        if start <= endInclusive then
+            makeBy (endInclusive - start + 1) (fun i -> start + i)
+        else
+            singleton start
 
     // --- equivalence ---
 
@@ -382,6 +414,7 @@ module Chunk =
         | :? string as s -> "\"" + s + "\""
         | _ ->
             let t = v.GetType()
+
             if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Chunk<obj>> then
                 let values = t.GetProperty("Values").GetValue(v) :?> System.Array
                 let parts = [ for x in values -> renderObj (box x) ]

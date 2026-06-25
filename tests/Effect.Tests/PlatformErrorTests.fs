@@ -9,7 +9,10 @@ open Effect
 // and the `systemError` / `badArgument` constructors).
 
 let private badArg =
-    { Module = "FileSystem"; Method = "readFile"; Description = None; Cause = None }
+    { Module = "FileSystem"
+      Method = "readFile"
+      Description = None
+      Cause = None }
 
 [<Fact>]
 let ``badArgument message without description`` () =
@@ -19,7 +22,11 @@ let ``badArgument message without description`` () =
 
 [<Fact>]
 let ``badArgument message with description`` () =
-    let e = PlatformError.badArgument { badArg with Description = Some "empty path" }
+    let e =
+        PlatformError.badArgument
+            { badArg with
+                Description = Some "empty path" }
+
     Assert.Equal("FileSystem.readFile: empty path", e.Message)
 
 [<Fact>]
@@ -33,6 +40,7 @@ let ``systemError message with tag, path and description`` () =
               Syscall = None
               PathOrDescriptor = Some(box "/tmp/x")
               Cause = None }
+
     Assert.Equal("NotFound: FileSystem.readFile (/tmp/x): missing", e.Message)
 
 [<Fact>]
@@ -46,6 +54,7 @@ let ``systemError message without optional details`` () =
               Syscall = None
               PathOrDescriptor = None
               Cause = None }
+
     Assert.Equal("PermissionDenied: FileSystem.open", e.Message)
 
 [<Fact>]

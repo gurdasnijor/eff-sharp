@@ -6,7 +6,6 @@ namespace Effect
 /// either a `Success` carrying the value, or a `Failure` carrying the `Cause`
 /// of the failure. It is the bridge between the running world (`Effect`) and a
 /// fully-evaluated outcome.
-
 /// The completed outcome of an effect.
 type Exit<'A, 'E> =
     | Success of value: 'A
@@ -34,8 +33,15 @@ module Exit =
 
     // --- guards ---
 
-    let isSuccess (exit: Exit<'A, 'E>) = match exit with Success _ -> true | Failure _ -> false
-    let isFailure (exit: Exit<'A, 'E>) = match exit with Failure _ -> true | Success _ -> false
+    let isSuccess (exit: Exit<'A, 'E>) =
+        match exit with
+        | Success _ -> true
+        | Failure _ -> false
+
+    let isFailure (exit: Exit<'A, 'E>) =
+        match exit with
+        | Failure _ -> true
+        | Success _ -> false
 
     // --- elimination ---
 

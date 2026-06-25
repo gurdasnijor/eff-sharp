@@ -19,7 +19,11 @@ let private run (eff: Effect<'A, string, unit>) : 'A =
 
 let private hasInterrupt (exit: Exit<'A, 'E>) : bool =
     match exit with
-    | Failure c -> c.Reasons |> List.exists (function Reason.Interrupt _ -> true | _ -> false)
+    | Failure c ->
+        c.Reasons
+        |> List.exists (function
+            | Reason.Interrupt _ -> true
+            | _ -> false)
     | Success _ -> false
 
 // --- publishAll across capacities (BoundedPubSub) ---
@@ -87,7 +91,10 @@ let ``sequential one publisher one subscriber`` () =
 [<Fact>]
 let ``sequential one publisher two subscribers`` () =
     let values = [ 0..9 ]
-    let taker (latch: Latch) sub = Latch.await latch |> Effect.flatMap (fun () -> Effect.forEach values (fun _ -> PubSub.take sub))
+
+    let taker (latch: Latch) sub =
+        Latch.await latch
+        |> Effect.flatMap (fun () -> Effect.forEach values (fun _ -> PubSub.take sub))
 
     let eff: Effect<Exit<int list, string> * Exit<int list, string>, string, unit> =
         effect {
@@ -115,7 +122,10 @@ let ``sequential one publisher two subscribers`` () =
 
 // --- concurrent publishers and subscribers, one strategy each ---
 
-let private concurrentOneToOne (makePubSub: Effect<PubSub<int>, string, unit>) (publishEff: PubSub<int> -> int list -> Effect<bool, string, unit>) =
+let private concurrentOneToOne
+    (makePubSub: Effect<PubSub<int>, string, unit>)
+    (publishEff: PubSub<int> -> int list -> Effect<bool, string, unit>)
+    =
     let values = [ 0..63 ]
 
     let eff: Effect<Exit<int list, string>, string, unit> =
@@ -140,11 +150,13 @@ let ``backpressured concurrent - one to one`` () =
 
 [<Fact>]
 let ``dropping concurrent - one to one`` () =
-    concurrentOneToOne (PubSub.dropping 64) (fun ps vs -> Effect.forEach vs (fun n -> PubSub.publish ps n) |> Effect.map (fun _ -> true))
+    concurrentOneToOne (PubSub.dropping 64) (fun ps vs ->
+        Effect.forEach vs (fun n -> PubSub.publish ps n) |> Effect.map (fun _ -> true))
 
 [<Fact>]
 let ``sliding concurrent - one to one`` () =
-    concurrentOneToOne (PubSub.sliding 64) (fun ps vs -> Effect.forEach vs (fun n -> PubSub.publish ps n) |> Effect.map (fun _ -> true))
+    concurrentOneToOne (PubSub.sliding 64) (fun ps vs ->
+        Effect.forEach vs (fun n -> PubSub.publish ps n) |> Effect.map (fun _ -> true))
 
 [<Fact>]
 let ``unbounded concurrent - one to one`` () =

@@ -142,8 +142,8 @@ let ``deallocation`` () =
 [<Fact>]
 let ``idleTimeToLive`` () =
     let tc = TestClock.make ()
-    let acq = CountLatch ()
-    let rel = CountLatch ()
+    let acq = CountLatch()
+    let rel = CountLatch()
 
     let map =
         run (
@@ -193,8 +193,8 @@ let ``idleTimeToLive`` () =
 [<Fact>]
 let ``touch`` () =
     let tc = TestClock.make ()
-    let acq = CountLatch ()
-    let rel = CountLatch ()
+    let acq = CountLatch()
+    let rel = CountLatch()
 
     let map =
         run (
@@ -234,8 +234,8 @@ let ``touch`` () =
 [<Fact>]
 let ``capacity`` () =
     let tc = TestClock.make ()
-    let acq = CountLatch ()
-    let rel = CountLatch ()
+    let acq = CountLatch()
+    let rel = CountLatch()
 
     let map =
         run (
@@ -282,7 +282,9 @@ let ``complex key`` () =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope (Some 1) (fun _ -> Duration.zero) (fun (k: Key) _ -> Effect.succeed k.Id)
+
+                return!
+                    RcMap.makeWith mapScope (Some 1) (fun _ -> Duration.zero) (fun (k: Key) _ -> Effect.succeed k.Id)
             }
         )
 
@@ -325,9 +327,14 @@ let ``keys lookup`` () =
 [<Fact>]
 let ``dynamic idleTimeToLive`` () =
     let tc = TestClock.make ()
-    let acq = CountLatch ()
-    let rel = CountLatch ()
-    let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 80.0 else Duration.millis 300.0
+    let acq = CountLatch()
+    let rel = CountLatch()
+
+    let ttl (k: string) =
+        if k.StartsWith "short:" then
+            Duration.millis 80.0
+        else
+            Duration.millis 300.0
 
     let map =
         run (
@@ -355,9 +362,14 @@ let ``dynamic idleTimeToLive`` () =
 [<Fact>]
 let ``dynamic idleTimeToLive with touch`` () =
     let tc = TestClock.make ()
-    let acq = CountLatch ()
-    let rel = CountLatch ()
-    let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 150.0 else Duration.millis 2000.0
+    let acq = CountLatch()
+    let rel = CountLatch()
+
+    let ttl (k: string) =
+        if k.StartsWith "short:" then
+            Duration.millis 150.0
+        else
+            Duration.millis 2000.0
 
     let map =
         run (

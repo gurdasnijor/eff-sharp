@@ -35,7 +35,6 @@ open System.Collections.Generic
 ///     `preCheck` hook. The `Variance`/`TypeId`/`isRequestResolver` JS plumbing is
 ///     dropped (§3,§4). Combinators are curried, data-last (resolver last) so they
 ///     compose with `|>`.
-
 /// A resolver for requests producing `'A` / failing with `'E` / needing `'R`.
 type RequestResolver<'A, 'E, 'R> =
     internal
@@ -72,32 +71,32 @@ module RequestResolver =
         (key: Entry<'A, 'E, 'R> -> 'K)
         (resolver: Entry<'A, 'E, 'R> list -> 'K -> Effect<unit, 'E, 'R>)
         : RequestResolver<'A, 'E, 'R> =
-        makeWith
-            (fun entry -> box (key entry))
-            (fun _ -> true)
-            (fun entries ->
-                match entries with
-                | [] -> Effect.succeed ()
-                | head :: _ -> resolver entries (key head))
+        makeWith (fun entry -> box (key entry)) (fun _ -> true) (fun entries ->
+            match entries with
+            | [] -> Effect.succeed ()
+            | head :: _ -> resolver entries (key head))
 
     /// Build a resolver from a pure per-request function. (RequestResolver.fromFunction)
     let fromFunction (f: Entry<'A, 'E, 'R> -> 'A) : RequestResolver<'A, 'E, 'R> =
-        make (fun entries -> Effect.sync (fun () -> entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (f e)))))
+        make (fun entries ->
+            Effect.sync (fun () -> entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (f e)))))
 
     /// Build a resolver from a pure batched function returning one result per
     /// entry, in order. (RequestResolver.fromFunctionBatched)
     let fromFunctionBatched (f: Entry<'A, 'E, 'R> list -> seq<'A>) : RequestResolver<'A, 'E, 'R> =
         make (fun entries ->
             Effect.sync (fun () ->
-                Seq.iter2 (fun (e: Entry<'A, 'E, 'R>) result -> e.CompleteUnsafe(Exit.succeed result)) entries (f entries)))
+                Seq.iter2
+                    (fun (e: Entry<'A, 'E, 'R>) result -> e.CompleteUnsafe(Exit.succeed result))
+                    entries
+                    (f entries)))
 
     /// Build a resolver from an effectful per-request function. A typed failure
     /// completes that entry with `Exit.fail` (it does not fail the batch).
     /// (RequestResolver.fromEffect)
     let fromEffect (f: Entry<'A, 'E, 'R> -> Effect<'A, 'E, 'R>) : RequestResolver<'A, 'E, 'R> =
         make (fun entries ->
-            entries
-            |> Effect.forEach
+            entries |> Effect.forEach
             <| (fun e ->
                 f e
                 |> Effect.map (fun a -> e.CompleteUnsafe(Exit.succeed a))
@@ -108,12 +107,14 @@ module RequestResolver =
 
     /// Bound each batch to at most `n` entries. (RequestResolver.batchN)
     let batchN (n: int) (self: RequestResolver<'A, 'E, 'R>) : RequestResolver<'A, 'E, 'R> =
-        { self with CollectWhile = fun entries -> List.length entries < n }
+        { self with
+            CollectWhile = fun entries -> List.length entries < n }
 
     /// Group requests into separate batches by a calculated key.
     /// (RequestResolver.grouped)
     let grouped (key: Entry<'A, 'E, 'R> -> 'K) (self: RequestResolver<'A, 'E, 'R>) : RequestResolver<'A, 'E, 'R> =
-        { self with BatchKey = fun entry -> box (key entry) }
+        { self with
+            BatchKey = fun entry -> box (key entry) }
 
     /// Replace the collection-cutoff predicate. (RequestResolver.collectWhile)
     let collectWhile

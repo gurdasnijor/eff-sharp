@@ -49,20 +49,23 @@ type internal RcMapState<'K, 'A, 'E when 'K: equality> =
 /// A reference-counted map of scoped resources.
 type RcMap<'K, 'A, 'E when 'K: equality> =
     internal
-        { Lookup: 'K -> Scope<'E, unit> -> Effect<'A, 'E, unit>
-          IdleTimeToLive: 'K -> Duration
-          /// `None` means unbounded capacity.
-          Capacity: int option
-          Clock: Clock
-          Gate: obj
-          mutable State: RcMapState<'K, 'A, 'E> }
+        {
+            Lookup: 'K -> Scope<'E, unit> -> Effect<'A, 'E, unit>
+            IdleTimeToLive: 'K -> Duration
+            /// `None` means unbounded capacity.
+            Capacity: int option
+            Clock: Clock
+            Gate: obj
+            mutable State: RcMapState<'K, 'A, 'E>
+        }
 
 [<RequireQualifiedAccess>]
 module RcMap =
 
     /// Effect that completes as interrupted — returned by operations on a closed
     /// map (upstream returns `Effect.interrupt`).
-    let private interruptedEffect<'A, 'E> : Effect<'A, 'E, unit> = Effect.failCause (Cause.interrupt None)
+    let private interruptedEffect<'A, 'E> : Effect<'A, 'E, unit> =
+        Effect.failCause (Cause.interrupt None)
 
     let private closeEntry (entry: RcMapEntry<'A, 'E>) : Effect<unit, 'E, unit> =
         Scope.close entry.Scope (Success(box ()))
@@ -114,7 +117,8 @@ module RcMap =
                     |> Effect.ensuring (Effect.sync (fun () -> lock self.Gate (fun () -> entry.Fiber <- None)))
 
                 Effect.fork timer
-                |> Effect.flatMap (fun fib -> Effect.sync (fun () -> lock self.Gate (fun () -> entry.Fiber <- Some fib))))
+                |> Effect.flatMap (fun fib ->
+                    Effect.sync (fun () -> lock self.Gate (fun () -> entry.Fiber <- Some fib))))
 
     /// The timed-eviction loop: sleep until the entry expires, re-checking
     /// `ExpiresAt` each wake (so `touch` can extend it), then close the resource

@@ -17,7 +17,6 @@ namespace Effect
 /// `State.Empty`/`Open`/`Closed` three-way tag is collapsed to open/closed; the
 /// `Closeable` brand and `[TypeId]` machinery are dropped. Finalizer failures are
 /// swallowed on close (best-effort cleanup), noted at the call site.
-
 /// The closing exit handed to finalizers carries erased value/error types, since
 /// a scope's finalizers come from heterogeneous acquisitions.
 type Finalizer<'E, 'R> = Exit<obj, obj> -> Effect<unit, 'E, 'R>

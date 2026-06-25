@@ -14,25 +14,33 @@ open Effect
 type MutableHashSetBench() =
     [<Params(1000, 10000)>]
     member val N = 0 with get, set
+
     member val Data = [||] with get, set
 
     [<GlobalSetup>]
-    member this.Setup() = this.Data <- [| for i in 0 .. this.N - 1 -> i |]
+    member this.Setup() =
+        this.Data <- [| for i in 0 .. this.N - 1 -> i |]
 
     [<Benchmark(Baseline = true, Description = "current: map-backed MutableHashSet")>]
     member this.Current() =
         let s = MutableHashSet.fromIterable this.Data
         let mutable hits = 0
+
         for i in this.Data do
-            if MutableHashSet.has s i then hits <- hits + 1
+            if MutableHashSet.has s i then
+                hits <- hits + 1
+
         hits
 
     [<Benchmark(Description = "native: HashSet<'V>(Structural)")>]
     member this.Native() =
         let s = HashSet<int>(this.Data, HashIdentity.Structural)
         let mutable hits = 0
+
         for i in this.Data do
-            if s.Contains i then hits <- hits + 1
+            if s.Contains i then
+                hits <- hits + 1
+
         hits
 
 /// Tier 1 — Chunk.dedupe: hand-rolled HashSet+filter vs Array.distinct.
@@ -40,6 +48,7 @@ type MutableHashSetBench() =
 type DedupeBench() =
     [<Params(10000)>]
     member val N = 0 with get, set
+
     member val Chunk = Chunk.empty<int> with get, set
     member val Arr = [||] with get, set
 
@@ -61,6 +70,7 @@ type DedupeBench() =
 type HashMapModifyBench() =
     [<Params(10000)>]
     member val N = 0 with get, set
+
     member val Hm = HashMap.empty<int, int> with get, set
     member val M = Map.empty<int, int> with get, set
 
@@ -73,15 +83,19 @@ type HashMapModifyBench() =
     [<Benchmark(Baseline = true, Description = "current: HashMap.modifyAt")>]
     member this.Current() =
         let mutable hm = this.Hm
-        for i in 0 .. 999 do
+
+        for i in 0..999 do
             hm <- HashMap.modifyAt hm i (Option.map ((+) 1))
+
         hm
 
     [<Benchmark(Description = "native: Map.change")>]
     member this.Native() =
         let mutable m = this.M
-        for i in 0 .. 999 do
+
+        for i in 0..999 do
             m <- Map.change i (Option.map ((+) 1)) m
+
         m
 
 /// Tier 2 — Graph.dijkstra: linear-scan extract-min (O(V^2)). Scaling reveals
@@ -90,19 +104,24 @@ type HashMapModifyBench() =
 type DijkstraBench() =
     [<Params(200, 800)>]
     member val N = 0 with get, set
+
     member val Graph = Unchecked.defaultof<Graph<int, float>> with get, set
 
     [<GlobalSetup>]
     member this.Setup() =
         // a chain 0-1-2-...-(N-1) with unit weights plus a few skip edges
         this.Graph <-
-            Graph.directed (Some(fun m ->
-                for i in 0 .. this.N - 1 do
-                    Graph.addNode m i |> ignore
-                for i in 0 .. this.N - 2 do
-                    Graph.addEdge m i (i + 1) 1.0 |> ignore
-                for i in 0 .. this.N - 3 do
-                    Graph.addEdge m i (i + 2) 2.5 |> ignore))
+            Graph.directed (
+                Some(fun m ->
+                    for i in 0 .. this.N - 1 do
+                        Graph.addNode m i |> ignore
+
+                    for i in 0 .. this.N - 2 do
+                        Graph.addEdge m i (i + 1) 1.0 |> ignore
+
+                    for i in 0 .. this.N - 3 do
+                        Graph.addEdge m i (i + 2) 2.5 |> ignore)
+            )
 
     [<Benchmark(Description = "current: linear-scan dijkstra")>]
     member this.Current() =

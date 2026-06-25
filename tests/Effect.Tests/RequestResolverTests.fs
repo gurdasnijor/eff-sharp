@@ -13,15 +13,18 @@ open Effect
 
 type private GetSquare =
     { Value: int }
+
     interface Request<int, string, unit>
 
 type private GetNameById =
     { Id: int }
+
     interface Request<string, string, unit>
 
 let private square (e: Entry<int, string, unit>) =
     let v = (e.Request :?> GetSquare).Value
     v * v
+
 let private nameId (e: Entry<string, string, unit>) = (e.Request :?> GetNameById).Id
 
 let private names = Map [ for i in 1..26 -> i, string (char (96 + i)) ] // 1->"a" .. 26->"z"
@@ -37,15 +40,25 @@ let private run (eff: Effect<'a, 'e, unit>) : 'a =
 let ``fromFunction resolves each request with a pure function`` () =
     let resolver = RequestResolver.fromFunction square
     let requests: Request<int, string, unit> list = [ { Value = 2 }; { Value = 5 } ]
-    Assert.Equal<Exit<int, string> list>([ Exit.succeed 4; Exit.succeed 25 ], run (RequestResolver.resolveAll resolver requests))
+
+    Assert.Equal<Exit<int, string> list>(
+        [ Exit.succeed 4; Exit.succeed 25 ],
+        run (RequestResolver.resolveAll resolver requests)
+    )
 
 [<Fact>]
 let ``fromFunctionBatched resolves a whole batch positionally`` () =
     let resolver =
         RequestResolver.fromFunctionBatched (fun entries -> entries |> List.map (fun e -> square e) |> List.toSeq)
 
-    let requests: Request<int, string, unit> list = [ { Value = 1 }; { Value = 2 }; { Value = 3 } ]
-    Assert.Equal<int list>([ 1; 4; 9 ], run (RequestResolver.resolveAll resolver requests) |> List.map (Exit.matchExit (fun _ -> 0) id))
+    let requests: Request<int, string, unit> list =
+        [ { Value = 1 }; { Value = 2 }; { Value = 3 } ]
+
+    Assert.Equal<int list>(
+        [ 1; 4; 9 ],
+        run (RequestResolver.resolveAll resolver requests)
+        |> List.map (Exit.matchExit (fun _ -> 0) id)
+    )
 
 [<Fact>]
 let ``resolve folds a single request's exit into the effect`` () =
@@ -64,9 +77,13 @@ let ``make batches all requests into one runAll invocation`` () =
             Effect.sync (fun () ->
                 incr invocations
                 seen.Value <- seen.Value + List.length entries
-                entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
 
-    let requests: Request<string, string, unit> list = [ { Id = 1 }; { Id = 2 }; { Id = 3 } ]
+                entries
+                |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
+
+    let requests: Request<string, string, unit> list =
+        [ { Id = 1 }; { Id = 2 }; { Id = 3 } ]
+
     let results = run (RequestResolver.resolveAll resolver requests)
     Assert.Equal<Exit<string, string> list>([ Exit.succeed "a"; Exit.succeed "b"; Exit.succeed "c" ], results)
     Assert.Equal(1, invocations.Value)
@@ -83,7 +100,9 @@ let ``identical requests are batched but kept as individual entries`` () =
             Effect.sync (fun () ->
                 incr invocations
                 seen.Value <- seen.Value + List.length entries
-                entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
+
+                entries
+                |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
 
     let requests: Request<string, string, unit> list = [ { Id = 1 }; { Id = 1 } ]
     let results = run (RequestResolver.resolveAll resolver requests)
@@ -102,7 +121,11 @@ let ``fromEffect completes entries from an effectful function`` () =
             | None -> Effect.fail "Not Found")
 
     let requests: Request<string, string, unit> list = [ { Id = 1 }; { Id = 99 } ]
-    Assert.Equal<Exit<string, string> list>([ Exit.succeed "a"; Exit.fail "Not Found" ], run (RequestResolver.resolveAll resolver requests))
+
+    Assert.Equal<Exit<string, string> list>(
+        [ Exit.succeed "a"; Exit.fail "Not Found" ],
+        run (RequestResolver.resolveAll resolver requests)
+    )
 
 // --- batchN bounds batch size ---
 
@@ -117,7 +140,9 @@ let ``batchN splits a group into bounded batches`` () =
                 entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (square e)))))
         |> RequestResolver.batchN 2
 
-    let requests: Request<int, string, unit> list = [ { Value = 1 }; { Value = 2 }; { Value = 3 }; { Value = 4 }; { Value = 5 } ]
+    let requests: Request<int, string, unit> list =
+        [ { Value = 1 }; { Value = 2 }; { Value = 3 }; { Value = 4 }; { Value = 5 } ]
+
     let results = run (RequestResolver.resolveAll resolver requests)
     Assert.Equal<int list>([ 1; 4; 9; 16; 25 ], results |> List.map (Exit.matchExit (fun _ -> 0) id))
     Assert.Equal<int list>([ 2; 2; 1 ], List.ofSeq batchSizes)
@@ -134,7 +159,9 @@ let ``grouped plus batchN matches the upstream batch count`` () =
             Effect.sync (fun () ->
                 incr invocations
                 seen.Value <- seen.Value + List.length entries
-                entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
+
+                entries
+                |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
         |> RequestResolver.batchN 5
         |> RequestResolver.grouped (fun e -> nameId e % 2)
 
@@ -151,14 +178,16 @@ let ``makeGrouped routes batches with their key`` () =
     let keysSeen = System.Collections.Generic.List<int>()
 
     let resolver: RequestResolver<string, string, unit> =
-        RequestResolver.makeGrouped
-            (fun e -> nameId e % 2)
-            (fun entries key ->
-                Effect.sync (fun () ->
-                    keysSeen.Add key
-                    entries |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
+        RequestResolver.makeGrouped (fun e -> nameId e % 2) (fun entries key ->
+            Effect.sync (fun () ->
+                keysSeen.Add key
 
-    let requests: Request<string, string, unit> list = [ { Id = 1 }; { Id = 2 }; { Id = 3 }; { Id = 4 } ]
+                entries
+                |> List.iter (fun e -> e.CompleteUnsafe(Exit.succeed (names.[nameId e])))))
+
+    let requests: Request<string, string, unit> list =
+        [ { Id = 1 }; { Id = 2 }; { Id = 3 }; { Id = 4 } ]
+
     run (RequestResolver.resolveAll resolver requests) |> ignore
     Assert.Equal<int list>([ 1; 0 ], List.ofSeq keysSeen) // odds first (id 1), then evens (id 2)
 
@@ -170,7 +199,11 @@ let ``a runAll failure fails its batch's entries`` () =
         RequestResolver.make (fun _ -> Effect.fail "backend down")
 
     let requests: Request<int, string, unit> list = [ { Value = 1 }; { Value = 2 } ]
-    Assert.Equal<Exit<int, string> list>([ Exit.fail "backend down"; Exit.fail "backend down" ], run (RequestResolver.resolveAll resolver requests))
+
+    Assert.Equal<Exit<int, string> list>(
+        [ Exit.fail "backend down"; Exit.fail "backend down" ],
+        run (RequestResolver.resolveAll resolver requests)
+    )
 
 [<Fact>]
 let ``an entry the resolver leaves uncompleted dies with a defect`` () =
