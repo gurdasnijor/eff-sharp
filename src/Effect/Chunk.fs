@@ -412,6 +412,11 @@ module Chunk =
         match v with
         | null -> "null"
         | :? string as s -> "\"" + s + "\""
+#if FABLE_COMPILER
+        // Reflective nested-Chunk detection (Type.GetProperty) isn't available on
+        // Fable; render leaves directly. Top-level chunks still render via `render`.
+        | _ -> string v
+#else
         | _ ->
             let t = v.GetType()
 
@@ -421,6 +426,7 @@ module Chunk =
                 "Chunk([" + String.concat "," parts + "])"
             else
                 string v
+#endif
 
     /// `Chunk([0,1,2])`, recursing into nested chunks.
     let render (self: Chunk<'A>) : string =
