@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Effect/Effect.fsproj" />
     <Project Path="src/Effect.Platform.Node/Effect.Platform.Node.fsproj" />
+    <Project Path="src/Effect.S2/Effect.S2.fsproj" />
   </Folder>
   <Folder Name="/packaging/">
     <Project Path="packaging/EffectJs.fsproj" />
