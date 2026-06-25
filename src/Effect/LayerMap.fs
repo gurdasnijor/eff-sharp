@@ -28,16 +28,35 @@ type LayerMap<'K, 'E when 'K: equality> =
 [<RequireQualifiedAccess>]
 module LayerMap =
 
+    /// `make` with an explicit `Clock` (a `TestClock` under test) controlling
+    /// idle-TTL eviction. (LayerMap.make with injected clock)
+    let makeWithClock
+        (clock: Clock)
+        (mapScope: Scope<'E, unit>)
+        (idleTimeToLive: 'K -> Duration)
+        (lookup: 'K -> Layer<'E, unit>)
+        : Effect<LayerMap<'K, 'E>, 'E, unit> =
+        RcMap.makeWithClock clock mapScope None idleTimeToLive (fun key entryScope -> (lookup key).Build entryScope)
+        |> Effect.map (fun rc -> { RcMap = rc; Lookup = lookup })
+
     /// Create a `LayerMap` whose entries live no longer than `mapScope`, building
     /// `lookup key` on first request and releasing it after `idleTimeToLive key`
-    /// of disuse. (LayerMap.make)
+    /// of disuse. Uses the live clock. (LayerMap.make)
     let make
         (mapScope: Scope<'E, unit>)
         (idleTimeToLive: 'K -> Duration)
         (lookup: 'K -> Layer<'E, unit>)
         : Effect<LayerMap<'K, 'E>, 'E, unit> =
-        RcMap.makeWith mapScope None idleTimeToLive (fun key entryScope -> (lookup key).Build entryScope)
-        |> Effect.map (fun rc -> { RcMap = rc; Lookup = lookup })
+        makeWithClock (Clock.make ()) mapScope idleTimeToLive lookup
+
+    /// `fromRecord` with an explicit `Clock`. (LayerMap.fromRecord with injected clock)
+    let fromRecordWithClock
+        (clock: Clock)
+        (mapScope: Scope<'E, unit>)
+        (idleTimeToLive: 'K -> Duration)
+        (layers: Map<'K, Layer<'E, unit>>)
+        : Effect<LayerMap<'K, 'E>, 'E, unit> =
+        makeWithClock clock mapScope idleTimeToLive (fun key -> Map.find key layers)
 
     /// `make` with immediate release at reference count zero. (LayerMap.make, no TTL)
     let makeDefault (mapScope: Scope<'E, unit>) (lookup: 'K -> Layer<'E, unit>) : Effect<LayerMap<'K, 'E>, 'E, unit> =

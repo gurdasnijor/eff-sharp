@@ -39,6 +39,45 @@ let private trackingLookup (addAcq: string -> unit) (addRel: string -> unit) =
 
 let private newScope () : Scope<string, unit> = Scope.make ()
 
+// --- deterministic-time helpers (idle-TTL tests use a TestClock) ---
+
+/// A thread-safe ordered log that can be *awaited* until it reaches a given
+/// count — releases run on background eviction fibers, so the test waits on the
+/// release *condition* (a completed task), never a wall-clock sleep.
+type private CountLatch() =
+    let gate = obj ()
+    let items = ResizeArray<string>()
+    let waiters = ResizeArray<int * System.Threading.Tasks.TaskCompletionSource<unit>>()
+
+    member _.Add(x: string) =
+        let due =
+            lock gate (fun () ->
+                items.Add x
+                let d = waiters |> Seq.filter (fun (n, _) -> items.Count >= n) |> Seq.toList
+                waiters.RemoveAll(fun (n, _) -> items.Count >= n) |> ignore
+                d)
+
+        due |> List.iter (fun (_, t) -> t.TrySetResult() |> ignore)
+
+    member _.Snapshot() = lock gate (fun () -> List.ofSeq items)
+
+    member _.AwaitTask(n: int) : System.Threading.Tasks.Task<unit> =
+        lock gate (fun () ->
+            if items.Count >= n then
+                System.Threading.Tasks.Task.FromResult(())
+            else
+                let t =
+                    System.Threading.Tasks.TaskCompletionSource<unit>(
+                        System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously
+                    )
+
+                waiters.Add(n, t)
+                t.Task)
+
+/// Suspend until `latch` has logged at least `n` items.
+let private awaitCount (latch: CountLatch) (n: int) : Effect<unit, string, unit> =
+    Effect.promise (fun () -> latch.AwaitTask n)
+
 // ----------------------------------------------------------------------------
 
 [<Fact>]
@@ -100,80 +139,116 @@ let ``deallocation`` () =
     | Failure c -> Assert.True(c.Reasons |> List.exists Cause.isInterruptReason, "expected an interrupt")
     | Success _ -> Assert.Fail "expected an interrupt on a closed map"
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``idleTimeToLive`` () =
-    let addAcq, snapAcq = mkLog ()
-    let addRel, snapRel = mkLog ()
+    let tc = TestClock.make ()
+    let acq = CountLatch ()
+    let rel = CountLatch ()
 
     let map =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope None (fun _ -> Duration.millis 120.0) (trackingLookup addAcq addRel)
+
+                return!
+                    RcMap.makeWithClock
+                        (TestClock.clock tc)
+                        mapScope
+                        None
+                        (fun _ -> Duration.millis 120.0)
+                        (trackingLookup acq.Add rel.Add)
             }
         )
 
     run (Scope.scoped (fun s -> RcMap.get map "foo" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "foo" ], snapAcq ())
-    Assert.Equal<string list>([], snapRel ())
+    Assert.Equal<string list>([ "foo" ], acq.Snapshot())
+    Assert.Equal<string list>([], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 250
-    Assert.Equal<string list>([ "foo" ], snapRel ())
+    // foo's eviction timer is parked; advancing past its TTL releases it.
+    run (TestClock.awaitSleeps tc 1)
+    run (TestClock.adjust tc (Duration.millis 250.0))
+    run (awaitCount rel 1)
+    Assert.Equal<string list>([ "foo" ], rel.Snapshot())
 
     run (Scope.scoped (fun s -> RcMap.get map "bar" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "foo"; "bar" ], snapAcq ())
-    Assert.Equal<string list>([ "foo" ], snapRel ())
+    Assert.Equal<string list>([ "foo"; "bar" ], acq.Snapshot())
+    Assert.Equal<string list>([ "foo" ], rel.Snapshot())
 
-    // re-acquire within the idle window: shared (no second acquire), timer extended
-    System.Threading.Thread.Sleep 50
+    // re-acquire while bar is idle: shared (no second acquire), entry kept alive
+    run (TestClock.awaitSleeps tc 2)
     run (Scope.scoped (fun s -> RcMap.get map "bar" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "foo"; "bar" ], snapAcq ())
-    Assert.Equal<string list>([ "foo" ], snapRel ())
+    Assert.Equal<string list>([ "foo"; "bar" ], acq.Snapshot())
+    Assert.Equal<string list>([ "foo" ], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 250
-    Assert.Equal<string list>([ "foo"; "bar" ], snapRel ())
+    run (TestClock.adjust tc (Duration.millis 250.0))
+    run (awaitCount rel 2)
+    Assert.Equal<string list>([ "foo"; "bar" ], rel.Snapshot())
 
     run (Scope.scoped (fun s -> RcMap.get map "baz" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "foo"; "bar"; "baz" ], snapAcq ())
+    Assert.Equal<string list>([ "foo"; "bar"; "baz" ], acq.Snapshot())
     run (RcMap.invalidate map "baz")
-    Assert.Equal<string list>([ "foo"; "bar"; "baz" ], snapRel ())
+    run (awaitCount rel 3)
+    Assert.Equal<string list>([ "foo"; "bar"; "baz" ], rel.Snapshot())
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``touch`` () =
-    let addAcq, snapAcq = mkLog ()
-    let addRel, snapRel = mkLog ()
+    let tc = TestClock.make ()
+    let acq = CountLatch ()
+    let rel = CountLatch ()
 
     let map =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope None (fun _ -> Duration.millis 200.0) (trackingLookup addAcq addRel)
+
+                return!
+                    RcMap.makeWithClock
+                        (TestClock.clock tc)
+                        mapScope
+                        None
+                        (fun _ -> Duration.millis 200.0)
+                        (trackingLookup acq.Add rel.Add)
             }
         )
 
     run (Scope.scoped (fun s -> RcMap.get map "foo" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "foo" ], snapAcq ())
-    Assert.Equal<string list>([], snapRel ())
+    Assert.Equal<string list>([ "foo" ], acq.Snapshot())
+    Assert.Equal<string list>([], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 80
-    Assert.Equal<string list>([], snapRel ())
+    // park foo's timer, advance partway: still alive.
+    run (TestClock.awaitSleeps tc 1)
+    run (TestClock.adjust tc (Duration.millis 80.0))
+    Assert.Equal<string list>([], rel.Snapshot())
 
+    // touch resets the timer; advancing to the ORIGINAL deadline must not release.
     run (RcMap.touch map "foo")
-    System.Threading.Thread.Sleep 120
-    Assert.Equal<string list>([], snapRel ())
-    System.Threading.Thread.Sleep 160
-    Assert.Equal<string list>([ "foo" ], snapRel ())
+    run (TestClock.adjust tc (Duration.millis 120.0))
+    Assert.Equal<string list>([], rel.Snapshot())
 
-[<Fact(Skip = "TEMP quarantine: capacity/eviction timing flake; un-skip with TestClock (next task)")>]
+    // advancing past the touch-reset deadline finally releases it.
+    run (TestClock.awaitSleeps tc 2)
+    run (TestClock.adjust tc (Duration.millis 160.0))
+    run (awaitCount rel 1)
+    Assert.Equal<string list>([ "foo" ], rel.Snapshot())
+
+[<Fact>]
 let ``capacity`` () =
-    let addAcq, _ = mkLog ()
-    let addRel, _ = mkLog ()
+    let tc = TestClock.make ()
+    let acq = CountLatch ()
+    let rel = CountLatch ()
 
     let map =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope (Some 2) (fun _ -> Duration.millis 120.0) (trackingLookup addAcq addRel)
+
+                return!
+                    RcMap.makeWithClock
+                        (TestClock.clock tc)
+                        mapScope
+                        (Some 2)
+                        (fun _ -> Duration.millis 120.0)
+                        (trackingLookup acq.Add rel.Add)
             }
         )
 
@@ -193,8 +268,10 @@ let ``capacity`` () =
         Assert.True(hit, "expected an ExceededCapacityError defect")
     | Success _ -> Assert.Fail "expected a capacity failure"
 
-    // after the idle entries expire, capacity frees up again
-    System.Threading.Thread.Sleep 250
+    // advance past the idle TTL so both idle entries are evicted, freeing capacity.
+    run (TestClock.awaitSleeps tc 2)
+    run (TestClock.adjust tc (Duration.millis 250.0))
+    run (awaitCount rel 2)
     Assert.Equal("baz", run (Scope.scoped (fun s -> RcMap.get map "baz" s)))
 
 type private Key = { Id: int }
@@ -245,53 +322,64 @@ let ``keys lookup`` () =
 
     Assert.Equal<string list>([ "bar"; "baz"; "foo" ], List.sort ks)
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``dynamic idleTimeToLive`` () =
-    let addAcq, snapAcq = mkLog ()
-    let addRel, snapRel = mkLog ()
+    let tc = TestClock.make ()
+    let acq = CountLatch ()
+    let rel = CountLatch ()
     let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 80.0 else Duration.millis 300.0
 
     let map =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope None ttl (trackingLookup addAcq addRel)
+                return! RcMap.makeWithClock (TestClock.clock tc) mapScope None ttl (trackingLookup acq.Add rel.Add)
             }
         )
 
     run (Scope.scoped (fun s -> RcMap.get map "short:a" s) |> Effect.map ignore)
     run (Scope.scoped (fun s -> RcMap.get map "long:b" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "short:a"; "long:b" ], snapAcq ())
-    Assert.Equal<string list>([], snapRel ())
+    Assert.Equal<string list>([ "short:a"; "long:b" ], acq.Snapshot())
+    Assert.Equal<string list>([], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 160
-    Assert.Equal<string list>([ "short:a" ], snapRel ())
+    // both timers parked; advancing past the short TTL (not the long) evicts only short.
+    run (TestClock.awaitSleeps tc 2)
+    run (TestClock.adjust tc (Duration.millis 160.0))
+    run (awaitCount rel 1)
+    Assert.Equal<string list>([ "short:a" ], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 300
-    Assert.Equal<string list>([ "short:a"; "long:b" ], snapRel ())
+    run (TestClock.adjust tc (Duration.millis 300.0))
+    run (awaitCount rel 2)
+    Assert.Equal<string list>([ "short:a"; "long:b" ], rel.Snapshot())
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``dynamic idleTimeToLive with touch`` () =
-    let addAcq, snapAcq = mkLog ()
-    let addRel, snapRel = mkLog ()
+    let tc = TestClock.make ()
+    let acq = CountLatch ()
+    let rel = CountLatch ()
     let ttl (k: string) = if k.StartsWith "short:" then Duration.millis 150.0 else Duration.millis 2000.0
 
     let map =
         run (
             effect {
                 let mapScope = newScope ()
-                return! RcMap.makeWith mapScope None ttl (trackingLookup addAcq addRel)
+                return! RcMap.makeWithClock (TestClock.clock tc) mapScope None ttl (trackingLookup acq.Add rel.Add)
             }
         )
 
     run (Scope.scoped (fun s -> RcMap.get map "short:a" s) |> Effect.map ignore)
-    Assert.Equal<string list>([ "short:a" ], snapAcq ())
-    Assert.Equal<string list>([], snapRel ())
+    Assert.Equal<string list>([ "short:a" ], acq.Snapshot())
+    Assert.Equal<string list>([], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 75
+    run (TestClock.awaitSleeps tc 1)
+    run (TestClock.adjust tc (Duration.millis 75.0))
+    // touch resets the timer; advancing to the original deadline must not release.
     run (RcMap.touch map "short:a")
-    System.Threading.Thread.Sleep 75
-    Assert.Equal<string list>([], snapRel ())
+    run (TestClock.adjust tc (Duration.millis 75.0))
+    Assert.Equal<string list>([], rel.Snapshot())
 
-    System.Threading.Thread.Sleep 150
-    Assert.Equal<string list>([ "short:a" ], snapRel ())
+    // advancing past the touch-reset deadline releases it.
+    run (TestClock.awaitSleeps tc 2)
+    run (TestClock.adjust tc (Duration.millis 150.0))
+    run (awaitCount rel 1)
+    Assert.Equal<string list>([ "short:a" ], rel.Snapshot())

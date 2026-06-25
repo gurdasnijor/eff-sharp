@@ -167,7 +167,7 @@ let ``make - default infinite TTL never expires`` () =
     time.Value <- 1000L * 60L * 60L * 1000L // 1000 hours later
     Assert.True(get time (Cache.has cache "test"))
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``makeWithTtl - entries expire after the TTL`` () =
     let time = ref 0L
     let cache: Cache<string, int, string> =
@@ -179,7 +179,7 @@ let ``makeWithTtl - entries expire after the TTL`` () =
     time.Value <- int64 (61.0 * 60.0 * 1000.0) // 61 min
     Assert.False(get time (Cache.has cache "test"))
 
-[<Fact(Skip = "TEMP quarantine: real-time TTL flake; un-skip once TestClock lands (next task)")>]
+[<Fact>]
 let ``makeWith - dynamic TTL by exit`` () =
     let time = ref 0L
     let ttl (exit: Exit<int, string>) (_key: string) =
