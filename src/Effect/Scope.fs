@@ -54,6 +54,15 @@ module Scope =
     let addFinalizer (scope: Scope<'E, 'R>) (finalizer: Effect<unit, 'E, 'R>) : Effect<unit, 'E, 'R> =
         addFinalizerExit scope (fun _ -> finalizer)
 
+    /// Fork `eff` on a new fiber whose interruption is registered as a finalizer on
+    /// `scope`: the fiber is interrupted (and awaited) when the scope closes, so a
+    /// background loop cannot outlive its scope. The eff-sharp form of upstream's
+    /// `Effect.forkScoped` (this port's `Scope` is an explicit value, not ambient).
+    /// (Effect.forkScoped)
+    let forkScoped (scope: Scope<'E, 'R>) (eff: Effect<'A, 'E, 'R>) : Effect<Fiber<'A, 'E>, 'E, 'R> =
+        Effect.fork eff
+        |> Effect.flatMap (fun fib -> addFinalizer scope (Effect.interrupt fib) |> Effect.map (fun () -> fib))
+
     /// Close the scope, running all finalizers in LIFO order with `exit`. Each
     /// finalizer runs even if a previous one failed (failures are swallowed).
     /// (Scope.close)

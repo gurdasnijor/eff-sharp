@@ -158,3 +158,14 @@ let ``scoped closes its scope on failure`` () =
 
     Assert.Equal<Exit<string, string>>(Exit.fail "boom", run program)
     Assert.True(released.Value)
+
+[<Fact>]
+let ``forkScoped forks a joinable fiber and registers scope teardown`` () =
+    let scope: Scope<string, unit> = Scope.make ()
+
+    let forkAndJoin =
+        Scope.forkScoped scope (Effect.succeed 7) |> Effect.flatMap Effect.join
+
+    Assert.Equal<Exit<int, string>>(Exit.succeed 7, run forkAndJoin)
+    // closing the scope runs the registered interrupt finalizer harmlessly.
+    Assert.Equal<Exit<unit, string>>(Exit.succeed (), run (Scope.close scope (Exit.succeed (box ()))))
