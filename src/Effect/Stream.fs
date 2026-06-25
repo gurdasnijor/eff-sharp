@@ -43,6 +43,25 @@ module Stream =
     let fromEffect (eff: Effect<'A, 'E, 'R>) : Stream<'A, 'E, 'R> =
         { Run = fun emit -> eff |> Effect.flatMap emit }
 
+    /// Repeatedly run `pull`, emitting each `Some` value and ending on the first
+    /// `None`. If `pull` fails, the stream ends with that error. (Stream.repeatEffectOption)
+    ///
+    /// The public constructor for bridging an asynchronous *pull* source — a Node
+    /// `Readable` read, a .NET `Stream.ReadAsync` loop — into a `Stream`, without
+    /// reaching the internal `Stream` representation. Platform packages
+    /// (`Effect.Platform.Node`) build their `Readable → Stream` adapters on it.
+    /// Stack-safe: the loop threads through `Effect.flatMap` (the Async trampoline).
+    let repeatEffectOption (pull: Effect<'A option, 'E, 'R>) : Stream<'A, 'E, 'R> =
+        { Run =
+            fun emit ->
+                let rec loop () =
+                    pull
+                    |> Effect.flatMap (function
+                        | Some a -> emit a |> Effect.flatMap loop
+                        | None -> Effect.succeed ())
+
+                loop () }
+
     // --- combinators ---
 
     let map (f: 'A -> 'B) (self: Stream<'A, 'E, 'R>) : Stream<'B, 'E, 'R> =

@@ -11,6 +11,7 @@
     <Compile Include="EffectTests.fs" />
     <Compile Include="NodePlatformTests.fs" />
     <Compile Include="FileSystemTests.fs" />
+    <Compile Include="ChildProcessSpawnerTests.fs" />
     <Compile Include="CauseTests.fs" />
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />

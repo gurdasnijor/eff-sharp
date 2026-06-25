@@ -126,3 +126,28 @@ let ``mapInput adapts the input`` () =
     // sum of string lengths
     let sink = Sink.sum |> Sink.mapInput (fun (s: string) -> s.Length)
     Assert.Equal(6, run sink (Stream.make [ "a"; "bb"; "ccc" ]))
+
+// --- fromWrite (write + close) ---
+
+[<Fact>]
+let ``fromWrite writes each input then closes once`` () =
+    let program =
+        effect {
+            let! written = Ref.make []
+            let! closed = Ref.make 0
+
+            let sink =
+                Sink.fromWrite (fun (x: int) -> Ref.update written (fun xs -> xs @ [ x ])) (fun () ->
+                    Ref.update closed ((+) 1))
+
+            do! Stream.run sink (Stream.range 1 3)
+            let! w = Ref.get written
+            let! c = Ref.get closed
+            return (w, c)
+        }
+
+    match Effect.runSync () program with
+    | Success(w, c) ->
+        Assert.Equal<int list>([ 1; 2; 3 ], w)
+        Assert.Equal(1, c) // close runs exactly once, after the input ends
+    | Failure cause -> failwithf "sink failed: %s" (Cause.render cause)
