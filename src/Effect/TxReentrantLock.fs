@@ -1,8 +1,5 @@
 namespace Effect
 
-open System.Threading
-open System.Runtime.CompilerServices
-
 /// Port of repos/effect-smol/packages/effect/src/TxReentrantLock.ts — a
 /// transactional reentrant read/write lock. Many fibers may hold read locks
 /// concurrently, or one fiber holds the write lock exclusively; a fiber that
@@ -13,12 +10,11 @@ open System.Runtime.CompilerServices
 /// Porting adaptations (per CONVENTIONS):
 ///   - Upstream keys ownership by `fiber.id` (an `int`). Our fiber kernel's
 ///     `FiberRuntime` carries no id, so each operation captures the running
-///     `FiberRuntime` and maps it — by **reference identity** — to a stable unique
-///     int via a `ConditionalWeakTable` (`fiberId` below). Forked fibers get a
-///     fresh `FiberRuntime` (so a distinct id); all effects on one fiber share it.
-///   - Each op is its own atomic transaction (`TxRef.atomicallyUnsafe`, wrapped in
-///     an `Effect` that supplies the captured fiber id). Blocking acquires
-///     thread-block on `retry` (as the whole STM layer does pending fiber-park).
+///     `FiberRuntime` and maps it by reference identity to a stable unique int.
+///     Forked fibers get a fresh `FiberRuntime` (so a distinct id); all effects
+///     on one fiber share it.
+///   - Each op is its own atomic transaction wrapped in an `Effect` that supplies
+///     the captured fiber id. Blocking acquires suspend through `TxRef.retry`.
 ///   - JS-runtime machinery (`TypeId`, `Proto`, `toJSON`, `isTxReentrantLock`,
 ///     `pipe`/`dual`) is dropped; ops take `self` first. `readLock`/`writeLock`
 ///     take an explicit `Scope` rather than requiring it from the environment.
@@ -39,33 +35,24 @@ module TxReentrantLock =
 
     // --- fiber identity (reference-keyed, since FiberRuntime has no id) ---
 
-    let private fiberIds = ConditionalWeakTable<FiberRuntime, obj>()
+    let private fiberIds = System.Collections.Generic.Dictionary<FiberRuntime, int>(HashIdentity.Reference)
     let private nextId = ref 0
 
     let private fiberId (fib: FiberRuntime) : int =
-#if FABLE_COMPILER
-        // Fable shim: Interlocked.Increment is unsupported; atomicity is free on
-        // single-threaded JS. (severity: trivial)
-        unbox (
-            fiberIds.GetValue(
-                fib,
-                fun _ ->
-                    nextId.Value <- nextId.Value + 1
-                    box nextId.Value
-            )
-        )
-#else
-        unbox (fiberIds.GetValue(fib, fun _ -> box (Interlocked.Increment nextId)))
-#endif
+        lock fiberIds (fun () ->
+            match fiberIds.TryGetValue fib with
+            | true, id -> id
+            | _ ->
+                nextId.Value <- nextId.Value + 1
+                fiberIds[fib] <- nextId.Value
+                nextId.Value)
 
     /// Run an `Stm` built from the *current fiber's* id as its own transaction.
     let private txWithFiber (build: int -> Stm<'a>) : Effect<'a, 'E, 'R> =
         Effect(fun fib _ ->
             async {
-                try
-                    return Success(TxRef.atomicallyUnsafe (build (fiberId fib)))
-                with ex ->
-                    return Exit.die (box ex)
+                let! value = TxRef.atomicallyAsync (build (fiberId fib))
+                return Success value
             })
 
     let private readerCount (state: LockState) (fid: int) : int =

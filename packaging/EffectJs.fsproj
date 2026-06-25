@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- JS/TS-consumer view of the eff-sharp core: the same src/Effect modules,
-       MINUS the STM Tx* family (depends on TxRef, not yet Fable-ready).
+  <!-- JS/TS-consumer view of the eff-sharp core: the same src/Effect modules.
        Fable emits this to TypeScript (dist/).
-       The file list is the canonical Effect.Sources.props with the two excluded
-       subsets Removed, so it tracks the core automatically instead of drifting. -->
+       The file list is the canonical Effect.Sources.props, so it tracks the core
+       automatically instead of drifting. -->
   <PropertyGroup>
     <!-- TargetFramework inherited from the repo-root Directory.Build.props. -->
     <EffectSrcDir>$(MSBuildThisFileDirectory)../src/Effect/</EffectSrcDir>
@@ -16,10 +15,5 @@
   </ItemGroup>
 
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />
-
-  <ItemGroup>
-    <!-- STM Tx* family (TxRef-based, not yet Fable-ready). -->
-    <Compile Remove="$(EffectSrcDir)Tx*.fs" />
-  </ItemGroup>
 
 </Project>

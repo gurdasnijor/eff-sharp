@@ -34,6 +34,7 @@ type TxQueueStrategy =
     | Sliding
 
 /// Lifecycle state of a `TxQueue`. `Closing`/`Done` carry the completion cause.
+[<RequireQualifiedAccess>]
 type TxQueueState<'E> =
     | Open
     | Closing of Cause<'E>
@@ -54,7 +55,7 @@ module TxQueue =
     let private makeWith (strategy: TxQueueStrategy) (capacity: int) : Effect<TxQueue<'A, 'E>, 'Err, 'R> =
         effect {
             let! items = TxChunk.make Chunk.empty
-            let! stateRef = TxRef.make (Open: TxQueueState<'E>)
+            let! stateRef = TxRef.make (TxQueueState.Open: TxQueueState<'E>)
 
             return
                 { Strategy = strategy
@@ -104,9 +105,9 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Closing _
-            | Done _ -> return false
-            | Open ->
+            | TxQueueState.Closing _
+            | TxQueueState.Done _ -> return false
+            | TxQueueState.Open ->
                 let! currentSize = sizeStm self
 
                 match self.Strategy with
@@ -134,7 +135,7 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Done cause -> return Error cause
+            | TxQueueState.Done cause -> return Error cause
             | _ ->
                 let! chunk = TxChunk.get self.Items
 
@@ -145,7 +146,7 @@ module TxQueue =
                     let! nowEmpty = isEmptyStm self
 
                     match state with
-                    | Closing cause when nowEmpty -> do! TxRef.set self.StateRef (Done cause)
+                    | TxQueueState.Closing cause when nowEmpty -> do! TxRef.set self.StateRef (TxQueueState.Done cause)
                     | _ -> ()
 
                     return Ok head
@@ -157,7 +158,7 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Done _ -> return None
+            | TxQueueState.Done _ -> return None
             | _ ->
                 let! chunk = TxChunk.get self.Items
 
@@ -175,7 +176,7 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Done cause -> return Error cause
+            | TxQueueState.Done cause -> return Error cause
             | _ ->
                 let! empty = isEmptyStm self
 
@@ -186,7 +187,7 @@ module TxQueue =
                     do! TxChunk.set self.Items Chunk.empty
 
                     match state with
-                    | Closing cause -> do! TxRef.set self.StateRef (Done cause)
+                    | TxQueueState.Closing cause -> do! TxRef.set self.StateRef (TxQueueState.Done cause)
                     | _ -> ()
 
                     return Ok(Chunk.toArray chunk)
@@ -198,7 +199,7 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Done cause -> return Error cause
+            | TxQueueState.Done cause -> return Error cause
             | _ ->
                 let! chunk = TxChunk.get self.Items
 
@@ -214,9 +215,9 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Open ->
+            | TxQueueState.Open ->
                 let! empty = isEmptyStm self
-                do! TxRef.set self.StateRef (if empty then Done cause else Closing cause)
+                do! TxRef.set self.StateRef (if empty then TxQueueState.Done cause else TxQueueState.Closing cause)
                 return true
             | _ -> return false
         }
@@ -228,9 +229,9 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Open ->
+            | TxQueueState.Open ->
                 do! TxChunk.set self.Items Chunk.empty
-                do! TxRef.set self.StateRef (Done(Cause.fail error))
+                do! TxRef.set self.StateRef (TxQueueState.Done(Cause.fail error))
                 return true
             | _ -> return false
         }
@@ -242,10 +243,10 @@ module TxQueue =
             let! state = TxRef.get self.StateRef
 
             match state with
-            | Done _ -> return false
+            | TxQueueState.Done _ -> return false
             | _ ->
                 do! TxChunk.set self.Items Chunk.empty
-                do! TxRef.set self.StateRef (Done(Cause.interrupt None))
+                do! TxRef.set self.StateRef (TxQueueState.Done(Cause.interrupt None))
                 return true
         }
 
@@ -327,19 +328,19 @@ module TxQueue =
     /// (TxQueue.isOpen)
     let isOpen (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
         stateIs self (function
-            | Open -> true
+            | TxQueueState.Open -> true
             | _ -> false)
 
     /// (TxQueue.isClosing)
     let isClosing (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
         stateIs self (function
-            | Closing _ -> true
+            | TxQueueState.Closing _ -> true
             | _ -> false)
 
     /// (TxQueue.isDone)
     let isDone (self: TxQueue<'A, 'E>) : Effect<bool, 'Err, 'R> =
         stateIs self (function
-            | Done _ -> true
+            | TxQueueState.Done _ -> true
             | _ -> false)
 
     /// (TxQueue.isShutdown — alias of isDone)
@@ -352,7 +353,7 @@ module TxQueue =
                 let! state = TxRef.get self.StateRef
 
                 match state with
-                | Done _ -> return ()
+                | TxQueueState.Done _ -> return ()
                 | _ -> return! TxRef.retry
             }
         )
