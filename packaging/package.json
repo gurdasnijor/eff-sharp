@@ -12,6 +12,11 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "mime": "^4.1.0",
+    "multipasta": "^0.2.7",
+    "undici": "^8.2.0"
+  },
   "scripts": {
     "build": "dotnet fable EffectJs.fsproj --lang typescript -o dist --optimize",
     "smoke": "npx tsx consume.ts"

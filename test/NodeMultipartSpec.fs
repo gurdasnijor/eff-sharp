@@ -3,6 +3,13 @@ module NodeMultipartSpec
 open Effect
 open Effect.Platform.Node
 open Effect.Vitest
+open Fable.Core
+
+[<Import("Readable", "node:stream")>]
+let private readable: obj = jsNative
+
+[<Emit("$0.from([$1])")>]
+let private readableFromString (_readable: obj) (_body: string) : obj = jsNative
 
 describe "NodeMultipart" (fun () ->
     test "constructs field parts" (fun () ->
@@ -18,16 +25,23 @@ describe "NodeMultipart" (fun () ->
         let part = NodeMultipart.file "upload" "a.txt" "text/plain" source
         toBe (NodeMultipart.fileToReadable part) source)
 
-    test "reports parser support as an explicit platform error" (fun () ->
-        let result: Exit<MultipartPersisted, PlatformError> =
-            NodeMultipart.persisted (box null) Headers.empty
-            |> Effect.runSync Runtime.defaultRuntime.Context
+    itEffect "parses multipart fields with multipasta" (fun () ->
+        effect {
+            let boundary = "eff-sharp-boundary"
 
-        match result with
-        | Failure cause ->
-            match Cause.failures cause with
-            | (error: PlatformError) :: _ ->
-                toBe error.Tag "PlatformError"
-                toBe error.Message "NodeMultipart.stream: multipart/form-data parsing depends on the upstream multipasta parser, which is not ported yet"
-            | _ -> failwith "expected PlatformError"
-        | Success _ -> failwith "expected failure"))
+            let body =
+                "--"
+                + boundary
+                + "\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nhello\r\n--"
+                + boundary
+                + "--\r\n"
+
+            let source = readableFromString readable body
+
+            let! form =
+                NodeMultipart.persisted
+                    source
+                    (Headers.ofList [ "content-type", "multipart/form-data; boundary=" + boundary ])
+
+            toBe form.Fields.["title"] "hello"
+        }))

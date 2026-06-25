@@ -1,42 +1,22 @@
 namespace Effect.Platform.Node
 
+open Fable.Core
+
 /// Small MIME lookup facade matching the platform-node `Mime` module shape.
 [<RequireQualifiedAccess>]
 module Mime =
 
-    let private types =
-        Map.ofList
-            [ ".css", "text/css"
-              ".csv", "text/csv"
-              ".gif", "image/gif"
-              ".htm", "text/html"
-              ".html", "text/html"
-              ".ico", "image/x-icon"
-              ".jpeg", "image/jpeg"
-              ".jpg", "image/jpeg"
-              ".js", "text/javascript"
-              ".json", "application/json"
-              ".mjs", "text/javascript"
-              ".pdf", "application/pdf"
-              ".png", "image/png"
-              ".svg", "image/svg+xml"
-              ".txt", "text/plain"
-              ".wasm", "application/wasm"
-              ".webp", "image/webp"
-              ".xml", "application/xml" ]
+    [<ImportDefault("mime")>]
+    let private mime: obj = jsNative
 
-    let private extension (path: string) =
-        let normalized = path.Split('?').[0].Split('#').[0]
-        let index = normalized.LastIndexOf('.')
-
-        if index < 0 then
-            None
-        else
-            Some(normalized.Substring(index).ToLowerInvariant())
+    [<Emit("$0.getType($1)")>]
+    let private getTypeJs (_mime: obj) (_path: string) : string = jsNative
 
     /// Resolve a content type from a file path, if the extension is known.
     let getType (path: string) : string option =
-        extension path |> Option.bind (fun ext -> Map.tryFind ext types)
+        match getTypeJs mime path with
+        | null -> None
+        | value -> Some value
 
     /// Resolve a content type, defaulting to `application/octet-stream`.
     let getTypeOrDefault (path: string) : string =

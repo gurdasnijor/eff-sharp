@@ -6,7 +6,7 @@ open Fable.Core
 [<RequireQualifiedAccess>]
 module Undici =
 
-    [<Emit("import('undici')")>]
-    let importPackage () : JS.Promise<obj> = jsNative
+    [<ImportAll("undici")>]
+    let exports: obj = jsNative
 
-    let package () : JS.Promise<obj> = importPackage ()
+    let package: obj = exports

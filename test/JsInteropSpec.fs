@@ -54,6 +54,34 @@ describe "JS Promise / stream interop" (fun () ->
             same values [ 1; 2; 3 ]
         })
 
+    itEffect "Stream.fromAsyncIterableJS propagates effectful emit failures" (fun () ->
+        effect {
+            let mutable next = 0
+
+            let iterable =
+                AsyncIterable.create (fun () ->
+                    next <- next + 1
+
+                    if next <= 3 then
+                        Promise.lift (Some next)
+                    else
+                        Promise.lift None)
+
+            let stream: Stream<int, string, Context> =
+                Stream.fromAsyncIterableJS iterable (fun ex -> ex.Message)
+                |> Stream.mapEffect (fun value ->
+                    if value = 2 then
+                        Effect.fail "bad emit"
+                    else
+                        Effect.succeed value)
+
+            let! exit = Effect.exit (Stream.runCollect stream)
+
+            match exit with
+            | Success _ -> failwith "expected failure"
+            | Failure cause -> same (Cause.failures cause) [ "bad emit" ]
+        })
+
     itEffect "Stream.fromReadableStreamJS consumes a WHATWG ReadableStream" (fun () ->
         effect {
             let stream: Stream<int, string, Context> =
