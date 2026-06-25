@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Effect</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Smallest viable slice of the eff-sharp core to evaluate an effect
+       end-to-end via Fable. Files referenced READ-ONLY by path from ../src/Effect;
+       the real Effect.fsproj is untouched. Compile order mirrors the real one. -->
+  <ItemGroup>
+    <!-- Clean files: referenced UNMODIFIED from the real source tree. -->
+    <Compile Include="../src/Effect/Cause.fs" />
+    <Compile Include="../src/Effect/Exit.fs" />
+    <Compile Include="../src/Effect/Context.fs" />
+    <!-- patched/ holds spike copies with minimal `// SPIKE:`-tagged Fable shims;
+         the real src/Effect/{Effect,Fiber,Runtime}.fs are untouched. -->
+    <Compile Include="patched/Effect.fs" />
+    <Compile Include="../src/Effect/Scope.fs" />
+    <Compile Include="patched/Fiber.fs" />
+    <Compile Include="patched/Runtime.fs" />
+    <Compile Include="../src/Effect/MutableRef.fs" />
+    <Compile Include="../src/Effect/Ref.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+</Project>

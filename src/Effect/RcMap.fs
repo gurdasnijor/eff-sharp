@@ -142,7 +142,31 @@ module RcMap =
 
                 if shouldClose then closeEntry entry else Effect.succeed ()
             else
-                Effect.sleep (int remaining) |> Effect.zipRight (evictionLoop self key entry))
+                clockSleep self.Clock remaining |> Effect.zipRight (evictionLoop self key entry))
+
+    /// Sleep `millis` against the map's `Clock` (the live clock in production, a
+    /// `TestClock` under test), staying cooperatively interruptible so a closing
+    /// map / `invalidate` can stop a parked timer. Mirrors the kernel's
+    /// `Effect.sleep` loop, but waits on the `Clock`'s task so virtual time
+    /// controls eviction.
+    and private clockSleep (clock: Clock) (millis: int64) : Effect<unit, 'E, unit> =
+        Effect(fun fib _ ->
+            async {
+                let task = clock.SleepUnsafe(Duration.millis (float millis))
+                let mutable interrupted = false
+
+                while not task.IsCompleted && not interrupted do
+                    if fib.Interrupted && fib.Mask = 0 then
+                        interrupted <- true
+                    else
+                        do! Async.Sleep 5
+
+                return
+                    if interrupted && not task.IsCompleted then
+                        Failure(Cause.interrupt None)
+                    else
+                        Success()
+            })
 
     /// Close every resource and mark the map closed; registered as a finalizer on
     /// the map's owning scope by `make`. (RcMap.make finalizer)
@@ -164,7 +188,8 @@ module RcMap =
     /// Create an `RcMap` whose resources live no longer than the map's `scope`.
     /// `capacity = None` is unbounded; `idleTimeToLive key` gives the per-key idle
     /// grace period (`Duration.zero` = release immediately at refcount 0). (RcMap.make)
-    let makeWith
+    let makeWithClock
+        (clock: Clock)
         (scope: Scope<'E, unit>)
         (capacity: int option)
         (idleTimeToLive: 'K -> Duration)
@@ -175,11 +200,23 @@ module RcMap =
                 { Lookup = lookup
                   IdleTimeToLive = idleTimeToLive
                   Capacity = capacity
-                  Clock = Clock.make ()
+                  Clock = clock
                   Gate = System.Object()
                   State = Open(MutableHashMap.empty ()) }
 
             Scope.addFinalizer scope (closeAll self) |> Effect.map (fun () -> self))
+
+    /// `makeWithClock` using the live wall-clock. The `Clock` is captured
+    /// explicitly (this kernel's `RcMap` ops are `Effect<_,_,unit>` — there is no
+    /// ambient `Context` to read from, unlike `Cache`); a `TestClock` is injected
+    /// via `makeWithClock` to make idle-TTL eviction deterministic. (RcMap.make)
+    let makeWith
+        (scope: Scope<'E, unit>)
+        (capacity: int option)
+        (idleTimeToLive: 'K -> Duration)
+        (lookup: 'K -> Scope<'E, unit> -> Effect<'A, 'E, unit>)
+        : Effect<RcMap<'K, 'A, 'E>, 'E, unit> =
+        makeWithClock (Clock.make ()) scope capacity idleTimeToLive lookup
 
     /// `makeWith` with no capacity limit and immediate release at refcount 0. (RcMap.make)
     let make
