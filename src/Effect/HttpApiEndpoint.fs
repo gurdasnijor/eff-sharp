@@ -15,7 +15,8 @@ type HttpApiEndpointOptions =
       Payload: HttpApiContent list
       Headers: obj option
       Success: HttpApiContent list
-      Error: HttpApiContent list }
+      Error: HttpApiContent list
+      Security: HttpApiSecurity list }
 
 type HttpApiEndpoint =
     { Name: string
@@ -33,7 +34,8 @@ module HttpApiEndpoint =
           Payload = []
           Headers = None
           Success = [ HttpApiSchema.noContent ]
-          Error = [] }
+          Error = []
+          Security = [] }
 
     let private methodName =
         function
@@ -128,3 +130,9 @@ module HttpApiEndpoint =
         { endpoint with
             Middlewares = endpoint.Middlewares @ [ middleware ]
             Options = { endpoint.Options with Error = endpoint.Options.Error @ middleware.Error } }
+
+    let addSecurity (security: HttpApiSecurity) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        { endpoint with Options = { endpoint.Options with Security = endpoint.Options.Security @ [ security ] } }
+
+    let addSecurities (securities: HttpApiSecurity list) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        securities |> List.fold (fun acc security -> addSecurity security acc) endpoint

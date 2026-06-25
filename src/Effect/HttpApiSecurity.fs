@@ -10,6 +10,15 @@ type HttpApiSecurity =
     | ApiKey of name: string * location: HttpApiSecurityApiKeyLocation
     | Basic
 
+type HttpApiBasicCredentials =
+    { Username: string
+      Password: Redacted<string> }
+
+type HttpApiSecurityCredentials =
+    | HttpCredential of Redacted<string>
+    | ApiKeyCredential of Redacted<string>
+    | BasicCredentials of HttpApiBasicCredentials
+
 [<RequireQualifiedAccess>]
 module HttpApiSecurity =
 
@@ -42,3 +51,9 @@ module HttpApiSecurity =
         function
         | ApiKey(name, _) -> Some name
         | _ -> None
+
+    let credentialValue =
+        function
+        | HttpCredential value -> Redacted.value value
+        | ApiKeyCredential value -> Redacted.value value
+        | BasicCredentials credentials -> Redacted.value credentials.Password

@@ -27,6 +27,8 @@ type HttpApiClient =
 [<RequireQualifiedAccess>]
 module HttpApiClient =
 
+    let relativeOptions = { BaseUrl = "" }
+
     let emptyInput =
         { Params = Map.empty
           Query = UrlParams.empty }
@@ -68,7 +70,8 @@ module HttpApiClient =
 
     let buildUrl (options: HttpApiClientUrlOptions) (endpoint: HttpApiEndpoint) (input: HttpApiClientUrlInput) : string =
         let path = buildPath endpoint input
-        let url = trimBaseUrl options.BaseUrl + path
+        let baseUrl = trimBaseUrl options.BaseUrl
+        let url = if baseUrl = "" then path else baseUrl + path
         UrlParams.appendToUrl url input.Query
 
     let urlBuilder (api: HttpApi) (options: HttpApiClientUrlOptions) : HttpApiUrlBuilder =
@@ -82,6 +85,9 @@ module HttpApiClient =
           Options = options
           Endpoints = endpoints }
 
+    let urlBuilderRelative (api: HttpApi) : HttpApiUrlBuilder =
+        urlBuilder api relativeOptions
+
     let endpointUrl (group: string) (endpoint: string) (input: HttpApiClientUrlInput) (builder: HttpApiUrlBuilder) : string =
         match Map.tryFind group builder.Endpoints with
         | None -> invalidArg "group" ("Unknown HttpApi group: " + group)
@@ -89,6 +95,16 @@ module HttpApiClient =
             match Map.tryFind endpoint endpoints with
             | Some build -> build input
             | None -> invalidArg "endpoint" ("Unknown HttpApi endpoint: " + group + "." + endpoint)
+
+    let topLevelEndpointUrl (endpoint: string) (input: HttpApiClientUrlInput) (builder: HttpApiUrlBuilder) : string =
+        builder.Api.Groups
+        |> Map.toList
+        |> List.tryPick (fun (groupName, group) ->
+            if group.TopLevel && Map.containsKey endpoint group.Endpoints then
+                Some(endpointUrl groupName endpoint input builder)
+            else
+                None)
+        |> Option.defaultWith (fun () -> invalidArg "endpoint" ("Unknown top-level HttpApi endpoint: " + endpoint))
 
     let private endpointRequest (options: HttpApiClientUrlOptions) (endpoint: HttpApiEndpoint) (input: HttpApiClientEndpointInput) =
         let url =
@@ -122,6 +138,9 @@ module HttpApiClient =
           Options = options
           Endpoints = endpoints }
 
+    let makeRelative (api: HttpApi) : HttpApiClient =
+        make api relativeOptions
+
     let endpoint
         (group: string)
         (endpoint: string)
@@ -134,3 +153,17 @@ module HttpApiClient =
             match Map.tryFind endpoint endpoints with
             | Some execute -> execute input
             | None -> invalidArg "endpoint" ("Unknown HttpApi endpoint: " + group + "." + endpoint)
+
+    let topLevelEndpoint
+        (endpointName: string)
+        (input: HttpApiClientEndpointInput)
+        (client: HttpApiClient)
+        : Effect<HttpClientResponse, HttpClientError, Context> =
+        client.Api.Groups
+        |> Map.toList
+        |> List.tryPick (fun (groupName, group) ->
+            if group.TopLevel && Map.containsKey endpointName group.Endpoints then
+                Some(endpoint groupName endpointName input client)
+            else
+                None)
+        |> Option.defaultWith (fun () -> invalidArg "endpoint" ("Unknown top-level HttpApi endpoint: " + endpointName))

@@ -113,4 +113,42 @@ describe "OpenApi" (fun () ->
         toBe ((streamExtension |> Map.find "encoding") = JString "sse") true
         toBe ((streamExtension |> Map.find "failureEvent") = JString HttpApiSchema.streamFailureEvent) true
         toBe (streamExtension |> Map.containsKey "causeSchema") true
-        toBe (streamExtension |> Map.containsKey "errorSchema") true))
+        toBe (streamExtension |> Map.containsKey "errorSchema") true)
+
+    test "emits security requirements and components" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get "secure" "/secure" HttpApiEndpoint.empty
+            |> HttpApiEndpoint.addSecurities
+                [ HttpApiSecurity.bearer
+                  HttpApiSecurity.basic
+                  HttpApiSecurity.apiKeyHeader "x-api-key" ]
+
+        let api =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.make "secure" |> HttpApiGroup.add endpoint)
+
+        let spec = OpenApi.fromApi api
+
+        let operation =
+            spec
+            |> getObject "paths"
+            |> getObject "/secure"
+            |> getObject "get"
+            |> asObject
+
+        match operation |> Map.find "security" with
+        | JArray [ bearer; basic; apiKey ] ->
+            toEqual (bearer |> getObject "Bearer") (JArray [])
+            toEqual (basic |> getObject "Basic") (JArray [])
+            toEqual (apiKey |> getObject "ApiKeyHeader_x-api-key") (JArray [])
+        | other -> failwithf "expected three security requirements, got %A" other
+
+        let schemes =
+            spec
+            |> getObject "components"
+            |> getObject "securitySchemes"
+            |> asObject
+
+        toEqual (schemes |> Map.find "Bearer" |> getObject "scheme") (JString "bearer")
+        toEqual (schemes |> Map.find "Basic" |> getObject "scheme") (JString "basic")
+        toEqual (schemes |> Map.find "ApiKeyHeader_x-api-key" |> getObject "in") (JString "header")))
