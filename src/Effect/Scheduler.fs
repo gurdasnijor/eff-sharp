@@ -1,7 +1,5 @@
 namespace Effect
 
-open System.Collections.Generic
-
 /// Slice: wave-4 kernel 2. Cooperative task scheduling (port of Scheduler.ts).
 ///
 /// In eff-sharp's `Async`-based core the .NET thread pool actually *runs* effects,
@@ -30,10 +28,7 @@ module Scheduler =
     /// A dispatcher draining a priority queue. Re-entrant `scheduleTask` during a
     /// `flush` is honored in the same drain (matching upstream's "running" loop).
     type private PriorityDispatcher() =
-#if FABLE_COMPILER
-        // Fable lacks System.Collections.Generic.PriorityQueue; a small list with
-        // min-priority extraction is faithful here (dispatcher queues are short and
-        // drained eagerly each flush).
+        // Small min-priority queue. Dispatcher queues are short and drained eagerly.
         let queue = ResizeArray<struct (int * (unit -> unit))>()
         let enqueue (task: unit -> unit) (priority: int) = queue.Add(struct (priority, task))
 
@@ -53,13 +48,7 @@ module Scheduler =
                 let struct (_, task) = queue.[mi]
                 queue.RemoveAt mi
                 Some task
-#else
-        let queue = PriorityQueue<unit -> unit, int>()
-        let enqueue (task: unit -> unit) (priority: int) = queue.Enqueue(task, priority)
 
-        let tryDequeue () : (unit -> unit) option =
-            if queue.Count > 0 then Some(queue.Dequeue()) else None
-#endif
         let mutable running = false
 
         interface SchedulerDispatcher with
