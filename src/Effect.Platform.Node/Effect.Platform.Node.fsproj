@@ -21,7 +21,6 @@
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />
 
   <ItemGroup>
-    <Compile Include="NodePlatform.fs" />
     <Compile Include="NodeFileSystem.fs" />
     <Compile Include="NodeStream.fs" />
     <Compile Include="NodeSink.fs" />
@@ -29,6 +28,7 @@
     <Compile Include="NodeHttpClient.fs" />
     <Compile Include="NodeHttpServer.fs" />
     <Compile Include="NodeRuntime.fs" />
+    <Compile Include="NodePlatform.fs" />
   </ItemGroup>
 
 </Project>
