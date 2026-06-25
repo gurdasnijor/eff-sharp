@@ -132,6 +132,9 @@
     <Compile Include="RcMap.fs" />
     <!-- w6-path: file-path service + POSIX layer (on Context/Layer/PlatformError) -->
     <Compile Include="Path.fs" />
+    <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
+    <Compile Include="SubscriptionRef.fs" />
+    <Compile Include="TxSubscriptionRef.fs" />
   </ItemGroup>
 
 </Project>

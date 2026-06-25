@@ -123,6 +123,9 @@
     <Compile Include="RcMapTests.fs" />
     <!-- w6-path -->
     <Compile Include="PathTests.fs" />
+    <!-- w6-subref: Ref/STM-ref whose changes publish as a Stream -->
+    <Compile Include="SubscriptionRefTests.fs" />
+    <Compile Include="TxSubscriptionRefTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
