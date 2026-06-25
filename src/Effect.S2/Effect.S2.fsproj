@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>EffSharp.S2</AssemblyName>
+    <RootNamespace>Effect</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Effect/Effect.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="InternalSdk.fs" />
+    <Compile Include="S2.fs" />
+  </ItemGroup>
+
+</Project>
