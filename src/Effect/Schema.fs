@@ -130,8 +130,10 @@ module Schema =
     let int: Schema<int> =
         { Ast = AInt
           Decode =
+            // `n % 1.0 = 0.0` is the Fable-portable equal of `Double.IsInteger`
+            // (false for NaN / infinity, true for finite integers).
             (function
-            | JNumber n when Double.IsInteger n -> Ok(toInt n)
+            | JNumber n when n % 1.0 = 0.0 -> Ok(toInt n)
             | JNumber n -> Error [ InvalidValue("Expected an integer", JNumber n) ]
             | j -> Error [ InvalidType("number", j) ])
           Encode = fun i -> JNumber(toFloat i) }
@@ -382,6 +384,13 @@ module Schema =
     let object = ObjectBuilder()
 
     // -- reflection-based derivation (records / option / enum-like DUs) --------
+    //
+    // Reflective auto-derive: inspects an F# type at runtime via FSharpType /
+    // FSharpValue. Fable erases generic type info at compile time, so this entire
+    // path is .NET-only. On the Fable/JS target `Schema.derive` fails fast — build
+    // schemas with the explicit combinators (`Schema.object` / primitives), which
+    // is all the JS consumers (e.g. fluent-firegrid) ever use.
+#if !FABLE_COMPILER
 
     let rec private deriveCodec (t: Type) : (Json -> Result<obj, SchemaIssue list>) * (obj -> Json) =
         if t = typeof<string> then
@@ -489,6 +498,14 @@ module Schema =
         { Ast = ADeclare(typeof<'T>.Name)
           Decode = (fun j -> dec j |> Result.map unbox<'T>)
           Encode = (fun v -> enc (box v)) }
+#else
+    /// Reflective derivation is unavailable on the Fable/JS target (generic type
+    /// info is erased at compile time). Build schemas with the explicit
+    /// combinators instead. (Schema.derive — JS stub)
+    let derive<'T> () : Schema<'T> =
+        failwith
+            "Schema.derive (reflective type derivation) is not supported on the Fable/JS target — build the schema explicitly with the combinators (Schema.object / Schema.string / ...)."
+#endif
 
     // -- surfaces -------------------------------------------------------------
 
