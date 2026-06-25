@@ -141,6 +141,11 @@
     <Compile Include="RcMap.fs" />
     <!-- w6-path: file-path service + POSIX layer (on Context/Layer/PlatformError) -->
     <Compile Include="Path.fs" />
+    <!-- platform: child process — command builder + spawner service with dual
+         (.NET System.Diagnostics.Process / Node child_process) Layers. First
+         end-to-end package cutover (fluent-acp-process). -->
+    <Compile Include="ChildProcess.fs" />
+    <Compile Include="ChildProcessSpawner.fs" />
     <!-- w6-subref: Ref whose changes publish as a Stream (PubSub + Semaphore + Stream) -->
     <Compile Include="SubscriptionRef.fs" />
     <Compile Include="TxSubscriptionRef.fs" />

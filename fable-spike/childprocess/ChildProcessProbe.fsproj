@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Effect</RootNamespace>
+  </PropertyGroup>
+  <!-- Fable probe + Node smoke for the ChildProcess cutover. Compiles the
+       minimal dependency slice of the REAL src/Effect tree (all known
+       Fable-clean) plus the two net-new modules, then Program.fs spawns a real
+       process on Node via the Node Layer. Files referenced read-only by path;
+       the real Effect.fsproj is untouched. Compile order mirrors the real one. -->
+  <!-- ChildProcessSpawner.fs is the FIRST module to use real Fable interop
+       (Import/Emit of node:child_process), so it needs Fable.Core. The .NET build
+       of the real Effect.fsproj does NOT (all interop is under #if FABLE_COMPILER);
+       wiring a conditional Fable.Core ref into Effect.fsproj is the packaging step. -->
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/Effect/Cause.fs" />
+    <Compile Include="../../src/Effect/Exit.fs" />
+    <Compile Include="../../src/Effect/Context.fs" />
+    <Compile Include="../../src/Effect/Effect.fs" />
+    <Compile Include="../../src/Effect/Scope.fs" />
+    <Compile Include="../../src/Effect/Fiber.fs" />
+    <Compile Include="../../src/Effect/Runtime.fs" />
+    <Compile Include="../../src/Effect/Layer.fs" />
+    <Compile Include="../../src/Effect/Sink.fs" />
+    <Compile Include="../../src/Effect/Stream.fs" />
+    <Compile Include="../../src/Effect/PlatformError.fs" />
+    <Compile Include="../../src/Effect/ChildProcess.fs" />
+    <Compile Include="../../src/Effect/ChildProcessSpawner.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+</Project>
