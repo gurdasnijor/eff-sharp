@@ -7,11 +7,12 @@ type HttpMethod =
     | PATCH
     | DELETE
     | HEAD
+    | OPTIONS
 
 type HttpApiEndpointOptions =
     { Params: obj option
       Query: obj option
-      Payload: obj option
+      Payload: HttpApiContent list
       Headers: obj option
       Success: HttpApiContent list
       Error: HttpApiContent list }
@@ -20,7 +21,8 @@ type HttpApiEndpoint =
     { Name: string
       Method: HttpMethod
       Path: string
-      Options: HttpApiEndpointOptions }
+      Options: HttpApiEndpointOptions
+      Middlewares: HttpApiMiddleware list }
 
 [<RequireQualifiedAccess>]
 module HttpApiEndpoint =
@@ -28,7 +30,7 @@ module HttpApiEndpoint =
     let empty =
         { Params = None
           Query = None
-          Payload = None
+          Payload = []
           Headers = None
           Success = [ HttpApiSchema.noContent ]
           Error = [] }
@@ -41,6 +43,20 @@ module HttpApiEndpoint =
         | PATCH -> "PATCH"
         | DELETE -> "DELETE"
         | HEAD -> "HEAD"
+        | OPTIONS -> "OPTIONS"
+
+    let private normalizePath (path: string) =
+        if path = "" then "/"
+        elif path.StartsWith("/") then path
+        else "/" + path
+
+    let private prefixPath (prefix: string) (path: string) =
+        let p = normalizePath prefix
+        let child = normalizePath path
+
+        if child = "/" then p
+        elif p = "/" then child
+        else p.TrimEnd('/') + "/" + child.TrimStart('/')
 
     let private validateSuccesses method_ (successes: HttpApiContent list) =
         if method_ = HEAD && successes |> List.exists HttpApiSchema.isStream then
@@ -83,7 +99,8 @@ module HttpApiEndpoint =
         { Name = name
           Method = method_
           Path = path
-          Options = options }
+          Options = options
+          Middlewares = [] }
 
     let get name path options = make GET name path options
     let post name path options = make POST name path options
@@ -91,5 +108,23 @@ module HttpApiEndpoint =
     let patch name path options = make PATCH name path options
     let delete name path options = make DELETE name path options
     let head name path options = make HEAD name path options
+    let options name path options = make OPTIONS name path options
 
     let methodString endpoint = methodName endpoint.Method
+
+    let prefix (prefix: string) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        { endpoint with Path = prefixPath prefix endpoint.Path }
+
+    let addError (error: HttpApiContent) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        if HttpApiSchema.isStream error then
+            invalidArg "error" "Streaming schemas are only supported as successes"
+
+        { endpoint with Options = { endpoint.Options with Error = endpoint.Options.Error @ [ error ] } }
+
+    let addErrors (errors: HttpApiContent list) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        errors |> List.fold (fun acc error -> addError error acc) endpoint
+
+    let middleware (middleware: HttpApiMiddleware) (endpoint: HttpApiEndpoint) : HttpApiEndpoint =
+        { endpoint with
+            Middlewares = endpoint.Middlewares @ [ middleware ]
+            Options = { endpoint.Options with Error = endpoint.Options.Error @ middleware.Error } }

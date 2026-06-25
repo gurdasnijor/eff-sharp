@@ -13,7 +13,7 @@ let private createTodo =
     HttpApiEndpoint.post
         "createTodo"
         "/todos"
-        { HttpApiEndpoint.empty with Payload = Some(box "todo") }
+        { HttpApiEndpoint.empty with Payload = [ HttpApiSchema.asText Schema.string ] }
 
 let private api =
     HttpApi.make "TodoApi"

@@ -181,15 +181,15 @@ module Effect =
 
     /// JavaScript Promise interop is only executable under Fable/JS.
     let promiseJS (_promise: Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
-        Effect.sync (fun () -> failwith "Effect.promiseJS is only available on the Fable/JS target")
+        sync (fun () -> failwith "Effect.promiseJS is only available on the Fable/JS target")
 
     /// JavaScript Promise interop is only executable under Fable/JS.
     let promiseJSWith (_f: unit -> Fable.Core.JS.Promise<'A>) : Effect<'A, 'E, 'R> =
-        Effect.sync (fun () -> failwith "Effect.promiseJSWith is only available on the Fable/JS target")
+        sync (fun () -> failwith "Effect.promiseJSWith is only available on the Fable/JS target")
 
     /// JavaScript Promise interop is only executable under Fable/JS.
     let tryPromiseJS (_f: unit -> Fable.Core.JS.Promise<'A>) (_onError: exn -> 'E) : Effect<'A, 'E, 'R> =
-        Effect.sync (fun () -> failwith "Effect.tryPromiseJS is only available on the Fable/JS target")
+        sync (fun () -> failwith "Effect.tryPromiseJS is only available on the Fable/JS target")
 #endif
 
     let environment<'R, 'E> : Effect<'R, 'E, 'R> =

@@ -6,6 +6,7 @@ type HttpApiEncoding =
     | FormUrlEncoded
     | Text
     | Uint8Array
+    | Multipart
 
 type HttpApiContentKind =
     | Buffered
@@ -34,14 +35,38 @@ module HttpApiSchema =
     let asJson (schema: Schema<'T>) : HttpApiContent =
         content Buffered 200 "application/json" (Some schema.Ast)
 
+    let asJsonWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content Buffered 200 contentType (Some schema.Ast)
+
+    let asFormUrlEncoded (schema: Schema<'T>) : HttpApiContent =
+        content Buffered 200 "application/x-www-form-urlencoded" (Some schema.Ast)
+
+    let asFormUrlEncodedWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content Buffered 200 contentType (Some schema.Ast)
+
     let asText (schema: Schema<'T>) : HttpApiContent =
         content Buffered 200 "text/plain" (Some schema.Ast)
+
+    let asTextWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content Buffered 200 contentType (Some schema.Ast)
 
     let asUint8Array (schema: Schema<'T>) : HttpApiContent =
         content Buffered 200 "application/octet-stream" (Some schema.Ast)
 
+    let asUint8ArrayWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content Buffered 200 contentType (Some schema.Ast)
+
+    let asNoContent (statusCode: int) : HttpApiContent =
+        content Empty statusCode "" None
+
     let noContent: HttpApiContent =
         content Empty 204 "" None
+
+    let created: HttpApiContent =
+        content Empty 201 "" None
+
+    let accepted: HttpApiContent =
+        content Empty 202 "" None
 
     let empty (statusCode: int) : HttpApiContent =
         content Empty statusCode "" None
@@ -91,6 +116,20 @@ module HttpApiSchema =
         match contentType.IndexOf ';' with
         | -1 -> contentType.Trim().ToLowerInvariant()
         | i -> contentType.Substring(0, i).Trim().ToLowerInvariant()
+
+    let encoding (schema: HttpApiContent) : HttpApiEncoding =
+        match schema.Kind with
+        | Empty -> Json
+        | StreamSse _ -> Text
+        | StreamUint8Array -> Uint8Array
+        | Buffered ->
+            match baseContentType schema.ContentType with
+            | "application/json" -> Json
+            | "application/x-www-form-urlencoded" -> FormUrlEncoded
+            | "text/plain" -> Text
+            | "application/octet-stream" -> Uint8Array
+            | "multipart/form-data" -> Multipart
+            | _ -> Json
 
     let rec private containsReservedFailureEvent =
         function

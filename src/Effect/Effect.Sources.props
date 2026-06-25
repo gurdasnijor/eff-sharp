@@ -170,10 +170,15 @@
     <Compile Include="$(EffectSrcDir)HttpClient.fs" />
     <!-- unstable/httpapi: declarative API contract metadata and OpenAPI emission -->
     <Compile Include="$(EffectSrcDir)HttpApiSchema.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiError.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiMiddleware.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiEndpoint.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiGroup.fs" />
     <Compile Include="$(EffectSrcDir)HttpApi.fs" />
     <Compile Include="$(EffectSrcDir)OpenApi.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiDocs.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiSwagger.fs" />
+    <Compile Include="$(EffectSrcDir)HttpApiScalar.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiSecurity.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiClient.fs" />
     <Compile Include="$(EffectSrcDir)HttpApiBuilder.fs" />

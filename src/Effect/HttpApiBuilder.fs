@@ -42,11 +42,19 @@ module HttpApiBuilder =
         { Api = api
           Groups = groups |> List.map (fun group -> group.Group.Identifier, group) |> Map.ofList }
 
-    let private routeFor (endpoint: HttpApiEndpoint) (handler: HttpApiEndpointHandler) : HttpRoute =
+    let private applyMiddlewares (group: HttpApiGroup) (endpoint: HttpApiEndpoint) (effect: Effect<HttpServerResponse, HttpServerError, Context>) =
+        let context =
+            { Group = group.Identifier
+              Endpoint = endpoint.Name }
+
+        endpoint.Middlewares
+        |> List.fold (fun acc middleware -> middleware.Apply context acc) effect
+
+    let private routeFor (group: HttpApiGroup) (endpoint: HttpApiEndpoint) (handler: HttpApiEndpointHandler) : HttpRoute =
         HttpRouter.routeHandler
             (HttpApiEndpoint.methodString endpoint)
             endpoint.Path
-            (fun request parameters -> handler (endpointInput request parameters))
+            (fun request parameters -> handler (endpointInput request parameters) |> applyMiddlewares group endpoint)
 
     let toRouter (handlers: HttpApiHandlers) : HttpRouter =
         handlers.Api.Groups
@@ -62,7 +70,7 @@ module HttpApiBuilder =
                         (fun router (endpointName, endpoint) ->
                             match Map.tryFind endpointName groupHandlers.Handlers with
                             | None -> invalidArg "handlers" ("Missing HttpApi endpoint handler: " + groupName + "." + endpointName)
-                            | Some handler -> HttpRouter.addRoute (routeFor endpoint handler) router)
+                            | Some handler -> HttpRouter.addRoute (routeFor group endpoint handler) router)
                         router)
             HttpRouter.empty
 
