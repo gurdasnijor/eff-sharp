@@ -143,6 +143,8 @@
     <Compile Include="ManagedRuntime.fs" />
     <Compile Include="ExecutionPlan.fs" />
     <Compile Include="LayerMap.fs" />
+    <!-- w6: pooled resource manager (fixed-size core on Queue/Scope) -->
+    <Compile Include="Pool.fs" />
   </ItemGroup>
 
 </Project>
