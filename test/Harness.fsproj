@@ -12,12 +12,10 @@
     <PackageReference Include="Fable.Core" />
   </ItemGroup>
 
-  <!-- the Fable-ready core (everything except the STM Tx* family) -->
+  <!-- the Fable-ready core -->
   <Import Project="$(EffectSrcDir)Effect.Sources.props" />
 
   <ItemGroup>
-    <Compile Remove="$(EffectSrcDir)Tx*.fs" />
-
     <!-- Test infrastructure + Vitest facade. These live under test/support so
          the Node/Vitest harness owns the whole test-only surface. -->
     <Compile Include="support/TestClock.fs" />

@@ -1,22 +1,20 @@
 namespace Effect
 
 open System.Collections.Generic
-open System.Threading
 
 /// Port of repos/effect-smol/packages/effect/src/TxRef.ts — transactional
-/// references with **version-based optimistic concurrency** (the same algorithm
-/// as Effect's `TxRef` and FSharpx's `Stm`).
+/// references with version-based optimistic concurrency.
 ///
 /// Model:
 ///   - A `TxRef<'a>` is a mutable cell `{ value; version }`.
 ///   - A transaction (`Stm<'a>`) runs its body against a fresh per-tx *journal*
 ///     (read set + pending writes) with NO locks held (optimistic).
-///   - `atomically` then takes a single global lock and VALIDATES: every TxRef the
+///   - `atomically` then validates under a single commit gate: every TxRef the
 ///     tx touched must still be at the version it was seen at. If all valid, the
-///     pending writes are applied (bumping versions) and waiters are `PulseAll`ed;
+///     pending writes are applied (bumping versions) and waiters are resumed;
 ///     otherwise the journal is discarded and the whole tx re-runs.
-///   - `retry` aborts the tx; under the global lock it `Monitor.Wait`s until a
-///     committed write pulses, then re-runs.
+///   - `retry` aborts the tx and suspends asynchronously until one of the TxRefs
+///     read by the transaction is committed, then re-runs.
 ///
 /// Porting adaptations vs upstream (noted per CONVENTIONS):
 ///   - Upstream threads the transaction journal through the `Effect` runtime
@@ -25,9 +23,9 @@ open System.Threading
 ///     `Stm<'a>` monad and exposes `atomically : Stm<'a> -> Effect<'a,'E,'R>` as
 ///     the boundary. Transactional ops therefore return `Stm<_>` (composable with
 ///     `stm { }`), not `Effect<_>`.
-///   - v1 **thread-blocks** on `retry` (`Monitor.Wait`). Replacing this with
-///     fiber-park is a later upgrade once the fiber runtime lands.
-///   - The **seqlock memory fix** is mandatory: a naive unsynchronized read can
+///   - The retry path is Fable/Node-safe: it uses `Cell` waiters instead of
+///     blocking an OS thread.
+///   - The seqlock memory fix is mandatory: a naive unsynchronized read can
 ///     pair a fresh `version` with a stale `value` on a weak-memory CPU (arm64)
 ///     and silently lose updates. See `TxRef` below.
 ///   - HKT/variance plumbing and JS-runtime machinery (`TypeId`, `Proto`,
@@ -38,6 +36,10 @@ type internal ITxVar =
     abstract member Version: int
     /// Apply a boxed value as the new committed value and bump the version.
     abstract member CommitBoxed: obj -> unit
+    /// Register a waiter resumed when this TxRef commits a value.
+    abstract member AddPending: Cell<unit> -> unit
+    /// Resume and clear waiters after this TxRef commits a value.
+    abstract member CompletePending: unit -> unit
 
 /// A transactional reference: a value tagged with a monotonically increasing
 /// version. Reference identity (not structural) keys the journal.
@@ -55,6 +57,7 @@ type TxRef<'a> internal (initial: 'a) =
     let mutable version = 0
 
     let mutable value = initial // guarded by `version` (seqlock)
+    let pending = ResizeArray<Cell<unit>>()
 
     /// Live (non-transactional) read — for edges/inspection only.
     member _.ValueUnsafe = value
@@ -78,6 +81,15 @@ type TxRef<'a> internal (initial: 'a) =
         member _.CommitBoxed boxed =
             value <- (boxed :?> 'a) // publish value first ...
             version <- version + 1 // ... then the volatile version write releases it
+
+        member _.AddPending cell = pending.Add cell
+
+        member _.CompletePending() =
+            let waiters = pending.ToArray()
+            pending.Clear()
+
+            for waiter in waiters do
+                Cell.trySet waiter () |> ignore
 
 /// One journal slot per touched `TxRef`.
 type internal Entry =
@@ -117,6 +129,17 @@ type internal TxLog() =
 
             if e.HasWrite then
                 e.Var.CommitBoxed e.Boxed
+
+        for kv in entries do
+            let e = kv.Value
+
+            if e.HasWrite then
+                e.Var.CompletePending()
+
+    /// Register `cell` on every TxRef read by this transaction.
+    member _.AddPending(cell: Cell<unit>) =
+        for kv in entries do
+            kv.Value.Var.AddPending cell
 
     /// Shallow snapshot of the current entries (for `orElse` rollback).
     member _.Snapshot() =
@@ -169,8 +192,7 @@ module StmBuilderModule =
 [<RequireQualifiedAccess>]
 module TxRef =
 
-    /// The single global lock guarding validate+commit and serving as the retry
-    /// wait/pulse monitor.
+    /// The single global gate guarding validate+commit and retry registration.
     let private commitLock = obj ()
 
     // --- constructors ---
@@ -268,42 +290,63 @@ module TxRef =
 
     // --- runners (the Stm -> Effect boundary) ---
 
-    /// Run a transaction to commit, returning its result directly. Loops on
-    /// conflict; thread-blocks on `retry` until a relevant commit pulses.
-    let atomicallyUnsafe (Stm body) : 'a =
-        let mutable result = ValueNone
+    type private Attempt<'a> =
+        | Done of 'a
+        | Rerun
+        | Suspend of Cell<unit>
 
-        while result.IsNone do
-            let log = TxLog()
+    let private tryCommit (body: TxLog -> 'a) : Attempt<'a> =
+        let log = TxLog()
 
-            let outcome =
-                try
-                    Ok(body log)
-                with RetryException ->
-                    Error()
-
-            // Validate + commit (or wait) atomically under the global lock so a
-            // committer's PulseAll cannot be lost between our validate and wait.
-            Monitor.Enter commitLock
-
+        let outcome =
             try
-                match outcome with
-                | Ok value when log.IsValid() ->
-                    log.Commit()
-                    Monitor.PulseAll commitLock
-                    result <- ValueSome value
-                | Ok _ -> () // read/write conflict — loop and re-run
-                | Error() ->
-                    // Explicit retry: only block if our read set is still
-                    // consistent; if it already changed, re-run immediately.
-                    if log.IsValid() then
-                        Monitor.Wait commitLock |> ignore
-            finally
-                Monitor.Exit commitLock
+                Ok(body log)
+            with RetryException ->
+                Error()
 
-        result.Value
+        lock commitLock (fun () ->
+            match outcome with
+            | Ok value when log.IsValid() ->
+                log.Commit()
+                Done value
+            | Ok _ -> Rerun
+            | Error() ->
+                if log.IsValid() then
+                    let cell = Cell.make ()
+                    log.AddPending cell
+                    Suspend cell
+                else
+                    Rerun)
+
+    /// Run a transaction to commit asynchronously, returning its result directly.
+    /// Conflicts rerun immediately; `retry` suspends until a touched TxRef commits.
+    let atomicallyAsync (Stm body) : Async<'a> =
+        let rec loop () =
+            async {
+                match tryCommit body with
+                | Done value -> return value
+                | Rerun -> return! loop ()
+                | Suspend cell ->
+                    do! Cell.await cell
+                    return! loop ()
+            }
+
+        loop ()
+
+    /// Run a transaction synchronously. This is only for operations that are known
+    /// not to `retry`; retrying transactions must use `atomically`.
+    let atomicallyUnsafe (txn: Stm<'a>) : 'a =
+#if FABLE_COMPILER
+        failwith "TxRef.atomicallyUnsafe is not available on Fable; use TxRef.atomically"
+#else
+        Async.RunSynchronously(atomicallyAsync txn)
+#endif
 
     /// Run a transaction as an `Effect`. This is the `Effect.atomic` boundary.
     /// (Effect.tx / Effect.atomic)
     let atomically (txn: Stm<'a>) : Effect<'a, 'E, 'R> =
-        Effect.sync (fun () -> atomicallyUnsafe txn)
+        Effect(fun _ _ ->
+            async {
+                let! value = atomicallyAsync txn
+                return Success value
+            })
