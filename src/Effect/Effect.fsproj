@@ -23,7 +23,11 @@
     <!-- Slice 5: dependency injection -->
     <Compile Include="Layer.fs" />
     <!-- Slice 6: higher-level -->
+    <!-- w6-streaming: Sink folds over Effect only, so it precedes Stream (which gains Stream.run) -->
+    <Compile Include="Sink.fs" />
     <Compile Include="Stream.fs" />
+    <!-- w6-streaming: minimal output-writer Channel (bridges to/from Stream) -->
+    <Compile Include="Channel.fs" />
     <!-- leaf5: traits -->
     <Compile Include="Equivalence.fs" />
     <Compile Include="Order.fs" />

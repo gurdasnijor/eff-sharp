@@ -13,6 +13,8 @@
     <Compile Include="ExitTests.fs" />
     <Compile Include="IntegrationTests.fs" />
     <Compile Include="StreamTests.fs" />
+    <Compile Include="SinkTests.fs" />
+    <Compile Include="ChannelTests.fs" />
     <Compile Include="LayerTests.fs" />
     <Compile Include="FiberTests.fs" />
     <Compile Include="Kernel2Tests.fs" />
