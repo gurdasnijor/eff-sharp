@@ -283,6 +283,14 @@ module Effect =
                 return Success()
             })
 
+    /// Signal an interrupt to a fiber **without** waiting for it to stop: set the
+    /// `Interrupted` flag and return immediately. The fiber honors it at its next
+    /// yield point (or when its mask lifts). Unlike `interrupt`, this never blocks
+    /// the caller, so it is safe to set the flag and then release a fiber that is
+    /// parked waiting on the caller. (Fiber.interruptFork)
+    let interruptFork (fib: Fiber<'A, 'E>) : Effect<unit, 'E2, 'R> =
+        sync (fun () -> fib.Runtime.Interrupted <- true)
+
     /// Mark a region uninterruptible: a pending interrupt is deferred until the
     /// region exits, then honored. Finalizers run under this so they cannot be
     /// interrupted. (Effect.uninterruptible)
