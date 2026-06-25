@@ -16,11 +16,23 @@ type FiberRuntime =
 
     static member Root() : FiberRuntime = { Interrupted = false; Mask = 0 }
 
-/// A handle to a forked, concurrently-running effect: its backing `Task` and the
-/// `FiberRuntime` whose `Interrupted` flag interrupts it. (Fiber.Fiber)
+/// A handle to a forked, concurrently-running effect and the `FiberRuntime` whose
+/// `Interrupted` flag interrupts it. (Fiber.Fiber)
+///
+/// On .NET the backing computation is a `Task<Exit>` (`Async.StartAsTask`). Fable's
+/// runtime library implements neither `StartAsTask` nor `AwaitTask`, so under
+/// `FABLE_COMPILER` the handle is an `Async.StartChild` join plus a completion cell
+/// (`Result`) that `poll`/`isLive` read in place of `Task.IsCompleted`/`Result`.
+/// The .NET representation is unchanged.
 type Fiber<'A, 'E> =
     internal
-        { Task: Task<Exit<'A, 'E>>
+        {
+#if FABLE_COMPILER
+          Join: Async<Exit<'A, 'E>>
+          Result: Exit<'A, 'E> option ref
+#else
+          Task: Task<Exit<'A, 'E>>
+#endif
           Runtime: FiberRuntime }
 
 /// Native F# port of Effect's core `Effect<A, E, R>` type.
@@ -47,9 +59,15 @@ module Effect =
     // --- internal helpers ---
 
     let private unwrap (ex: exn) : exn =
+#if FABLE_COMPILER
+        // Fable shim: no System.AggregateException wrapping exists on JS to unravel,
+        // and the type-test is unsupported — identity is correct. (severity: trivial)
+        ex
+#else
         match ex with
         | :? System.AggregateException as agg when agg.InnerExceptions.Count = 1 -> agg.InnerException
         | _ -> ex
+#endif
 
     let private retagDefects (cause: Cause<'E>) : Cause<'E2> =
         cause
@@ -90,6 +108,27 @@ module Effect =
                      | Error e -> Exit.fail e)
             })
 
+#if FABLE_COMPILER
+    // Fable shim: Fable's runtime lacks Async.AwaitTask. Accept an Async thunk; JS
+    // hosts that yield a Promise bridge it with Async.AwaitPromise at the call site.
+    // (severity: refactor — signature differs on the JS target only)
+    let promise (f: unit -> Async<'A>) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ ->
+            async {
+                let! a = f ()
+                return Success a
+            })
+
+    let tryPromise (f: unit -> Async<'A>) : Effect<'A, 'E, 'R> =
+        Effect(fun _ _ ->
+            async {
+                try
+                    let! a = f ()
+                    return Success a
+                with ex ->
+                    return Exit.die (box (unwrap ex))
+            })
+#else
     let promise (f: unit -> Task<'A>) : Effect<'A, 'E, 'R> =
         Effect(fun _ _ ->
             async {
@@ -106,6 +145,7 @@ module Effect =
                 with ex ->
                     return Exit.die (box (unwrap ex))
             })
+#endif
 
     let environment<'R, 'E> : Effect<'R, 'E, 'R> =
         Effect(fun _ r -> async { return Success r })
@@ -183,21 +223,51 @@ module Effect =
         Effect(fun _ r ->
             async {
                 let child = FiberRuntime.Root()
+#if FABLE_COMPILER
+                // Fable shim: Async.StartAsTask is unimplemented. Async.StartChild runs
+                // the child on the event loop and yields an awaitable handle; a Result
+                // cell records completion for poll/isLive. (severity: refactor)
+                let cell = ref None
+
+                let! handle =
+                    Async.StartChild(
+                        async {
+                            let! e = run child r
+                            cell.Value <- Some e
+                            return e
+                        }
+                    )
+
+                return
+                    Success
+                        { Join = handle
+                          Result = cell
+                          Runtime = child }
+#else
                 let task = Async.StartAsTask(run child r)
                 return Success { Task = task; Runtime = child }
+#endif
             })
 
     /// Wait for a fiber to complete and observe its full `Exit`. (Fiber.await)
     let await (fib: Fiber<'A, 'E>) : Effect<Exit<'A, 'E>, 'E2, 'R> =
         Effect(fun _ _ ->
             async {
+#if FABLE_COMPILER
+                let! e = fib.Join
+#else
                 let! e = Async.AwaitTask fib.Task
+#endif
                 return Success e
             })
 
     /// Wait for a fiber and fold its failure back into this effect. (Fiber.join)
     let join (fib: Fiber<'A, 'E>) : Effect<'A, 'E, 'R> =
+#if FABLE_COMPILER
+        Effect(fun _ _ -> async { return! fib.Join })
+#else
         Effect(fun _ _ -> async { return! Async.AwaitTask fib.Task })
+#endif
 
     /// Interrupt a fiber and wait until it has actually stopped (its finalizers
     /// run). Completes with `unit`. (Fiber.interrupt)
@@ -205,7 +275,11 @@ module Effect =
         Effect(fun _ _ ->
             async {
                 fib.Runtime.Interrupted <- true
+#if FABLE_COMPILER
+                let! _ = fib.Join
+#else
                 let! _ = Async.AwaitTask fib.Task
+#endif
                 return Success()
             })
 
@@ -229,6 +303,22 @@ module Effect =
     let sleep (milliseconds: int) : Effect<unit, 'E, 'R> =
         Effect(fun fib _ ->
             async {
+#if FABLE_COMPILER
+                // Fable shim: no System.Diagnostics.Stopwatch. Count down the remaining
+                // millis instead — same cooperative poll-for-interrupt loop. (trivial)
+                let mutable remaining = milliseconds
+                let mutable interrupted = false
+
+                while remaining > 0 && not interrupted do
+                    if interruptible fib then
+                        interrupted <- true
+                    else
+                        let step = min 5 remaining
+                        do! Async.Sleep step
+                        remaining <- remaining - step
+
+                return (if interrupted then Failure interruptedCause else Success())
+#else
                 let sw = System.Diagnostics.Stopwatch.StartNew()
                 let mutable interrupted = false
 
@@ -239,6 +329,7 @@ module Effect =
                         do! Async.Sleep 5
 
                 return (if interrupted then Failure interruptedCause else Success())
+#endif
             })
 
     // --- CE / resource support ---
@@ -444,7 +535,27 @@ module Effect =
         }
 
     let runSync (env: 'R) (eff: Effect<'A, 'E, 'R>) : Exit<'A, 'E> =
+#if FABLE_COMPILER
+        // Fable shim: Async.RunSynchronously cannot block JS's single-threaded event
+        // loop. Kick the workflow off synchronously (Async.StartImmediate) and read the
+        // result cell — for a fully-synchronous effect it is already populated; if the
+        // effect actually suspended, raise. This is exactly Effect-TS's runSync contract
+        // ("dies if the effect suspends"). (severity: refactor — JS-specific runner)
+        let mutable result = None
+
+        Async.StartImmediate(
+            async {
+                let! x = runExit env eff
+                result <- Some x
+            }
+        )
+
+        match result with
+        | Some x -> x
+        | None -> failwith "runSync: effect suspended asynchronously; use runPromiseExit on JS"
+#else
         runExit env eff |> Async.RunSynchronously
+#endif
 
 /// Computation-expression builder: the `effect { ... }` do-notation.
 type EffectBuilder() =

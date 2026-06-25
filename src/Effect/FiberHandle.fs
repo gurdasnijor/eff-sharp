@@ -33,7 +33,12 @@ module FiberHandle =
     /// Set a fiber's interrupt flag without awaiting it.
     let private signal (fiber: Fiber<'A, 'E>) : unit = fiber.Runtime.Interrupted <- true
 
+#if FABLE_COMPILER
+    // Fable shim: no backing Task; "live" = completion cell not yet set. (refactor)
+    let private isLive (fiber: Fiber<'A, 'E>) : bool = Option.isNone fiber.Result.Value
+#else
     let private isLive (fiber: Fiber<'A, 'E>) : bool = not fiber.Task.IsCompleted
+#endif
 
     /// Create an empty handle outside the `Effect` context. (FiberHandle.makeUnsafe)
     let makeUnsafe<'A, 'E> () : FiberHandle<'A, 'E> =

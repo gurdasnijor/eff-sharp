@@ -341,10 +341,22 @@ module BigDecimal =
         | None -> raise (System.Exception(sprintf "Invalid numerical string: %s" s))
 
     let fromNumber (n: float) : BigDecimal option =
-        if not (System.Double.IsFinite n) then
+#if FABLE_COMPILER
+        // Fable shim: Double.IsFinite is unsupported. (severity: trivial)
+        let finite = not (System.Double.IsNaN n || System.Double.IsInfinity n)
+#else
+        let finite = System.Double.IsFinite n
+#endif
+        if not finite then
             None
         else
+#if FABLE_COMPILER
+            // Fable shim: Double.ToString round-trip ("R") is unsupported; JS
+            // Number.toString is already the shortest round-trippable form. (trivial)
+            let str = string n
+#else
             let str = n.ToString("R", inv)
+#endif
 
             if str.IndexOfAny([| 'e'; 'E' |]) >= 0 then
                 fromString str

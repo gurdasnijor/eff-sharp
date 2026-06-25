@@ -166,7 +166,13 @@ module Cron =
         | -1 -> aliasOrValue input aliases, None
         | i -> aliasOrValue (input.Substring(0, i)) aliases, Some(aliasOrValue (input.Substring(i + 1)) aliases)
 
+#if FABLE_COMPILER
+    // Fable shim: System.Double.IsInteger (static) is unsupported. (severity: trivial)
+    let private isInt (x: float) =
+        not (System.Double.IsNaN x || System.Double.IsInfinity x) && floor x = x
+#else
     let private isInt (x: float) = System.Double.IsInteger x
+#endif
 
     let private parseSegment (input: string) (options: SegOptions) : Result<Set<int>, CronParseError> =
         let err msg = Error(CronParseError(msg, Some input))

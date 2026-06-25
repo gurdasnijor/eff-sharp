@@ -57,7 +57,14 @@ module Random =
           NextIntUnsafe = fun () -> floor (nextDouble () * (maxSafe - minSafe + 1.0)) + minSafe }
 
     /// The default, non-deterministic generator (thread-safe `System.Random.Shared`).
+#if FABLE_COMPILER
+    // Fable shim: System.Random.Shared (static) is unsupported; a single process-wide
+    // Random instance is equivalent on single-threaded JS. (severity: trivial)
+    let private sharedRandom = System.Random()
+    let defaultRandom: Random = ofDouble (fun () -> sharedRandom.NextDouble())
+#else
     let defaultRandom: Random = ofDouble (fun () -> System.Random.Shared.NextDouble())
+#endif
 
     /// Stable 32-bit FNV-1a hash of a string's UTF-8 bytes, used to derive a
     /// numeric seed from a string seed.

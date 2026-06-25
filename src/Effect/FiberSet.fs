@@ -22,7 +22,12 @@ type FiberSet<'A, 'E> =
 [<RequireQualifiedAccess>]
 module FiberSet =
 
+#if FABLE_COMPILER
+    // Fable shim: no backing Task; "live" = completion cell not yet set. (refactor)
+    let private isLive (fiber: Fiber<'A, 'E>) : bool = Option.isNone fiber.Result.Value
+#else
     let private isLive (fiber: Fiber<'A, 'E>) : bool = not fiber.Task.IsCompleted
+#endif
 
     /// Drop completed fibers; returns the live snapshot (caller holds the lock).
     let private prune (self: FiberSet<'A, 'E>) : Fiber<'A, 'E> list =

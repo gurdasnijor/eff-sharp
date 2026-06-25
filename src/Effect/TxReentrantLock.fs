@@ -43,7 +43,20 @@ module TxReentrantLock =
     let private nextId = ref 0
 
     let private fiberId (fib: FiberRuntime) : int =
+#if FABLE_COMPILER
+        // Fable shim: Interlocked.Increment is unsupported; atomicity is free on
+        // single-threaded JS. (severity: trivial)
+        unbox (
+            fiberIds.GetValue(
+                fib,
+                fun _ ->
+                    nextId.Value <- nextId.Value + 1
+                    box nextId.Value
+            )
+        )
+#else
         unbox (fiberIds.GetValue(fib, fun _ -> box (Interlocked.Increment nextId)))
+#endif
 
     /// Run an `Stm` built from the *current fiber's* id as its own transaction.
     let private txWithFiber (build: int -> Stm<'a>) : Effect<'a, 'E, 'R> =

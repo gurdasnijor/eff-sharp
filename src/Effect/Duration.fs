@@ -87,6 +87,22 @@ type DurationReducer =
 module Duration =
 
     let private inv = CultureInfo.InvariantCulture
+
+#if FABLE_COMPILER
+    // Fable shims: Double.IsFinite/IsInteger/IsNegative (static) are unsupported.
+    // Reimplemented with Fable-safe ops; -0.0 is detected via 1.0/x = -infinity.
+    // (severity: trivial)
+    let inline private numIsFinite (x: float) : bool =
+        not (System.Double.IsNaN x || System.Double.IsInfinity x)
+
+    let inline private numIsInteger (x: float) : bool = numIsFinite x && floor x = x
+    let inline private numIsNegative (x: float) : bool = x < 0.0 || (x = 0.0 && (1.0 / x) < 0.0)
+#else
+    let inline private numIsFinite (x: float) : bool = System.Double.IsFinite x
+    let inline private numIsInteger (x: float) : bool = System.Double.IsInteger x
+    let inline private numIsNegative (x: float) : bool = System.Double.IsNegative x
+#endif
+
     let private bigint24 = BigInteger 24
     let private bigint60 = BigInteger 60
     let private bigint1e3 = BigInteger 1_000
@@ -126,9 +142,9 @@ module Duration =
     let private makeFromNumber (input: float) : Duration =
         if System.Double.IsNaN input || input = 0.0 then
             { Value = Millis 0.0 }
-        elif not (System.Double.IsFinite input) then
+        elif not (numIsFinite input) then
             { Value = (if input > 0.0 then Infinity else NegativeInfinity) }
-        elif not (System.Double.IsInteger input) then
+        elif not (numIsInteger input) then
             { Value = Nanos(roundMillisToNanos input) }
         else
             { Value = Millis input }
@@ -446,19 +462,16 @@ module Duration =
     // --- arithmetic ---
 
     let private tryBigIntOfFloat (x: float) : bigint option =
-        if System.Double.IsInteger x then
-            Some(BigInteger x)
-        else
-            None
+        if numIsInteger x then Some(BigInteger x) else None
 
     let private bigIntOfFloatExn (x: float) : bigint =
-        if System.Double.IsInteger x then
+        if numIsInteger x then
             BigInteger x
         else
             raise (System.Exception(sprintf "Cannot convert %f to a BigInt" x))
 
     let divide (self: Duration) (by: float) : Duration option =
-        if not (System.Double.IsFinite by) then
+        if not (numIsFinite by) then
             None
         elif by = 0.0 then
             None
@@ -473,7 +486,7 @@ module Duration =
             | NegativeInfinity -> Some(if by > 0.0 then negativeInfinity else infinity)
 
     let divideUnsafe (self: Duration) (by: float) : Duration =
-        if not (System.Double.IsFinite by) then
+        if not (numIsFinite by) then
             zero
         else
             match self.Value with
@@ -484,7 +497,7 @@ module Duration =
                         zero
                     else
                         let positiveNanos = n > BigInteger.Zero
-                        let positiveZero = not (System.Double.IsNegative by)
+                        let positiveZero = not (numIsNegative by)
 
                         if positiveNanos = positiveZero then
                             infinity
