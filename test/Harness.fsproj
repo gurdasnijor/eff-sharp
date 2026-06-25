@@ -6,6 +6,7 @@
        then Vitest executes the generated JS on Node. -->
   <PropertyGroup>
     <EffectSrcDir>$(MSBuildThisFileDirectory)../src/Effect/</EffectSrcDir>
+    <EffectPlatformNodeSrcDir>$(MSBuildThisFileDirectory)../src/Effect.Platform.Node/</EffectPlatformNodeSrcDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,17 @@
          the Node/Vitest harness owns the whole test-only surface. -->
     <Compile Include="support/TestClock.fs" />
     <Compile Include="support/Vitest.fs" />
+
+    <!-- Node platform modules under test. The Vitest harness runs on Node, so
+         platform specs compile the real Fable/Node implementation directly. -->
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeFileSystem.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeStream.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeSink.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeChildProcessSpawner.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpClient.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpServer.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeRuntime.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodePlatform.fs" />
 
     <!-- Specs self-register through Effect.Vitest. The glob keeps future ports
          conflict-free: adding a spec does not require editing this project. -->
