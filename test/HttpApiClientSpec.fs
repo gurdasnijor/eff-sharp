@@ -268,6 +268,47 @@ describe "HttpApiClient.urlBuilder" (fun () ->
             toBe (HttpBody.asText request.Body) (Some "message=write+tests")
         | None -> failwith "expected request capture")
 
+    test "encodes typed multipart payloads as FormData bodies" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "submit"
+                "/items"
+                { HttpApiEndpoint.empty with
+                    Payload = [ HttpApiSchema.asMultipart clientMessageSchema ] }
+
+        let api =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.make "items" |> HttpApiGroup.add endpoint)
+
+        let mutable captured: HttpClientRequest option = None
+
+        let httpClient =
+            { Request = fun _ _ -> Effect.succeed { Status = 200; Body = "" }
+              Execute =
+                fun request ->
+                    captured <- Some request
+                    Effect.succeed (HttpClientResponse.text request 204 Headers.empty "") }
+
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        client
+        |> HttpApiClient.endpointTyped
+            "items"
+            "submit"
+            { HttpApiClient.emptyEndpointValueInput with Payload = Some(box { Message = "write tests" }) }
+        |> Runtime.runSync (Runtime.make (Context.make HttpClient.tag httpClient))
+        |> ignore
+
+        match captured with
+        | Some request ->
+            toBe request.Method "POST"
+            toBe (Headers.has "content-type" request.Headers) false
+
+            match request.Body with
+            | FormDataBody _ -> ()
+            | other -> failwith ("expected FormDataBody, got " + string other)
+        | None -> failwith "expected request capture")
+
     test "executes top-level endpoints through HttpClient" (fun () ->
         let topLevelApi =
             HttpApi.make "Api"

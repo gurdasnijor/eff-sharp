@@ -171,15 +171,23 @@ module HttpApiBuilder =
         | HttpApiPayload.StreamSse _ -> Error "Streaming request payload schemas are not supported"
 
     let private decodePayload (request: HttpServerRequest) (content: HttpApiContent) =
+        let decodeJson schema json =
+            Schema.decode schema json
+            |> Result.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + schemaErrorText error))
+            |> Effect.fromResult
+            |> Effect.map Some
+
         match content.Payload with
+        | HttpApiPayload.Buffered schema when HttpApiSchema.encoding content = MultipartEncoding ->
+            HttpServerRequest.multipart request
+            |> Effect.map Effect.Multipart.toJson
+            |> Effect.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + error.Message))
+            |> Effect.flatMap (decodeJson schema)
         | HttpApiPayload.Buffered schema ->
             payloadJson request content
             |> Result.mapError (fun reason -> HttpServerError.RequestParseError(request, "payload: " + reason))
-            |> Result.bind (fun json ->
-                Schema.decode schema json
-                |> Result.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + schemaErrorText error)))
             |> Effect.fromResult
-            |> Effect.map Some
+            |> Effect.flatMap (decodeJson schema)
         | HttpApiPayload.Empty -> Effect.succeed None
         | HttpApiPayload.StreamBytes
         | HttpApiPayload.StreamSse _ -> Effect.fail (HttpServerError.RequestParseError(request, "payload: Streaming request payload schemas are not supported"))
@@ -345,7 +353,7 @@ module HttpApiBuilder =
                 | _ -> HttpServerResponse.textWith options (stringFromJson json)
             | Json
             | FormUrlEncoded
-            | Multipart -> HttpServerResponse.jsonWith options json
+            | MultipartEncoding -> HttpServerResponse.jsonWith options json
         | HttpApiHandlerResult.StreamBytes stream, HttpApiPayload.StreamBytes ->
             stream
             |> HttpServerResponse.streamBytesWith options

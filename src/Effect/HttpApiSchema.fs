@@ -6,7 +6,7 @@ type HttpApiEncoding =
     | FormUrlEncoded
     | Text
     | Uint8Array
-    | Multipart
+    | MultipartEncoding
 
 type HttpApiPayload =
     | Buffered of Schema<obj>
@@ -137,7 +137,7 @@ module HttpApiSchema =
             | "application/x-www-form-urlencoded" -> FormUrlEncoded
             | "text/plain" -> Text
             | "application/octet-stream" -> Uint8Array
-            | "multipart/form-data" -> Multipart
+            | "multipart/form-data" -> MultipartEncoding
             | _ -> Json
 
     let rec private containsReservedFailureEvent =

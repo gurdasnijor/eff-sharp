@@ -185,6 +185,49 @@ describe "HttpApiBuilder" (fun () ->
         toBe response.Status 200
         toBe (HttpBody.asText response.Body) (Some "write tests"))
 
+    test "decodes multipart payloads through request multipart accessors" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "upload"
+                "/upload"
+                { HttpApiEndpoint.empty with
+                    Payload = [ HttpApiSchema.asMultipart decodedPayloadSchema ]
+                    Success = [ HttpApiSchema.asText Schema.string ] }
+
+        let api =
+            HttpApi.make "DecodedApi"
+            |> HttpApi.add (HttpApiGroup.make "forms" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "forms"
+                (Map.ofList
+                    [ "upload",
+                      fun input ->
+                          let payload = input.PayloadValue |> Option.get |> unbox<DecodedPayload>
+                          Effect.succeed (HttpServerResponse.text payload.Name) ])
+
+        let request =
+            { HttpServerRequest.make
+                "POST"
+                "/upload"
+                (Headers.ofList [ "content-type", "multipart/form-data; boundary=test" ])
+                HttpBody.empty with
+                Multipart =
+                    Some(fun () ->
+                        Effect.succeed
+                            { Fields = Map.ofList [ "name", "from multipart" ]
+                              Files = Map.empty }) }
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle request
+            |> run
+
+        toBe response.Status 200
+        toBe (HttpBody.asText response.Body) (Some "from multipart"))
+
     test "fails before invoking handlers when request schema decoding fails" (fun () ->
         let endpoint =
             HttpApiEndpoint.get

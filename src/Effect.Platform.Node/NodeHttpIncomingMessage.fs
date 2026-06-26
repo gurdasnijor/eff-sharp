@@ -45,7 +45,21 @@ module NodeHttpIncomingMessage =
           Text = text
           Body = NodeStream.fromReadable (fun () -> source) }
 
+    let private baseContentType (contentType: string) =
+        match contentType.IndexOf ';' with
+        | -1 -> contentType.Trim().ToLowerInvariant()
+        | i -> contentType.Substring(0, i).Trim().ToLowerInvariant()
+
     let toServerRequest (method: string) (url: string) (body: HttpBody) (message: NodeHttpIncomingMessage) : HttpServerRequest =
-        { HttpServerRequest.make method url message.Headers body with
-            Source = Some message.Source
-            RemoteAddress = message.RemoteAddress }
+        let request =
+            { HttpServerRequest.make method url message.Headers body with
+                Source = Some message.Source
+                RemoteAddress = message.RemoteAddress }
+
+        match Headers.get "content-type" message.Headers with
+        | Some contentType when baseContentType contentType = "multipart/form-data" ->
+            { request with
+                Multipart = Some(fun () -> NodeMultipart.persisted message.Source message.Headers)
+                MultipartStream = Some(fun () -> NodeMultipart.stream message.Source message.Headers) }
+        | _ ->
+            request

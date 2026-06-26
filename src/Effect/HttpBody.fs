@@ -10,6 +10,7 @@ type HttpBody =
     | JsonBody of body: Json
     | BytesBody of body: byte array * contentType: string option
     | StreamBody of body: Stream<byte[], obj, Context> * contentType: string option
+    | FormDataBody of formData: obj
 
 [<RequireQualifiedAccess>]
 module HttpBody =
@@ -32,6 +33,9 @@ module HttpBody =
     let streamBytesWithContentType (contentType: string) (body: Stream<byte[], obj, Context>) : HttpBody =
         StreamBody(body, Some contentType)
 
+    let formData (body: obj) : HttpBody =
+        FormDataBody body
+
     let isEmpty (body: HttpBody) : bool =
         match body with
         | EmptyBody -> true
@@ -49,6 +53,7 @@ module HttpBody =
         | JsonBody _ -> Some "application/json"
         | BytesBody(_, contentType) -> contentType
         | StreamBody(_, contentType) -> contentType
+        | FormDataBody _ -> None
 
     let contentLength (body: HttpBody) : int option =
         match body with
@@ -57,6 +62,7 @@ module HttpBody =
         | JsonBody _ -> None
         | BytesBody(value, _) -> Some value.Length
         | StreamBody _ -> None
+        | FormDataBody _ -> None
 
     let private quoteJsonString (value: string) : string =
         let mutable escaped = value.Replace("\\", "\\\\")
@@ -97,6 +103,7 @@ module HttpBody =
         | JsonBody value -> Some(toJsonString value)
         | BytesBody _ -> None
         | StreamBody _ -> None
+        | FormDataBody _ -> None
 
     let asText (body: HttpBody) : string option =
         match body with
@@ -105,6 +112,7 @@ module HttpBody =
         | JsonBody _ -> None
         | BytesBody _ -> None
         | StreamBody _ -> None
+        | FormDataBody _ -> None
 
     let asStream (body: HttpBody) : Stream<byte[], obj, Context> option =
         match body with

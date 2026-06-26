@@ -2,6 +2,7 @@ namespace Effect
 
 open System
 open System.Text
+open Fable.Core
 
 type HttpApiClientUrlOptions = { BaseUrl: string }
 
@@ -153,6 +154,24 @@ module HttpApiClient =
         |> UrlParams.toQueryString
         |> HttpBody.textWithContentType contentType
 
+    [<Emit("new FormData()")>]
+    let private newFormData () : obj = jsNative
+
+    [<Emit("$0.append($1, $2)")>]
+    let private appendFormData (_formData: obj) (_key: string) (_value: string) : unit = jsNative
+
+    let private objectToMultipartBody (json: Json) =
+        let formData = newFormData ()
+
+        jsonObjectFields json
+        |> Map.toList
+        |> List.iter (fun (key, value) ->
+            match value with
+            | JArray values -> values |> List.iter (fun value -> appendFormData formData key (jsonString value))
+            | other -> appendFormData formData key (jsonString other))
+
+        HttpBody.formData formData
+
     let private encodePayload (endpoint: HttpApiEndpoint) (value: obj option) =
         match selectPayloadContent endpoint, value with
         | Some content, Some value ->
@@ -163,8 +182,8 @@ module HttpApiClient =
                 match HttpApiSchema.encoding content with
                 | Text -> Some(HttpBody.textWithContentType content.ContentType (jsonString json))
                 | FormUrlEncoded -> Some(objectToFormBody content.ContentType json)
-                | Json
-                | Multipart -> Some(HttpBody.json json)
+                | MultipartEncoding -> Some(objectToMultipartBody json)
+                | Json -> Some(HttpBody.json json)
                 | Uint8Array ->
                     match value with
                     | :? (byte[]) as bytes -> Some(HttpBody.bytesWithContentType content.ContentType bytes)
