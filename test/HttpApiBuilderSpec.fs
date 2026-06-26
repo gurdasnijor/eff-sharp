@@ -371,4 +371,224 @@ describe "HttpApiBuilder" (fun () ->
                 |> String.concat ""
 
             toBe rendered (Sse.encodeEvent (Sse.event "message" """{"message":"stream"}"""))
+        | None -> failwith "expected stream body")
+
+    test "renders typed buffered handler values through success schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "message"
+                "/message"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.asJson streamMessageSchema |> HttpApiSchema.status 201 ] }
+
+        let api =
+            HttpApi.make "TypedApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.groupTyped
+                api
+                "test"
+                (Map.ofList [ "message", fun _ -> Effect.succeed (box { Message = "typed" }) ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/message" Headers.empty HttpBody.empty)
+            |> run
+
+        toBe response.Status 201
+        toBe (Headers.get "content-type" response.Headers) (Some "application/json")
+        toBe (HttpBody.encodedText response.Body) (Some """{"message":"typed"}"""))
+
+    test "renders typed StreamUint8Array handler values through success schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "download"
+                "/download"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamUint8ArrayWithContentType "application/custom-bytes" |> HttpApiSchema.status 206 ] }
+
+        let api =
+            HttpApi.make "TypedApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.groupTyped
+                api
+                "test"
+                (Map.ofList
+                    [ "download",
+                      fun _ ->
+                          Stream.fromIterable [ [| 1uy; 2uy |]; [| 3uy |] ]
+                          |> box
+                          |> Effect.succeed ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/download" Headers.empty HttpBody.empty)
+            |> run
+
+        toBe response.Status 206
+        toBe (Headers.get "content-type" response.Headers) (Some "application/custom-bytes")
+
+        match HttpClientResponse.bodyStream (HttpServerResponse.toClientResponse (HttpClientRequest.get "/download") response) with
+        | Some stream ->
+            let chunks = Stream.runCollect stream |> Runtime.runSync Runtime.defaultRuntime
+            toEqual (chunks |> List.map Array.toList) [ [ 1uy; 2uy ]; [ 3uy ] ]
+        | None -> failwith "expected stream body")
+
+    test "renders typed StreamSse data handler values through success schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamSseData streamMessageSchema streamErrorSchema ] }
+
+        let api =
+            HttpApi.make "TypedApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.groupTyped
+                api
+                "test"
+                (Map.ofList
+                    [ "events",
+                      fun _ ->
+                          Stream.fromIterable [ box { Message = "hello" }; box { Message = "world" } ]
+                          |> box
+                          |> Effect.succeed ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/events" Headers.empty HttpBody.empty)
+            |> run
+
+        toBe response.Status 200
+        toBe (Headers.get "content-type" response.Headers) (Some "text/event-stream")
+
+        match HttpClientResponse.bodyStream (HttpServerResponse.toClientResponse (HttpClientRequest.get "/events") response) with
+        | Some stream ->
+            let rendered =
+                stream
+                |> Stream.runCollect
+                |> Runtime.runSync Runtime.defaultRuntime
+                |> List.map Encoding.UTF8.GetString
+                |> String.concat ""
+
+            toBe
+                rendered
+                (Sse.encodeEvent (Sse.message """{"message":"hello"}""")
+                 + Sse.encodeEvent (Sse.message """{"message":"world"}"""))
+        | None -> failwith "expected stream body")
+
+    test "renders typed StreamSse failures as reserved full-cause events" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamSseData streamMessageSchema streamErrorSchema ] }
+
+        let api =
+            HttpApi.make "TypedApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.groupTyped
+                api
+                "test"
+                (Map.ofList
+                    [ "events",
+                      fun _ ->
+                          (Stream.fromEffect (Effect.fail (box { Reason = "boom" })) : Stream<obj, obj, Context>)
+                          |> box
+                          |> Effect.succeed ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/events" Headers.empty HttpBody.empty)
+            |> run
+
+        match HttpClientResponse.bodyStream (HttpServerResponse.toClientResponse (HttpClientRequest.get "/events") response) with
+        | Some stream ->
+            let rendered =
+                stream
+                |> Stream.runCollect
+                |> Runtime.runSync Runtime.defaultRuntime
+                |> List.map Encoding.UTF8.GetString
+                |> String.concat ""
+
+            toBe (rendered.StartsWith("event: " + HttpApiSchema.streamFailureEvent + "\ndata: ")) true
+
+            let data =
+                rendered.Split('\n').[1].Substring("data: ".Length)
+
+            match Json.parse data with
+            | Error error -> failwithf "expected encoded cause JSON, got %s" error
+            | Ok json ->
+                match Schema.decode (Schema.cause streamErrorSchema) json with
+                | Ok cause ->
+                    match Cause.failures cause with
+                    | [ error ] -> toBe error.Reason "boom"
+                    | other -> failwithf "expected one failure, got %A" other
+                | Error error -> failwithf "expected encoded cause, got %A" error
+        | None -> failwith "expected stream body")
+
+    test "selects typed buffered or stream success by returned value shape" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "mixed"
+                "/mixed"
+                { HttpApiEndpoint.empty with
+                    Success =
+                        [ HttpApiSchema.asJson streamMessageSchema
+                          HttpApiSchema.streamSseData streamMessageSchema streamErrorSchema ] }
+
+        let api =
+            HttpApi.make "TypedApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.groupTyped
+                api
+                "test"
+                (Map.ofList
+                    [ "mixed",
+                      fun input ->
+                          if UrlParams.getFirst "stream" input.Query = Some "true" then
+                              Stream.fromIterable [ box { Message = "stream" } ]
+                              |> box
+                              |> Effect.succeed
+                          else
+                              Effect.succeed (box { Message = "buffered" }) ])
+
+        let router = HttpApiBuilder.route api [ group ]
+
+        let buffered =
+            router
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/mixed" Headers.empty HttpBody.empty)
+            |> run
+
+        let streamed =
+            router
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/mixed?stream=true" Headers.empty HttpBody.empty)
+            |> run
+
+        toBe (Headers.get "content-type" buffered.Headers) (Some "application/json")
+        toBe (HttpBody.encodedText buffered.Body) (Some """{"message":"buffered"}""")
+
+        toBe (Headers.get "content-type" streamed.Headers) (Some "text/event-stream")
+
+        match HttpClientResponse.bodyStream (HttpServerResponse.toClientResponse (HttpClientRequest.get "/mixed?stream=true") streamed) with
+        | Some stream ->
+            let rendered =
+                stream
+                |> Stream.runCollect
+                |> Runtime.runSync Runtime.defaultRuntime
+                |> List.map Encoding.UTF8.GetString
+                |> String.concat ""
+
+            toBe rendered (Sse.encodeEvent (Sse.message """{"message":"stream"}"""))
         | None -> failwith "expected stream body"))
