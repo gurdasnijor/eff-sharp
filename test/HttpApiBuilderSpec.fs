@@ -389,7 +389,7 @@ describe "HttpApiBuilder" (fun () ->
             HttpApiBuilder.groupTyped
                 api
                 "test"
-                (Map.ofList [ "message", fun _ -> Effect.succeed (box { Message = "typed" }) ])
+                (Map.ofList [ "message", fun _ -> Effect.succeed (HttpApiHandlerResult.Buffered(box { Message = "typed" })) ])
 
         let response =
             HttpApiBuilder.route api [ group ]
@@ -420,7 +420,7 @@ describe "HttpApiBuilder" (fun () ->
                     [ "download",
                       fun _ ->
                           Stream.fromIterable [ [| 1uy; 2uy |]; [| 3uy |] ]
-                          |> box
+                          |> HttpApiHandlerResult.StreamBytes
                           |> Effect.succeed ])
 
         let response =
@@ -457,7 +457,7 @@ describe "HttpApiBuilder" (fun () ->
                     [ "events",
                       fun _ ->
                           Stream.fromIterable [ box { Message = "hello" }; box { Message = "world" } ]
-                          |> box
+                          |> HttpApiHandlerResult.StreamSse
                           |> Effect.succeed ])
 
         let response =
@@ -503,7 +503,7 @@ describe "HttpApiBuilder" (fun () ->
                     [ "events",
                       fun _ ->
                           (Stream.fromEffect (Effect.fail (box { Reason = "boom" })) : Stream<obj, obj, Context>)
-                          |> box
+                          |> HttpApiHandlerResult.StreamSse
                           |> Effect.succeed ])
 
         let response =
@@ -559,10 +559,10 @@ describe "HttpApiBuilder" (fun () ->
                       fun input ->
                           if UrlParams.getFirst "stream" input.Query = Some "true" then
                               Stream.fromIterable [ box { Message = "stream" } ]
-                              |> box
+                              |> HttpApiHandlerResult.StreamSse
                               |> Effect.succeed
                           else
-                              Effect.succeed (box { Message = "buffered" }) ])
+                              Effect.succeed (HttpApiHandlerResult.Buffered(box { Message = "buffered" })) ])
 
         let router = HttpApiBuilder.route api [ group ]
 

@@ -9,8 +9,14 @@ type HttpApiServerRequest =
       Headers: Headers
       Payload: HttpBody }
 
+[<RequireQualifiedAccess>]
+type HttpApiHandlerResult =
+    | Buffered of obj
+    | StreamSse of Stream<obj, obj, Context>
+    | StreamBytes of Stream<byte[], obj, Context>
+
 type HttpApiEndpointHandler = HttpApiServerRequest -> Effect<HttpServerResponse, HttpServerError, Context>
-type HttpApiEndpointValueHandler = HttpApiServerRequest -> Effect<obj, HttpServerError, Context>
+type HttpApiEndpointResultHandler = HttpApiServerRequest -> Effect<HttpApiHandlerResult, HttpServerError, Context>
 
 type HttpApiGroupHandlers =
     { Group: HttpApiGroup
@@ -157,21 +163,15 @@ module HttpApiBuilder =
         |> Sse.encodeEvent
         |> Encoding.UTF8.GetBytes
 
-    let private isStreamValue (value: obj) =
-        match value with
-        | :? Stream<obj, obj, Context> -> true
-        | :? Stream<byte[], obj, Context> -> true
-        | _ -> false
-
-    let private successForValue (endpoint: HttpApiEndpoint) (value: obj) =
-        let isStream = isStreamValue value
-
+    let private successForResult (endpoint: HttpApiEndpoint) (result: HttpApiHandlerResult) =
         endpoint.Options.Success
         |> List.tryFind (fun content ->
-            match content.Payload with
-            | StreamSse _
-            | StreamBytes -> isStream
-            | _ -> not isStream)
+            match result, content.Payload with
+            | HttpApiHandlerResult.Buffered _, HttpApiPayload.Buffered _
+            | HttpApiHandlerResult.Buffered _, Empty
+            | HttpApiHandlerResult.StreamSse _, HttpApiPayload.StreamSse _
+            | HttpApiHandlerResult.StreamBytes _, HttpApiPayload.StreamBytes -> true
+            | _ -> false)
         |> Option.orElseWith (fun () -> endpoint.Options.Success |> List.tryHead)
         |> Option.defaultValue HttpApiSchema.noContent
 
@@ -200,10 +200,8 @@ module HttpApiBuilder =
             | _ -> Sse.message (HttpBody.toJsonString json)
         | _ -> Sse.message (HttpBody.toJsonString json)
 
-    let private renderSseValue (mode: string) (eventSchema: Schema<obj>) (failureSchema: Schema<obj>) (value: obj) =
-        let source = unbox<Stream<obj, obj, Context>> value
-
-        source
+    let private renderSseValue (mode: string) (eventSchema: Schema<obj>) (failureSchema: Schema<obj>) (stream: Stream<obj, obj, Context>) =
+        stream
         |> Stream.map (fun event ->
             let encoded = eventSchema.Encode event
 
@@ -219,13 +217,13 @@ module HttpApiBuilder =
             sseFailureBytes failureSchema error
             |> Stream.succeed)
 
-    let renderSuccess (endpoint: HttpApiEndpoint) (value: obj) : HttpServerResponse =
-        let content = successForValue endpoint value
+    let renderSuccess (endpoint: HttpApiEndpoint) (result: HttpApiHandlerResult) : HttpServerResponse =
+        let content = successForResult endpoint result
         let options = responseOptions content
 
-        match content.Payload with
-        | Empty -> HttpServerResponse.emptyWith options
-        | Buffered schema ->
+        match result, content.Payload with
+        | HttpApiHandlerResult.Buffered _, Empty -> HttpServerResponse.emptyWith options
+        | HttpApiHandlerResult.Buffered value, HttpApiPayload.Buffered schema ->
             let json = schema.Encode value
 
             match HttpApiSchema.encoding content with
@@ -237,14 +235,14 @@ module HttpApiBuilder =
             | Json
             | FormUrlEncoded
             | Multipart -> HttpServerResponse.jsonWith options json
-        | StreamBytes ->
-            value
-            |> unbox<Stream<byte[], obj, Context>>
+        | HttpApiHandlerResult.StreamBytes stream, HttpApiPayload.StreamBytes ->
+            stream
             |> HttpServerResponse.streamBytesWith options
-        | StreamSse(mode, eventSchema, failureSchema) ->
-            value
+        | HttpApiHandlerResult.StreamSse stream, HttpApiPayload.StreamSse(mode, eventSchema, failureSchema) ->
+            stream
             |> renderSseValue mode eventSchema failureSchema
             |> HttpServerResponse.streamBytesWith options
+        | _ -> invalidOp "No compatible HttpApi success schema for handler result"
 
     let private renderStreamFailures (endpoint: HttpApiEndpoint) (response: HttpServerResponse) =
         match response.Body, sseFailureSchema endpoint response with
@@ -258,12 +256,12 @@ module HttpApiBuilder =
             { response with Body = StreamBody(stream, contentType) }
         | _ -> response
 
-    let private valueHandler (endpoint: HttpApiEndpoint) (handler: HttpApiEndpointValueHandler) : HttpApiEndpointHandler =
+    let private valueHandler (endpoint: HttpApiEndpoint) (handler: HttpApiEndpointResultHandler) : HttpApiEndpointHandler =
         fun input ->
             handler input
             |> Effect.map (renderSuccess endpoint)
 
-    let groupTyped (api: HttpApi) (groupName: string) (handlers: Map<string, HttpApiEndpointValueHandler>) : HttpApiGroupHandlers =
+    let groupTyped (api: HttpApi) (groupName: string) (handlers: Map<string, HttpApiEndpointResultHandler>) : HttpApiGroupHandlers =
         match Map.tryFind groupName api.Groups with
         | None -> invalidArg "groupName" ("Unknown HttpApi group: " + groupName)
         | Some groupInfo ->
