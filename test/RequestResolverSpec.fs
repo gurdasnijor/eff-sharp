@@ -14,6 +14,14 @@ type private GetNameById =
 
     interface Request<string, string, unit>
 
+type private Tenant =
+    { Prefix: string }
+
+type private GetTenantName =
+    { TenantId: int }
+
+    interface Request<string, string, Context>
+
 let private square (e: Entry<int, string, unit>) =
     let v = (e.Request :?> GetSquare).Value
     v * v
@@ -24,8 +32,15 @@ let private nameId (e: Entry<string, string, unit>) =
 let private names =
     Map [ for i in 1..26 -> i, string (char (96 + i)) ]
 
+let private tenantTag = Tag.make<Tenant> "request/tenant"
+
 let private run (eff: Effect<'A, 'E, unit>) : 'A =
     match Effect.runSync () eff with
+    | Success a -> a
+    | Failure cause -> failwithf "unexpected failure: %s" (Cause.render cause)
+
+let private runContext (ctx: Context) (eff: Effect<'A, 'E, Context>) : 'A =
+    match Effect.runSync ctx eff with
     | Success a -> a
     | Failure cause -> failwithf "unexpected failure: %s" (Cause.render cause)
 
@@ -109,6 +124,18 @@ describe "RequestResolver" (fun () ->
             (run (RequestResolver.resolveAll resolver requests))
             [ Exit.succeed "a"
               Exit.fail "Not Found" ])
+
+    test "entries capture the ambient Context" (fun () ->
+        let resolver: RequestResolver<string, string, Context> =
+            RequestResolver.fromFunction (fun e ->
+                let tenant = Context.get tenantTag e.Context
+                let req = e.Request :?> GetTenantName
+                sprintf "%s-%d" tenant.Prefix req.TenantId)
+
+        let ctx = Context.make tenantTag { Prefix = "tenant" }
+        let request: Request<string, string, Context> = { TenantId = 7 }
+
+        toEqual (runContext ctx (RequestResolver.resolve resolver request)) "tenant-7")
 
     test "batchN splits a group into bounded batches" (fun () ->
         let batchSizes = List<int>()

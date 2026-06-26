@@ -28,13 +28,12 @@ open System.Collections.Generic
 ///     identical requests" test); request *de-duplication / caching* is a
 ///     separate cache layer, deferred.
 ///   * Deferred (need the `Effect.request` runtime / extra modules): the timed
-///     `delay`/`setDelay`/`setDelayEffect` collection window, per-entry captured
-///     *context* (entries here carry `Context.empty`; `RunAll` uses the ambient
-///     environment), `around`/`aroundRequests`, `race`, tracing spans,
-///     caching/persistence (`fromEffectTagged`, Persistence), and the
-///     `preCheck` hook. The `Variance`/`TypeId`/`isRequestResolver` JS plumbing is
-///     dropped (§3,§4). Combinators are curried, data-last (resolver last) so they
-///     compose with `|>`.
+///     `delay`/`setDelay`/`setDelayEffect` collection window,
+///     `around`/`aroundRequests`, `race`, tracing spans, caching/persistence
+///     (`fromEffectTagged`, Persistence), and the `preCheck` hook. The
+///     `Variance`/`TypeId`/`isRequestResolver` JS plumbing is dropped (§3,§4).
+///     Combinators are curried, data-last (resolver last) so they compose with
+///     `|>`.
 /// A resolver for requests producing `'A` / failing with `'E` / needing `'R`.
 type RequestResolver<'A, 'E, 'R> =
     internal
@@ -47,6 +46,11 @@ module RequestResolver =
 
     /// The single shared batch key used by `make` (all entries batch together).
     let private singletonKey: obj = obj ()
+
+    let private contextFromEnv (env: 'R) : Context =
+        match box env with
+        | :? Context as ctx -> ctx
+        | _ -> Context.empty
 
     // --- constructors ---
 
@@ -155,6 +159,7 @@ module RequestResolver =
         Effect(fun fib r ->
             async {
                 // One result cell + Entry per request (no implicit de-dup).
+                let context = contextFromEnv r
                 let cells = requests |> List.map (fun _ -> ref None)
 
                 let entries =
@@ -162,7 +167,7 @@ module RequestResolver =
                         (fun req (cell: Exit<'A, 'E> option ref) ->
                             // First completion wins (the resolver completes once;
                             // the batch-failure path only fills what is still empty).
-                            Request.makeEntry req Context.empty false (fun exit ->
+                            Request.makeEntry req context false (fun exit ->
                                 if cell.Value.IsNone then
                                     cell.Value <- Some exit))
                         requests

@@ -18,6 +18,11 @@ type Layer<'E, 'RIn> =
 [<RequireQualifiedAccess>]
 module Layer =
 
+    let private contextFromEnv (env: 'R) : Context =
+        match box env with
+        | :? Context as ctx -> ctx
+        | _ -> Context.empty
+
     // --- constructors ---
 
     /// A layer providing exactly the given context. (Layer.succeedContext)
@@ -30,13 +35,25 @@ module Layer =
     let succeed (tag: Tag<'Service>) (service: 'Service) : Layer<'E, 'RIn> =
         succeedContext (Context.make tag service)
 
+    /// A layer providing one reference override.
+    let succeedReference (reference: Reference<'Service>) (service: 'Service) : Layer<'E, 'RIn> =
+        succeedContext (Context.makeReference reference service)
+
     /// A layer providing one service from a thunk. (Layer.sync)
     let sync (tag: Tag<'Service>) (f: unit -> 'Service) : Layer<'E, 'RIn> =
         { Build = fun _ -> Effect.sync f |> Effect.map (Context.make tag) }
 
+    /// A layer providing one reference override from a thunk.
+    let syncReference (reference: Reference<'Service>) (f: unit -> 'Service) : Layer<'E, 'RIn> =
+        { Build = fun _ -> Effect.sync f |> Effect.map (Context.makeReference reference) }
+
     /// A layer providing one service from an effect. (Layer.effect)
     let effect (tag: Tag<'Service>) (eff: Effect<'Service, 'E, 'RIn>) : Layer<'E, 'RIn> =
         { Build = fun _ -> eff |> Effect.map (Context.make tag) }
+
+    /// A layer providing one reference override from an effect.
+    let effectReference (reference: Reference<'Service>) (eff: Effect<'Service, 'E, 'RIn>) : Layer<'E, 'RIn> =
+        { Build = fun _ -> eff |> Effect.map (Context.makeReference reference) }
 
     /// A layer providing a whole context from an effect. (Layer.effectContext)
     let effectContext (eff: Effect<Context, 'E, 'RIn>) : Layer<'E, 'RIn> = { Build = fun _ -> eff }
@@ -45,6 +62,13 @@ module Layer =
     /// to register finalizers, run when the providing scope closes. (Layer.scoped)
     let scoped (tag: Tag<'Service>) (f: Scope<'E, 'RIn> -> Effect<'Service, 'E, 'RIn>) : Layer<'E, 'RIn> =
         { Build = fun scope -> f scope |> Effect.map (Context.make tag) }
+
+    /// A layer whose reference override has a scoped lifetime.
+    let scopedReference
+        (reference: Reference<'Service>)
+        (f: Scope<'E, 'RIn> -> Effect<'Service, 'E, 'RIn>)
+        : Layer<'E, 'RIn> =
+        { Build = fun scope -> f scope |> Effect.map (Context.makeReference reference) }
 
     // --- composition ---
 
@@ -70,8 +94,16 @@ module Layer =
     let build (layer: Layer<'E, 'RIn>) : Effect<Context, 'E, 'RIn> =
         Scope.scoped (fun scope -> layer.Build scope)
 
-    /// Provide a layer to an effect, discharging its `Context` requirement. The
-    /// layer is built in a scope that wraps the consuming effect, so scoped
-    /// services live for its duration and are released after. (Layer.provide)
+    /// Provide a layer to an effect, preserving any ambient `Context` services.
+    /// The layer is built in a scope that wraps the consuming effect, so scoped
+    /// services live for its duration and are released after. Layer services win
+    /// on key conflict, matching Effect's "provided service overrides ambient"
+    /// semantics. (Layer.provide)
     let provide (layer: Layer<'E, 'RIn>) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'RIn> =
-        Scope.scoped (fun scope -> layer.Build scope |> Effect.flatMap (fun ctx -> Effect.provideContext ctx eff))
+        Scope.scoped (fun scope ->
+            Effect.environment<'RIn, 'E>
+            |> Effect.flatMap (fun env ->
+                layer.Build scope
+                |> Effect.flatMap (fun provided ->
+                    let ctx = Context.merge (contextFromEnv env) provided
+                    Effect.provideContext ctx eff)))

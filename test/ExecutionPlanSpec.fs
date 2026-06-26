@@ -42,6 +42,32 @@ describe "ExecutionPlan" (fun () ->
         toBe (run (ExecutionPlan.withExecutionPlan plan eff)) 7
         toBe counter.Value 3)
 
+    test "CurrentMetadata reports the active fallback step" (fun () ->
+        let program: Effect<Metadata, string, Context> = Effect.serviceReference ExecutionPlan.CurrentMetadata
+
+        let plan =
+            ExecutionPlan.make
+                [ ExecutionPlan.step (failLayer "A")
+                  ExecutionPlan.step (okLayer 3) ]
+
+        let metadata = run (ExecutionPlan.withExecutionPlan plan program)
+        toBe metadata.Attempt 1
+        toBe metadata.StepIndex 1)
+
+    test "CurrentMetadata increments across retries" (fun () ->
+        let program: Effect<Metadata, string, Context> =
+            Effect.serviceReference ExecutionPlan.CurrentMetadata
+            |> Effect.flatMap (fun metadata ->
+                if metadata.Attempt < 3 then
+                    Effect.fail "retry"
+                else
+                    Effect.succeed metadata)
+
+        let plan = ExecutionPlan.make [ ExecutionPlan.stepWith Layer.empty 3 ]
+        let metadata = run (ExecutionPlan.withExecutionPlan plan program)
+        toBe metadata.Attempt 3
+        toBe metadata.StepIndex 0)
+
     test "an exhausted plan propagates the last error" (fun () ->
         let plan =
             ExecutionPlan.make [ ExecutionPlan.step (failLayer "A"); ExecutionPlan.step (failLayer "Z") ]
