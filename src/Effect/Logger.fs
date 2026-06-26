@@ -2,8 +2,8 @@ namespace Effect
 
 /// Slice: wave-4 kernel 2b. Logging (port of Logger.ts). Minimal-but-faithful: a
 /// `Logger<'Message,'Output>`, a console `defaultLogger`, simple formatting, and
-/// `Logger.log`. The fiber-local logger set / annotations / spans and the
-/// `Layer`-based configuration are deferred — `log` writes via `defaultLogger`.
+/// `Logger.log`. The active logger set / minimum level are `Context.Reference`s,
+/// matching Effect v4's replacement for FiberRef-backed logging state.
 type LogEntry =
     { Message: obj
       LogLevel: LogLevel
@@ -33,22 +33,36 @@ module Logger =
     let defaultLogger: Logger<obj, unit> =
         make (fun entry -> System.Console.WriteLine(formatSimple entry))
 
-    /// The fiber-local set of active loggers (default = `[defaultLogger]`). Lives
+    /// The ambient set of active loggers (default = `[defaultLogger]`). Lives
     /// here (not in `References`) to break the References↔Logger file cycle.
     /// (References.CurrentLoggers)
     let CurrentLoggers: Reference<Logger<obj, unit> list> =
         Reference.make "effect/References/CurrentLoggers" [ defaultLogger ]
 
-    /// Emit a message at `level` through the default logger, if enabled by the
-    /// minimum level. (Logger.log — fiber-local logger selection deferred.)
-    let log (level: LogLevel) (message: obj) : Effect<unit, 'E, 'R> =
-        Effect.sync (fun () ->
-            if LogLevel.isEnabled level (Reference.defaultValue References.MinimumLogLevel) then
-                let entry =
-                    { Message = message
-                      LogLevel = level
-                      Date = System.DateTimeOffset.UtcNow
-                      Annotations = Map.empty }
+    let private contextFromEnv (env: 'R) : Context =
+        match box env with
+        | :? Context as ctx -> ctx
+        | _ -> Context.empty
 
-                for logger in Reference.defaultValue CurrentLoggers do
-                    logger.Log entry)
+    /// Emit a message at `level` through the active loggers, if enabled by the
+    /// active minimum level. (Logger.log)
+    let log (level: LogLevel) (message: obj) : Effect<unit, 'E, 'R> =
+        Effect(fun _ env ->
+            async {
+                let ctx = contextFromEnv env
+                let minimumLevel = Context.getReference References.MinimumLogLevel ctx
+
+                if LogLevel.isEnabled level minimumLevel then
+                    let loggers = Context.getReference CurrentLoggers ctx
+
+                    let entry =
+                        { Message = message
+                          LogLevel = level
+                          Date = System.DateTimeOffset.UtcNow
+                          Annotations = Context.getReference References.CurrentLogAnnotations ctx }
+
+                    for logger in loggers do
+                        logger.Log entry
+
+                return Success()
+            })

@@ -15,8 +15,7 @@ open System
 /// core.
 ///
 /// Omissions vs upstream (per CONVENTIONS): nanosecond precision
-/// (`currentTimeNanos`) is dropped — .NET wall-clock is millisecond-grained — as
-/// is the `Context.Reference` default-service plumbing (a plain `Tag` is used).
+/// (`currentTimeNanos`) is dropped — .NET wall-clock is millisecond-grained.
 /// The time service. `CurrentTimeMillisUnsafe` reads wall-clock millis; `SleepUnsafe`
 /// returns a `Task` that completes after the given duration.
 type Clock =
@@ -25,9 +24,6 @@ type Clock =
 
 [<RequireQualifiedAccess>]
 module Clock =
-
-    /// The `Tag` under which the `Clock` service is stored. (Clock.Clock)
-    let tag: Tag<Clock> = Tag.make<Clock> "effect/Clock"
 
     /// The live, wall-clock implementation. (effect.ClockRef default)
     let make () : Clock =
@@ -45,12 +41,18 @@ module Clock =
                         do! Async.Sleep capped
                 } }
 
+    /// The defaulted `Context.Reference` under which the active clock service is stored.
+    let reference: Reference<Clock> = Reference.make "effect/Clock" (make ())
+
+    /// Compatibility tag for Layer/Context APIs. Values provided here override `reference`.
+    let tag: Tag<Clock> = Reference.toTag reference
+
     /// A `Context` carrying the live clock. (Clock layer)
     let live: Context = Context.make tag (make ())
 
     /// Use the active `Clock` service to build an effect. (Clock.clockWith)
     let clockWith (f: Clock -> Effect<'A, 'E, Context>) : Effect<'A, 'E, Context> =
-        Effect.service tag |> Effect.flatMap f
+        Effect.serviceReference reference |> Effect.flatMap f
 
     /// The current wall-clock time in milliseconds. (Clock.currentTimeMillis)
     let currentTimeMillis<'E> : Effect<int64, 'E, Context> =

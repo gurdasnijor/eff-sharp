@@ -11,10 +11,8 @@ open System.Text
 /// service, tests can swap in a deterministic or mock generator.
 ///
 /// Decoupling / omissions (per CONVENTIONS):
-///   * Upstream's `Context.Reference` (a key with a built-in default) is not
-///     ported; we use a plain `Tag` plus a module-level default that the
-///     accessors fall back to when the service is absent — same observable
-///     "works without provideService" behaviour.
+///   * The active service is a `Context.Reference` with `defaultRandom` as its
+///     default, matching Effect v4's replacement for FiberRef-backed services.
 ///   * Upstream ships a bit-exact ISAAC CSPRNG for `withSeed`. The tests only
 ///     assert *determinism* (same seed → same sequence) and *distinctness*
 ///     (different seeds → different sequences), never exact ISAAC outputs (those
@@ -43,9 +41,6 @@ type Seed =
 [<RequireQualifiedAccess>]
 module Random =
 
-    /// The `Tag` under which the `Random` service is stored.
-    let tag: Tag<Random> = Tag.make<Random> "effect/Random"
-
     // JS `Number.MAX_SAFE_INTEGER` / `MIN_SAFE_INTEGER`.
     let private maxSafe = 9_007_199_254_740_991.0
     let private minSafe = -9_007_199_254_740_991.0
@@ -59,6 +54,12 @@ module Random =
     /// The default, non-deterministic generator.
     let private sharedRandom = System.Random()
     let defaultRandom: Random = ofDouble (fun () -> sharedRandom.NextDouble())
+
+    /// The defaulted `Context.Reference` under which the active random service is stored.
+    let reference: Reference<Random> = Reference.make "effect/Random" defaultRandom
+
+    /// Compatibility tag for Layer/Context APIs. Values provided here override `reference`.
+    let tag: Tag<Random> = Reference.toTag reference
 
     /// Stable 32-bit FNV-1a hash of a string's UTF-8 bytes, used to derive a
     /// numeric seed from a string seed.
@@ -83,15 +84,7 @@ module Random =
     /// Run `f` against the active `Random` service (falling back to the default
     /// when none is provided). (Random.randomWith)
     let randomWith (f: Random -> 'A) : Effect<'A, 'E, Context> =
-        Effect(fun _ ctx ->
-            async {
-                let r =
-                    match Context.tryGet tag ctx with
-                    | Some r -> r
-                    | None -> defaultRandom
-
-                return Success(f r)
-            })
+        Effect.serviceReference reference |> Effect.map f
 
     /// A random double in `[0, 1)`. (Random.next)
     let next<'E> : Effect<float, 'E, Context> =
@@ -143,4 +136,4 @@ module Random =
 
     /// Run `self` with a deterministic generator for `seed`. (Random.withSeed)
     let withSeed (seed: Seed) (self: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
-        Effect.provideService tag (seeded seed) self
+        Effect.provideServiceReference reference (seeded seed) self

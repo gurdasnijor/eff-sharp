@@ -54,7 +54,7 @@ module LogLevel =
     let isLessThanOrEqualTo (self: LogLevel) (that: LogLevel) = getOrdinal self <= getOrdinal that
 
     /// Whether `self` would be emitted at the given `minimum` threshold. The
-    /// fiber-reading `Effect<bool>` variant lands with fiber-local references.
+    /// context-reading `Effect<bool>` variant can build on `References.MinimumLogLevel`.
     /// (LogLevel.isEnabled)
     let isEnabled (self: LogLevel) (minimum: LogLevel) : bool = isGreaterThanOrEqualTo self minimum
 

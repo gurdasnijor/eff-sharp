@@ -8,7 +8,8 @@ describe "References" (fun () ->
         let reference = Reference.make "test/reference" 42
 
         toBe reference.Key "test/reference"
-        toBe (Reference.defaultValue reference) 42)
+        toBe (Reference.defaultValue reference) 42
+        toBe (Context.getReference reference Context.empty) 42)
 
     test "well-known references expose expected defaults" (fun () ->
         toEqual (Reference.defaultValue References.MinimumLogLevel) LogLevel.Info
