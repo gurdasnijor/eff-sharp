@@ -26,6 +26,8 @@ type Color =
 
 type User = { Name: string; Age: int }
 
+type OptionalUser = { Name: string; Nickname: string option }
+
 type Email = Email of string
 
 type Shape =
@@ -145,11 +147,35 @@ describe "Schema · primitives & refinements" (fun () ->
         | InvalidValue(msg, _) -> toBe (msg.Contains "at least 3") true
         | _ -> failwith "expected a refinement error")
 
+    test "compatibility aliases preserve primitive behavior" (fun () ->
+        toBe (decodeOk Schema.String (JString "s")) "s"
+        toBe (decodeOk Schema.Boolean (JBool true)) true
+        toBe (decodeOk Schema.Number (JNumber 1.5)) 1.5
+        toBe (decodeOk Schema.Null JNull) ()
+        match decodeOk Schema.Unknown (JObject Map.empty) with
+        | JObject fields -> toBe (Map.isEmpty fields) true
+        | other -> failwithf "expected object, got %A" other
+        toBe (decodeOk Schema.BigInt (JString "9007199254740993")) 9007199254740993I)
+
     test "between bounds comparable values" (fun () ->
         let s = Schema.int |> Schema.between 1 10
         toBe (decodeOk s (JNumber 5.0) = 5) true
         toBe (Schema.isValid s (JNumber 0.0)) false
         toBe (Schema.isValid s (JNumber 11.0)) false)
+
+    test "compatibility refinements cover common constraints" (fun () ->
+        let bounded = Schema.String |> Schema.isMinLength 2 |> Schema.isMaxLength 4
+        toBe (Schema.isValid bounded (JString "abc")) true
+        toBe (Schema.isValid bounded (JString "a")) false
+        toBe (Schema.isValid bounded (JString "abcde")) false
+
+        let integral = Schema.Number |> Schema.isInt
+        toBe (Schema.isValid integral (JNumber 3.0)) true
+        toBe (Schema.isValid integral (JNumber 3.25)) false
+
+        let atLeast = Schema.Int |> Schema.isGreaterThanOrEqualTo 10
+        toBe (Schema.isValid atLeast (JNumber 10.0)) true
+        toBe (Schema.isValid atLeast (JNumber 9.0)) false)
 
     test "matches enforces a regex" (fun () ->
         let s = Schema.string |> Schema.matches "^[a-z]+$"
@@ -165,6 +191,24 @@ describe "Schema · composites" (fun () ->
         toBe (decodeOk s (JString "x") = Some "x") true
         toBe (Schema.encode s None = JNull) true
         toBe (Schema.encode s (Some "x") = JString "x") true)
+
+    test "optionalKey decodes missing/null to None and omits None on encode" (fun () ->
+        let s =
+            Schema.Struct {
+                let! name = Schema.field "name" Schema.String (fun value -> value.Name)
+                and! nickname = Schema.optionalKey "nickname" Schema.String (fun value -> value.Nickname)
+                return { Name = name; Nickname = nickname }
+            }
+
+        let missing = decodeOk s (jobj [ "name", JString "Ada" ])
+        let present = decodeOk s (jobj [ "name", JString "Ada"; "nickname", JString "ace" ])
+
+        toBe missing.Nickname None
+        toBe present.Nickname (Some "ace")
+
+        match Schema.encode s missing with
+        | JObject fields -> toBe (Map.containsKey "nickname" fields) false
+        | other -> failwithf "expected object, got %A" other)
 
     test "array tags element errors with their index" (fun () ->
         let s = Schema.array Schema.int

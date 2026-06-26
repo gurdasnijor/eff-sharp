@@ -27,6 +27,7 @@
     <Compile Include="$(EffectSrcDir)Context.fs" />
     <!-- Slice 1+3: async Effect core (Reader over Async<Exit>) -->
     <Compile Include="$(EffectSrcDir)Effect.fs" />
+    <Compile Include="$(EffectSrcDir)Option.fs" />
     <!-- Cell: Fable-portable completion primitive (TaskCompletionSource replacement) -->
     <Compile Include="$(EffectSrcDir)Cell.fs" />
     <!-- Slice 3-4 / w2-di: runtime / concurrency / scoping -->
