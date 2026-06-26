@@ -61,6 +61,12 @@ module HttpApiSchema =
     let asUint8ArrayWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
         content (Buffered(Schema.erase schema)) 200 contentType
 
+    let asMultipart (schema: Schema<'T>) : HttpApiContent =
+        content (Buffered(Schema.erase schema)) 200 "multipart/form-data"
+
+    let asMultipartWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content (Buffered(Schema.erase schema)) 200 contentType
+
     let asNoContent (statusCode: int) : HttpApiContent =
         content Empty statusCode ""
 
