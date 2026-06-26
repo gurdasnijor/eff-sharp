@@ -42,6 +42,7 @@
     <Compile Include="$(EffectSrcDir)Stream.fs" />
     <!-- w6-streaming: minimal output-writer Channel (bridges to/from Stream) -->
     <Compile Include="$(EffectSrcDir)Channel.fs" />
+    <Compile Include="$(EffectSrcDir)Match.fs" />
     <!-- leaf5: traits -->
     <Compile Include="$(EffectSrcDir)Equivalence.fs" />
     <Compile Include="$(EffectSrcDir)Order.fs" />

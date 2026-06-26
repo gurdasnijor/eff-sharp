@@ -62,6 +62,8 @@
     <Compile Include="NodeChildProcessSpawner.fs" />
     <Compile Include="NodeHttpClient.fs" />
     <Compile Include="NodeHttpServer.fs" />
+    <Compile Include="NodeServices.fs" />
+    <Compile Include="NodeSocketServer.fs" />
     <Compile Include="Undici.fs" />
     <Compile Include="NodeRuntime.fs" />
     <Compile Include="NodePlatform.fs" />

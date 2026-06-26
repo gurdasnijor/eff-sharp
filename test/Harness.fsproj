@@ -38,6 +38,8 @@
     <Compile Include="$(EffectPlatformNodeSrcDir)NodeChildProcessSpawner.fs" />
     <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpClient.fs" />
     <Compile Include="$(EffectPlatformNodeSrcDir)NodeHttpServer.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeServices.fs" />
+    <Compile Include="$(EffectPlatformNodeSrcDir)NodeSocketServer.fs" />
     <Compile Include="$(EffectPlatformNodeSrcDir)Undici.fs" />
     <Compile Include="$(EffectPlatformNodeSrcDir)NodeRuntime.fs" />
     <Compile Include="$(EffectPlatformNodeSrcDir)NodePlatform.fs" />
