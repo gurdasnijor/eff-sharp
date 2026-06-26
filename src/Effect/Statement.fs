@@ -68,6 +68,11 @@ type Statement<'A> =
       Execute: Effect<'A list, SqlError, Context>
       Compile: bool -> CompiledStatement }
 
+type DefaultTransforms =
+    { Value: obj -> obj
+      Object: Row -> Row
+      Array: TransformRows }
+
 type SqlConstructor =
     { Unsafe: string -> obj list -> Statement<Row>
       Identifier: string -> Fragment
@@ -279,6 +284,25 @@ module Statement =
               OnRecordUpdateSingle = None }
 
     let compile (compiler: Compiler) fragment withoutTransform = (compiler.Compile) fragment withoutTransform
+
+    let defaultTransforms (transformer: string -> string) : DefaultTransforms =
+        let rec transformValue (value: obj) : obj =
+            match value with
+            | :? (obj list) as values -> box (values |> List.map transformValue)
+            | _ -> value
+
+        and transformObject (row: Row) : Row =
+            row
+            |> Map.toList
+            |> List.map (fun (key, value) -> transformer key, transformValue value)
+            |> Map.ofList
+
+        let transformArray (rows: Row list) : Row list =
+            rows |> List.map transformObject
+
+        { Value = transformValue
+          Object = transformObject
+          Array = transformArray }
 
     let private rowsToA<'A> (rows: Row list) : 'A list = rows |> List.map (box >> unbox<'A>)
 

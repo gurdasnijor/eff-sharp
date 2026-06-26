@@ -7,6 +7,7 @@ type Reactivity =
     abstract RegisterUnsafe: ReactivityKeys -> (unit -> unit) -> (unit -> unit)
     abstract Invalidate<'E> : ReactivityKeys -> Effect<unit, 'E, Context>
     abstract Mutation<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Effect<'A, 'E, Context>
+    abstract Query<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Effect<Queue<'A>, 'E, Context>
     abstract Stream<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Stream<'A, 'E, Context>
 
 [<RequireQualifiedAccess>]
@@ -59,32 +60,63 @@ module Reactivity =
 
         let mutation keys effect = effect |> Effect.tap (fun _ -> invalidate keys)
 
+        let startIntoQueue ctx (queue: Queue<'A>) (eff: Effect<'A, 'E, Context>) =
+            Async.StartImmediate(
+                async {
+                    let! exit = Effect.runExit ctx eff
+
+                    match exit with
+                    | Success value -> Queue.offerUnsafe queue value |> ignore
+                    | Failure cause ->
+                        let! _ = Effect.runExit Context.empty (Queue.failCause queue (Cause.map box cause))
+                        ()
+                }
+            )
+
+        let query keys (effect: Effect<'A, 'E, Context>) : Effect<Queue<'A>, 'E, Context> =
+            Effect.environment<Context, 'E>
+            |> Effect.flatMap (fun ctx ->
+                Queue.unbounded ()
+                |> Effect.map (fun queue ->
+                    let _cancel = registerUnsafe keys (fun () -> startIntoQueue ctx queue effect)
+                    startIntoQueue ctx queue effect
+                    queue))
+
         let stream keys (effect: Effect<'A, 'E, Context>) : Stream<'A, 'E, Context> =
             { Run =
                 fun emit ->
-                    // v1: run once, and rerun for invalidations while the stream is active.
-                    let active = ref true
+                    Effect.environment<Context, 'E>
+                    |> Effect.flatMap (fun ctx ->
+                        Queue.unbounded ()
+                        |> Effect.flatMap (fun queue ->
+                            let active = ref true
 
-                    let runOnce =
-                        effect |> Effect.flatMap emit
+                            let start () =
+                                if active.Value then
+                                    startIntoQueue ctx queue effect
 
-                    let cancel =
-                        registerUnsafe keys (fun () ->
-                            if active.Value then
-                                Effect.runSync Context.empty runOnce |> ignore)
+                            let cancel = registerUnsafe keys start
+                            start ()
 
-                    runOnce
-                    |> Effect.ensuring (
-                        Effect.sync (fun () ->
-                            active.Value <- false
-                            cancel ())
-                    ) }
+                            let rec consume () =
+                                Queue.take queue
+                                |> Effect.mapError unbox<'E>
+                                |> Effect.flatMap (fun value -> emit value |> Effect.flatMap consume)
+
+                            consume ()
+                            |> Effect.ensuring (
+                                Effect.sync (fun () ->
+                                    active.Value <- false
+                                    cancel ())
+                                |> Effect.flatMap (fun () -> Queue.shutdown queue |> Effect.map ignore)
+                            ))) }
 
         { new Reactivity with
             member _.InvalidateUnsafe keys = invalidateUnsafe keys
             member _.RegisterUnsafe keys handler = registerUnsafe keys handler
             member _.Invalidate keys = invalidate keys
             member _.Mutation keys effect = mutation keys effect
+            member _.Query keys effect = query keys effect
             member _.Stream keys effect = stream keys effect }
 
     let make<'E> : Effect<Reactivity, 'E, Context> = Effect.sync makeUnsafe
@@ -104,6 +136,9 @@ module Reactivity =
 
     let mutation keys effect =
         service |> Effect.flatMap (fun r -> r.Mutation keys effect)
+
+    let query keys effect =
+        service |> Effect.flatMap (fun r -> r.Query keys effect)
 
     let stream keys effect =
         Stream.unwrap (service |> Effect.map (fun r -> r.Stream keys effect))

@@ -8,7 +8,7 @@ type SqlClient =
     abstract WithTransaction<'A> : Effect<'A, SqlError, Context> -> Effect<'A, SqlError, Context>
     abstract TransactionService: Tag<SqlConnection * int>
     abstract Reactive<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Stream<'A, 'E, Context>
-    abstract ReactiveMailbox<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Stream<'A, 'E, Context>
+    abstract ReactiveMailbox<'A, 'E> : ReactivityKeys -> Effect<'A, 'E, Context> -> Effect<Queue<'A>, 'E, Context>
 
 type SqlClientMakeOptions =
     { Acquirer: SqlConnectionAcquirer
@@ -112,7 +112,7 @@ module SqlClient =
                     member _.WithTransaction eff = withTransaction eff
                     member _.TransactionService = transactionService
                     member _.Reactive keys eff = reactivity.Stream keys eff
-                    member _.ReactiveMailbox keys eff = reactivity.Stream keys eff }
+                    member _.ReactiveMailbox keys eff = reactivity.Query keys eff }
 
             return client
         }

@@ -122,6 +122,53 @@ describe "Effect SQL core" (fun () ->
         toBe names.[1] "select 1"
         toBe names.[2] "COMMIT")
 
+    test "SqlClient transaction rolls back after a failed effect" (fun () ->
+        let calls = System.Collections.Generic.List<string * obj list>()
+        let conn = testConnection calls []
+        let client = run (SqlClient.makeSimple (Effect.succeed conn) sqliteCompiler)
+        let failure = SqlError.unknown None (Some "boom") (Some "test")
+
+        let program =
+            client.WithTransaction (
+                effect {
+                    let statement = client.Constructor.Unsafe "select 1" []
+                    let! _ = statement.Execute
+                    return! Effect.fail failure
+                }
+            )
+
+        match Effect.runSync Context.empty program with
+        | Success _ -> failwith "expected transaction failure"
+        | Failure _ ->
+            let names = calls |> Seq.map fst |> Seq.toArray
+            toBe names.[0] "BEGIN"
+            toBe names.[1] "select 1"
+            toBe names.[2] "ROLLBACK")
+
+    test "Statement.defaultTransforms renames row keys before execution results are exposed" (fun () ->
+        let calls = System.Collections.Generic.List<string * obj list>()
+        let conn = testConnection calls [ row [ "user_id", box 1; "user_name", box "Ada" ] ]
+        let transforms = Statement.defaultTransforms (fun key -> key.Replace("_", ""))
+        let client =
+            run
+                (SqlClient.make
+                    { Acquirer = Effect.succeed conn
+                      Compiler = sqliteCompiler
+                      TransactionAcquirer = None
+                      SpanAttributes = []
+                      TransactionService = None
+                      BeginTransaction = None
+                      Rollback = None
+                      Commit = None
+                      Savepoint = None
+                      RollbackSavepoint = None
+                      TransformRows = Some transforms.Array })
+
+        let rows = run (client.Constructor.Unsafe "select * from users" []).Execute
+        toBe (rows.[0].ContainsKey "userid") true
+        toBe (rows.[0].ContainsKey "user_id") false
+        toBe (unbox<string> rows.[0].["username"]) "Ada")
+
     test "Reactivity register and mutation invalidate keys on success" (fun () ->
         let reactivity = Reactivity.makeUnsafe ()
         let mutable count = 0
@@ -132,4 +179,50 @@ describe "Effect SQL core" (fun () ->
 
         cancel ()
         runCtx (Context.make Reactivity.tag reactivity) (Reactivity.invalidate [ box "users" ])
-        toBe count 1))
+        toBe count 1)
+
+    test "Reactivity.query reruns with the original context on invalidation" (fun () ->
+        let countTag = Tag.make<int ref> "sql-spec/reactivity-count"
+        let reactivity = Reactivity.makeUnsafe ()
+
+        let ctx =
+            Context.empty
+            |> Context.add Reactivity.tag reactivity
+            |> Context.add countTag (ref 0)
+
+        let source =
+            Effect.service countTag
+            |> Effect.map (fun count ->
+                count.Value <- count.Value + 1
+                count.Value)
+
+        let program =
+            effect {
+                let! queue = Reactivity.query [ box "users" ] source
+                let! first = Queue.take queue
+                do! Reactivity.invalidate [ box "users" ]
+                let! second = Queue.take queue
+                return first, second
+            }
+
+        let first, second = runCtx ctx program
+        toBe first 1
+        toBe second 2)
+
+    test "Reactivity.query propagates source failures through the mailbox" (fun () ->
+        let reactivity = Reactivity.makeUnsafe ()
+        let ctx = Context.make Reactivity.tag reactivity
+        let failure = SqlError.unknown None (Some "reactive failure") (Some "query")
+
+        let program =
+            effect {
+                let! queue = Reactivity.query [ box "users" ] (Effect.fail failure)
+                return! Queue.take queue |> Effect.mapError unbox<SqlError>
+            }
+
+        match Effect.runSync ctx program with
+        | Success _ -> failwith "expected reactive query failure"
+        | Failure cause ->
+            match Cause.failures cause with
+            | [ error ] -> toBe (SqlError.message error) "reactive failure"
+            | _ -> failwithf "unexpected cause: %s" (Cause.render cause)))

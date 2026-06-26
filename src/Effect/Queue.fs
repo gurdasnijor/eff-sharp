@@ -304,6 +304,9 @@ module Queue =
     let fail (q: Queue<'A>) (error: obj) : Effect<bool, 'F, 'R> =
         Effect.sync (fun () -> complete q { Reasons = [ Reason.Fail error ] } false)
 
+    let failCause (q: Queue<'A>) (cause: Cause<obj>) : Effect<bool, 'F, 'R> =
+        Effect.sync (fun () -> complete q cause false)
+
     /// Gracefully interrupt: no new offers, but buffered values may still be
     /// drained; once empty, takes fail with interruption. (Queue.interrupt)
     let interrupt (q: Queue<'A>) : Effect<bool, 'F, 'R> =
