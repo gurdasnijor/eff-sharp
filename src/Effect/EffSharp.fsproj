@@ -85,6 +85,8 @@
     <Compile Include="Redactable.fs" />
     <Compile Include="Formatter.fs" />
     <Compile Include="Schema.fs" />
+    <Compile Include="SchemaAST.fs" />
+    <Compile Include="SchemaGetter.fs" />
     <Compile Include="PlatformError.fs" />
     <Compile Include="PrimaryKey.fs" />
     <Compile Include="RegExp.fs" />

@@ -20,10 +20,24 @@ module OpenApi =
         | ATuple items ->
             jo [ "type", js "array"; "prefixItems", ja (items |> List.map schemaAstToJson) ]
         | AObject fields ->
+            let propertyAst ast =
+                match ast with
+                | AOptionalKey inner -> AOption inner
+                | other -> other
+
+            let required =
+                fields
+                |> List.choose (fun (name, ast) ->
+                    match ast with
+                    | AOptionalKey _ -> None
+                    | _ -> Some(js name))
+
             jo
                 [ "type", js "object"
-                  "properties", jo (fields |> List.map (fun (name, ast) -> name, schemaAstToJson ast))
-                  "required", ja (fields |> List.map (fst >> js)) ]
+                  "properties", jo (fields |> List.map (fun (name, ast) -> name, schemaAstToJson (propertyAst ast)))
+                  "required", ja required ]
+        | AOptionalKey ast ->
+            jo [ "anyOf", ja [ schemaAstToJson ast; jo [ "type", js "null" ] ] ]
         | AOption ast ->
             jo [ "anyOf", ja [ schemaAstToJson ast; jo [ "type", js "null" ] ] ]
         | AUnion members ->
@@ -32,6 +46,8 @@ module OpenApi =
             jo [ "oneOf", ja (cases |> List.map (snd >> schemaAstToJson)) ]
         | ARefine(ast, _)
         | AMeasured ast -> schemaAstToJson ast
+        | ATransform(_, ast) -> schemaAstToJson ast
+        | AAnnotated(ast, _) -> schemaAstToJson ast
         | ADeclare name -> jo [ "$ref", js ("#/$defs/" + name) ]
 
     let private responseContent (schema: HttpApiContent) =
@@ -99,15 +115,18 @@ module OpenApi =
         else
             Some("requestBody", jo [ "required", JBool true; "content", JObject content ])
 
-    let private parameterSchema =
+    let rec private parameterSchema =
         function
+        | AOptionalKey ast -> schemaAstToJson ast, false
         | AOption ast -> schemaAstToJson ast, false
+        | AAnnotated(ast, _) -> parameterSchema ast
         | ast -> schemaAstToJson ast, true
 
     let private inputFields (input: obj option) =
         match HttpApiEndpoint.tryInputSchema input with
         | Some schema ->
             match schema.Ast with
+            | AAnnotated(AObject fields, _) -> fields |> Map.ofList
             | AObject fields -> fields |> Map.ofList
             | _ -> Map.empty
         | None -> Map.empty

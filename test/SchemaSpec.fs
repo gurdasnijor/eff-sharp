@@ -1,5 +1,6 @@
 module SchemaSpec
 
+open System
 open Effect
 open Effect.Vitest
 
@@ -210,6 +211,21 @@ describe "Schema · composites" (fun () ->
         | JObject fields -> toBe (Map.containsKey "nickname" fields) false
         | other -> failwithf "expected object, got %A" other)
 
+    test "optionalKey is not required in emitted JSON Schema" (fun () ->
+        let s =
+            Schema.Struct {
+                let! name = Schema.field "name" Schema.String (fun value -> value.Name)
+                and! nickname = Schema.optionalKey "nickname" Schema.String (fun value -> value.Nickname)
+                return { Name = name; Nickname = nickname }
+            }
+
+        match Schema.jsonSchema s with
+        | JObject fields ->
+            match Map.find "required" fields with
+            | JArray required -> toEqual required [ JString "name" ]
+            | other -> failwithf "expected required array, got %A" other
+        | other -> failwithf "expected object schema, got %A" other)
+
     test "array tags element errors with their index" (fun () ->
         let s = Schema.array Schema.int
         toBe (decodeOk s (JArray [ JNumber 1.0; JNumber 2.0 ]) = [ 1; 2 ]) true
@@ -259,6 +275,55 @@ describe "Schema · composites" (fun () ->
         match (decodeErr s (JString "z")).Issue with
         | AnyOf _ -> toBe true true
         | _ -> failwith "expected AnyOf")
+
+    test "record decodes arbitrary string keys with homogeneous values" (fun () ->
+        let s = Schema.Record Schema.String Schema.Int
+        let value = decodeOk s (jobj [ "a", JNumber 1.0; "b", JNumber 2.0 ])
+
+        toBe (Map.find "a" value) 1
+        toBe (Map.find "b" value) 2
+
+        match Schema.encode s value with
+        | JObject fields ->
+            match Map.find "a" fields with
+            | JNumber n -> toBe n 1.0
+            | other -> failwithf "expected numeric a, got %A" other
+
+            match Map.find "b" fields with
+            | JNumber n -> toBe n 2.0
+            | other -> failwithf "expected numeric b, got %A" other
+        | other -> failwithf "expected object, got %A" other)
+
+    test "DateFromString and UnknownFromJsonString bridge common wire formats" (fun () ->
+        let date = decodeOk Schema.DateFromString (JString "2026-01-02T03:04:05.0000000Z")
+        toBe date.Year 2026
+
+        let json = decodeOk Schema.UnknownFromJsonString (JString "{\"ok\":true}")
+
+        match json with
+        | JObject fields ->
+            match Map.find "ok" fields with
+            | JBool value -> toBe value true
+            | other -> failwithf "expected boolean ok, got %A" other
+        | other -> failwithf "expected object JSON, got %A" other
+
+        match Schema.encode Schema.UnknownFromJsonString (jobj [ "ok", JBool true ]) with
+        | JString encoded -> toBe encoded "{\"ok\":true}"
+        | other -> failwithf "expected encoded JSON string, got %A" other)
+
+    test "decodeTo uses source wire codec and target value type" (fun () ->
+        let s =
+            Schema.Number
+            |> Schema.decodeTo
+                Schema.BigInt
+                (SchemaGetter.make
+                    (fun n -> bigint (int n))
+                    (fun value -> float value))
+
+        toBe (decodeOk s (JNumber 12.0)) 12I
+        match Schema.encode s 12I with
+        | JNumber n -> toBe n 12.0
+        | other -> failwithf "expected encoded number, got %A" other)
 
     test "map lifts into a single-case DU (nominal branding)" (fun () ->
         let s = Schema.string |> Schema.map Email (fun (Email e) -> e)
