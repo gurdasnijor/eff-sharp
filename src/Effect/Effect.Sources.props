@@ -169,6 +169,9 @@
     <Compile Include="$(EffectSrcDir)SqlError.fs" />
     <Compile Include="$(EffectSrcDir)SqlConnection.fs" />
     <Compile Include="$(EffectSrcDir)Statement.fs" />
+    <Compile Include="$(EffectSrcDir)SqlStream.fs" />
+    <Compile Include="$(EffectSrcDir)SqlSchema.fs" />
+    <Compile Include="$(EffectSrcDir)SqlResolver.fs" />
     <Compile Include="$(EffectSrcDir)SqlClient.fs" />
     <!-- unstable/http: request/response value substrate plus HttpClient service -->
     <Compile Include="$(EffectSrcDir)Headers.fs" />

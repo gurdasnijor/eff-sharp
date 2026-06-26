@@ -1,19 +1,10 @@
 namespace Effect
 
-/// Slice: wave-4 kernel 2b. The well-known fiber-local reference keys (port of
-/// References.ts). A `Reference<'T>` is a typed key with a default; upstream reads
-/// and overrides them per-fiber (`Effect.withConcurrency`, `Logger.withMinimumLogLevel`).
+/// The well-known ambient reference keys (port of References.ts). In Effect v4
+/// these are `Context.Reference`s: typed Context keys with defaults, replacing
+/// the old FiberRef/FiberRefs/Differ family.
 ///
-/// NOTE: full fiber-local *storage/override* is deferred (the `FiberRuntime` does
-/// not yet carry a ref map); `Reference.defaultValue` returns the default. This
-/// module exists so the consumers (Logger/Tracer/Layer/Stream) have the keys.
 /// `CurrentLoggers` lives in `Logger.fs` to break the References↔Logger file cycle.
-type Reference<'T> = { Key: string; Default: 'T }
-
-[<RequireQualifiedAccess>]
-module Reference =
-    let make (key: string) (def: 'T) : Reference<'T> = { Key = key; Default = def }
-    let defaultValue (r: Reference<'T>) : 'T = r.Default
 
 [<RequireQualifiedAccess>]
 module References =

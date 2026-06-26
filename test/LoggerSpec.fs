@@ -23,4 +23,23 @@ describe "Logger" (fun () ->
         toBe (mapped.Log(entry "careful" LogLevel.Warn)) true)
 
     test "current loggers reference defaults to the default logger" (fun () ->
-        toBe (Reference.defaultValue Logger.CurrentLoggers |> List.length) 1))
+        toBe (Reference.defaultValue Logger.CurrentLoggers |> List.length) 1)
+
+    test "log reads logger and minimum-level references from Context" (fun () ->
+        let captured = ResizeArray<LogEntry>()
+        let logger = Logger.make (fun e -> captured.Add e)
+
+        let ctx =
+            Context.empty
+            |> Context.addReference Logger.CurrentLoggers [ logger ]
+            |> Context.addReference References.MinimumLogLevel LogLevel.Warn
+            |> Context.addReference References.CurrentLogAnnotations (Map.ofList [ "requestId", box "abc" ])
+
+        toEqual (Effect.runSync ctx (Logger.log LogLevel.Info (box "ignored"))) (Exit.succeed ())
+        toBe captured.Count 0
+
+        toEqual (Effect.runSync ctx (Logger.log LogLevel.Error (box "kept"))) (Exit.succeed ())
+        toBe captured.Count 1
+        toBe captured.[0].Message (box "kept")
+        toEqual captured.[0].LogLevel LogLevel.Error
+        toBe (captured.[0].Annotations.["requestId"]) (box "abc")))

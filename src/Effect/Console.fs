@@ -10,9 +10,8 @@ namespace Effect
 /// timers automatically.
 ///
 /// Decoupling / omissions (per CONVENTIONS):
-///   * Upstream's `Context.Reference` default (`globalThis.console`) becomes a
-///     module-level `live` default the accessors fall back to when no service is
-///     provided — same "works without provideService" behaviour.
+///   * The active service is a `Context.Reference` with `live` as its default,
+///     matching Effect v4's replacement for FiberRef-backed services.
 ///   * JS variadic `...args: any[]` is modelled as `obj[]`.
 ///   * The scoped helpers take an explicit `Scope` (the port's `Scope` is
 ///     passed, not an environment requirement) rather than requiring `Scope` in
@@ -45,9 +44,6 @@ type Console =
 
 [<RequireQualifiedAccess>]
 module Console =
-
-    /// The `Tag` under which the `Console` service is stored.
-    let tag: Tag<Console> = Tag.make<Console> "effect/Console"
 
     let private render (args: obj[]) : string =
         args |> Array.map string |> String.concat " "
@@ -83,17 +79,19 @@ module Console =
           Trace = toErr
           Warn = toErr }
 
+    /// The defaulted `Context.Reference` under which the active console service is stored.
+    let reference: Reference<Console> = Reference.make "effect/Console" live
+
+    /// Compatibility tag for Layer/Context APIs. Values provided here override `reference`.
+    let tag: Tag<Console> = Reference.toTag reference
+
     /// A `Context` carrying the live console.
     let liveContext: Context = Context.make tag live
 
     /// Build an effect from the active `Console` service (falling back to `live`
     /// when none is provided). (Console.consoleWith)
     let consoleWith (f: Console -> Effect<'A, 'E, Context>) : Effect<'A, 'E, Context> =
-        Effect.environment<Context, 'E>
-        |> Effect.flatMap (fun ctx ->
-            match Context.tryGet tag ctx with
-            | Some c -> f c
-            | None -> f live)
+        Effect.serviceReference reference |> Effect.flatMap f
 
     // --- simple accessors ---
 

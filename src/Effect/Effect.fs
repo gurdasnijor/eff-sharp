@@ -606,6 +606,11 @@ module Effect =
 
     // --- Context-based dependency injection ---
 
+    let private contextFromEnv (env: 'R) : Context =
+        match box env with
+        | :? Context as ctx -> ctx
+        | _ -> Context.empty
+
     let service (tag: Tag<'Service>) : Effect<'Service, 'E, Context> =
         Effect(fun _ ctx ->
             async {
@@ -622,12 +627,33 @@ module Effect =
                         )
             })
 
+    let serviceReference (reference: Reference<'Service>) : Effect<'Service, 'E, Context> =
+        Effect(fun _ ctx -> async { return Success(Context.getReference reference ctx) })
+
     let provideContext (ctx: Context) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
         let (Effect run) = eff
         Effect(fun fib _ -> run fib ctx)
 
     let provideService (tag: Tag<'Service>) (service: 'Service) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
-        provideContext (Context.make tag service) eff
+        let (Effect run) = eff
+
+        Effect(fun fib env ->
+            let ctx = contextFromEnv env |> Context.add tag service
+            run fib ctx)
+
+    let provideServiceReference
+        (reference: Reference<'Service>)
+        (service: 'Service)
+        (eff: Effect<'A, 'E, Context>)
+        : Effect<'A, 'E, 'R> =
+        let (Effect run) = eff
+
+        Effect(fun fib env ->
+            let ctx = contextFromEnv env |> Context.addReference reference service
+            run fib ctx)
+
+    let provideReference (reference: Reference<'Service>) (service: 'Service) (eff: Effect<'A, 'E, Context>) : Effect<'A, 'E, 'R> =
+        provideServiceReference reference service eff
 
     // --- runners (create the root fiber) ---
 
