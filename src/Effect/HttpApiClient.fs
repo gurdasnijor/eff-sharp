@@ -208,7 +208,7 @@ module HttpApiClient =
         |> Result.mapError box
         |> Result.bind (fun json -> Schema.decode failureSchema json |> Result.mapError (schemaErrorText >> box))
         |> function
-            | Ok failure -> Effect.fail failure
+            | Ok failure -> Effect.failCause (unbox<Cause<obj>> failure)
             | Error error -> Effect.fail error
 
     let private decodeSseParsed (mode: string) (eventSchema: Schema<obj>) (failureSchema: Schema<obj>) (parsed: SseParsed) =

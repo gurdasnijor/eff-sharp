@@ -56,6 +56,13 @@ describe "Stream" (fun () ->
         let s = Stream.range 1 3 |> Stream.mapEffect (fun n -> Effect.succeed (n + 100))
         toBe (collect s = [ 101; 102; 103 ]) true)
 
+    test "catchAll switches to a recovery stream" (fun () ->
+        let s =
+            Stream.concat (Stream.make [ 1; 2 ]) (Stream.fromEffect (Effect.fail "boom"))
+            |> Stream.catchAll (fun error -> Stream.make [ String.length error ])
+
+        toBe (collect s = [ 1; 2; 4 ]) true)
+
     test "repeatEffectOption pulls until None" (fun () ->
         let program =
             effect {

@@ -1,7 +1,10 @@
 module HttpApiBuilderSpec
 
+open System.Text
 open Effect
 open Effect.Vitest
+
+type StreamErrorBody = { Reason: string }
 
 let private getTodo =
     HttpApiEndpoint.get
@@ -20,6 +23,12 @@ let private api =
     |> HttpApi.add (HttpApiGroup.make "todos" |> HttpApiGroup.addMany [ getTodo; createTodo ])
 
 let private run effect = Runtime.runSync Runtime.defaultRuntime effect
+
+let private streamErrorSchema: Schema<StreamErrorBody> =
+    Schema.object {
+        let! reason = Schema.field "reason" Schema.string (fun e -> e.Reason)
+        return { Reason = reason }
+    }
 
 describe "HttpApiBuilder" (fun () ->
     test "turns handlers into router routes with params and query" (fun () ->
@@ -131,4 +140,65 @@ describe "HttpApiBuilder" (fun () ->
             |> run
 
         toBe response.Status 200
-        toBe (HttpBody.asText response.Body) (Some "ok")))
+        toBe (HttpBody.asText response.Body) (Some "ok"))
+
+    test "renders StreamSse failures as a reserved full-cause event" (fun () ->
+        let eventsSchema =
+            Schema.object {
+                let! event = Schema.field "event" Schema.string (fun e -> fst e)
+                and! data = Schema.field "data" Schema.string (fun e -> snd e)
+                return event, data
+            }
+
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with Success = [ HttpApiSchema.streamSse eventsSchema streamErrorSchema ] }
+
+        let api =
+            HttpApi.make "StreamApi"
+            |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "test"
+                (Map.ofList
+                    [ "events",
+                      fun _ ->
+                          Stream.fromEffect (Effect.fail (box { Reason = "boom" }))
+                          |> HttpServerResponse.streamBytesWith
+                              { HttpServerResponseOptions.empty with ContentType = Some "text/event-stream" }
+                          |> Effect.succeed ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/events" Headers.empty HttpBody.empty)
+            |> run
+
+        match HttpClientResponse.bodyStream (HttpServerResponse.toClientResponse (HttpClientRequest.get "/events") response) with
+        | Some stream ->
+            let rendered =
+                stream
+                |> Stream.runCollect
+                |> Runtime.runSync Runtime.defaultRuntime
+                |> List.map Encoding.UTF8.GetString
+                |> String.concat ""
+
+            toBe (rendered.StartsWith("event: " + HttpApiSchema.streamFailureEvent + "\ndata: ")) true
+            toBe (rendered.EndsWith("\n\n")) true
+
+            let data =
+                rendered.Split('\n').[1].Substring("data: ".Length)
+
+            match Json.parse data with
+            | Error error -> failwithf "expected encoded cause JSON, got %s" error
+            | Ok json ->
+                match Schema.decode (Schema.cause streamErrorSchema) json with
+                | Ok cause ->
+                    match Cause.failures cause with
+                    | [ error ] -> toBe error.Reason "boom"
+                    | other -> failwithf "expected one failure, got %A" other
+                | Error error -> failwithf "expected encoded cause, got %A" error
+        | None -> failwith "expected stream body"))

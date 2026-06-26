@@ -1,5 +1,7 @@
 namespace Effect
 
+open System.Text
+
 type HttpApiServerRequest =
     { Request: HttpServerRequest
       Params: Map<string, string>
@@ -127,13 +129,55 @@ module HttpApiBuilder =
         endpoint.Middlewares
         |> List.fold (fun acc middleware -> middleware.Apply context acc) effect
 
+    let private sseFailureSchema (endpoint: HttpApiEndpoint) (response: HttpServerResponse) =
+        let responseContentType =
+            Headers.get "content-type" response.Headers
+            |> Option.defaultValue ""
+            |> HttpApiSchema.baseContentType
+
+        endpoint.Options.Success
+        |> List.tryPick (fun content ->
+            if content.Status = response.Status then
+                match content.Payload with
+                | StreamSse(_, _, failure)
+                    when responseContentType = ""
+                         || responseContentType = HttpApiSchema.baseContentType content.ContentType ->
+                    Some failure
+                | _ -> None
+            else
+                None)
+
+    let private sseFailureBytes (failureSchema: Schema<obj>) (error: obj) =
+        Cause.fail error
+        |> box
+        |> failureSchema.Encode
+        |> HttpBody.toJsonString
+        |> Sse.event HttpApiSchema.streamFailureEvent
+        |> Sse.encodeEvent
+        |> Encoding.UTF8.GetBytes
+
+    let private renderStreamFailures (endpoint: HttpApiEndpoint) (response: HttpServerResponse) =
+        match response.Body, sseFailureSchema endpoint response with
+        | StreamBody(stream, contentType), Some failureSchema ->
+            let stream =
+                stream
+                |> Stream.catchAll (fun error ->
+                    sseFailureBytes failureSchema error
+                    |> Stream.succeed)
+
+            { response with Body = StreamBody(stream, contentType) }
+        | _ -> response
+
     let private routeFor (group: HttpApiGroup) (endpoint: HttpApiEndpoint) (handler: HttpApiEndpointHandler) : HttpRoute =
         HttpRouter.routeHandler
             (HttpApiEndpoint.methodString endpoint)
             endpoint.Path
             (fun request parameters ->
                 requireSecurity endpoint request
-                |> Effect.flatMap (fun () -> handler (endpointInput request parameters) |> applyMiddlewares group endpoint))
+                |> Effect.flatMap (fun () ->
+                    handler (endpointInput request parameters)
+                    |> applyMiddlewares group endpoint
+                    |> Effect.map (renderStreamFailures endpoint)))
 
     let toRouter (handlers: HttpApiHandlers) : HttpRouter =
         handlers.Api.Groups
