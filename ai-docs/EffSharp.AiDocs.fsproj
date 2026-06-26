@@ -52,7 +52,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../src/Effect/Effect.fsproj" />
+    <ProjectReference Include="../src/Effect/EffSharp.fsproj" />
   </ItemGroup>
 
 </Project>

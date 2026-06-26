@@ -341,7 +341,7 @@ module BigDecimal =
         | None -> raise (System.Exception(sprintf "Invalid numerical string: %s" s))
 
     let fromNumber (n: float) : BigDecimal option =
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
         // Fable shim: Double.IsFinite is unsupported. (severity: trivial)
         let finite = not (System.Double.IsNaN n || System.Double.IsInfinity n)
 #else

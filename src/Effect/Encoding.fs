@@ -127,12 +127,12 @@ module Encoding =
     // ----------------------------------------------------------------------
 
     /// Encode bytes as lowercase hexadecimal. (Encoding.encodeHex)
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
     // Fable shim: System.Convert.ToHexStringLower is unsupported. (severity: trivial)
     let encodeHex (bytes: byte[]) : string =
         bytes |> Array.map (fun b -> sprintf "%02x" (int b)) |> String.concat ""
 #else
-    let encodeHex (bytes: byte[]) : string = Convert.ToHexStringLower bytes
+    let encodeHex (bytes: byte[]) : string = Convert.ToHexString(bytes).ToLowerInvariant()
 #endif
 
     /// Encode a UTF-8 string as lowercase hexadecimal.
@@ -146,7 +146,7 @@ module Encoding =
             Error(decodeError "Hex" str (sprintf "Length must be a multiple of 2, but is %d" bytes.Length))
         else
             try
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
                 // Fable shim: System.Convert.FromHexString is unsupported. Parse each
                 // byte from two hex nibbles with only Fable-safe ops. (severity: trivial)
                 let nibble (c: char) : int =

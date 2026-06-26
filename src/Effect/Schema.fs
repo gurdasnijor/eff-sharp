@@ -154,6 +154,13 @@ module Schema =
 
     open System.Text.RegularExpressions
 
+#if FABLE_COMPILER || NETSTANDARD2_0
+    let inline private isIntegerNumber (n: float) =
+        not (Double.IsNaN n || Double.IsInfinity n) && floor n = n
+#else
+    let inline private isIntegerNumber (n: float) = Double.IsInteger n
+#endif
+
     // -- numeric conversions, captured BEFORE the `int`/`float`/`decimal` schema
     //    values shadow the built-in operators for the rest of the module. --
     let inline private toInt (n: float) : int = int n
@@ -591,7 +598,7 @@ module Schema =
             ABool
         elif t = typeof<int> then
             (function
-            | JNumber n when Double.IsInteger n -> Ok(box (toInt n))
+            | JNumber n when isIntegerNumber n -> Ok(box (toInt n))
             | JNumber n -> Error [ InvalidValue("Expected an integer", JNumber n) ]
             | j -> Error [ InvalidType("number", j) ]),
             (fun o -> JNumber(toFloat (unbox<int> o))),

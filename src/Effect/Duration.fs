@@ -88,7 +88,7 @@ module Duration =
 
     let private inv = CultureInfo.InvariantCulture
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
     // Fable shims: Double.IsFinite/IsInteger/IsNegative (static) are unsupported.
     // Reimplemented with Fable-safe ops; -0.0 is detected via 1.0/x = -infinity.
     // (severity: trivial)
