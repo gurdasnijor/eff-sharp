@@ -55,10 +55,10 @@
     <Compile Include="NodeCrypto.fs" />
     <Compile Include="NodeStream.fs" />
     <Compile Include="NodeSink.fs" />
+    <Compile Include="NodeMultipart.fs" />
     <Compile Include="NodeHttpIncomingMessage.fs" />
     <Compile Include="NodeHttpServerRequest.fs" />
     <Compile Include="NodeHttpPlatform.fs" />
-    <Compile Include="NodeMultipart.fs" />
     <Compile Include="NodeChildProcessSpawner.fs" />
     <Compile Include="NodeHttpClient.fs" />
     <Compile Include="NodeHttpServer.fs" />
