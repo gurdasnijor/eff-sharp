@@ -47,3 +47,24 @@ module HttpApiTest =
         testClient.Client
         |> HttpApiClient.endpoint group endpoint input
         |> Effect.provideContext testClient.Context
+
+    let endpointWithMode
+        (group: string)
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.endpointWithMode group endpoint mode input
+        |> Effect.provideContext testClient.Context
+
+    let topLevelEndpointWithMode
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.topLevelEndpointWithMode endpoint mode input
+        |> Effect.provideContext testClient.Context

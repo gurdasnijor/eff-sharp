@@ -7,6 +7,7 @@ open Effect.Vitest
 type ClientEvent = { Event: string; Data: string }
 type ClientData = { Text: string }
 type ClientErrorBody = { Reason: string }
+type ClientMessage = { Message: string }
 
 let private getUser =
     HttpApiEndpoint.get
@@ -35,6 +36,12 @@ let private clientErrorSchema: Schema<ClientErrorBody> =
     Schema.object {
         let! reason = Schema.field "reason" Schema.string (fun e -> e.Reason)
         return { Reason = reason }
+    }
+
+let private clientMessageSchema: Schema<ClientMessage> =
+    Schema.object {
+        let! message = Schema.field "message" Schema.string (fun e -> e.Message)
+        return { Message = message }
     }
 
 let private api =
@@ -405,4 +412,166 @@ describe "HttpApiClient response modes" (fun () ->
                 match Cause.failures cause with
                 | [ error ] -> toBe (unbox<ClientErrorBody> error).Reason "boom"
                 | other -> failwithf "expected decoded cause failure, got %A" other
-        | other -> failwithf "expected decoded sse stream, got %A" other))
+        | other -> failwithf "expected decoded sse stream, got %A" other)
+
+    test "decodes StreamSse successes at annotated statuses" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamSseData clientDataSchema clientErrorSchema |> HttpApiSchema.status 202 ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.streamBytes
+                    request
+                    202
+                    (Headers.ofList [ "content-type", "text/event-stream; charset=utf-8" ])
+                    (Stream.fromIterable [ bytes (Sse.encodeEvent (Sse.event "token" """{"text":"accepted"}""")) ]))
+
+        let runtime = Runtime.make (Context.make HttpClient.tag httpClient)
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "events" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> Runtime.runSync runtime
+        with
+        | Decoded(DecodedStreamSse stream) ->
+            match Stream.runCollect stream |> Runtime.runSync runtime with
+            | [ value ] -> toBe (unbox<ClientData> value).Text "accepted"
+            | other -> failwithf "expected one event, got %A" other
+        | other -> failwithf "expected decoded sse stream, got %A" other)
+
+    test "decodes StreamUint8Array successes at annotated statuses" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "download"
+                "/download"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamUint8Array |> HttpApiSchema.status 206 ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.streamBytes
+                    request
+                    206
+                    (Headers.ofList [ "content-type", "application/octet-stream" ])
+                    (Stream.fromIterable [ [| 1uy; 2uy |]; [| 3uy |] ]))
+
+        let runtime = Runtime.make (Context.make HttpClient.tag httpClient)
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "download" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> Runtime.runSync runtime
+        with
+        | Decoded(DecodedStreamBytes stream) ->
+            let chunks = Stream.runCollect stream |> Runtime.runSync runtime
+            toEqual (chunks |> List.map Array.toList) [ [ 1uy; 2uy ]; [ 3uy ] ]
+        | other -> failwithf "expected decoded byte stream, got %A" other)
+
+    test "decodes non-success responses through endpoint error schemas before returning a stream" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with
+                    Success = [ HttpApiSchema.streamSseData clientDataSchema clientErrorSchema ]
+                    Error = [ HttpApiSchema.asJson clientErrorSchema |> HttpApiSchema.status 400 ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.json
+                    request
+                    400
+                    (Headers.ofList [ "content-type", "application/json" ])
+                    (JObject(Map.ofList [ "reason", JString "bad request" ])))
+
+        let runtime = Runtime.make (Context.make HttpClient.tag httpClient)
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "events" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> Effect.runSync runtime.Context
+        with
+        | Success response -> failwithf "expected response error, got %A" response
+        | Failure cause ->
+            match Cause.failures cause with
+            | [ ResponseError(error, response) ] ->
+                toBe (unbox<ClientErrorBody> error).Reason "bad request"
+                toBe response.Status 400
+            | other -> failwithf "expected response error, got %A" other)
+
+    test "selects buffered responses by content type when a stream shares the same status" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "mixed"
+                "/mixed"
+                { HttpApiEndpoint.empty with
+                    Success =
+                        [ HttpApiSchema.asJson clientMessageSchema
+                          HttpApiSchema.streamSseData clientDataSchema clientErrorSchema ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.json
+                    request
+                    200
+                    (Headers.ofList [ "content-type", "application/json; charset=utf-8" ])
+                    (JObject(Map.ofList [ "message", JString "done" ])))
+
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "mixed" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> runWithClient httpClient
+        with
+        | Decoded(DecodedBody value) -> toBe (unbox<ClientMessage> value).Message "done"
+        | other -> failwithf "expected decoded buffered body, got %A" other)
+
+    test "selects stream responses by content type when a buffered success shares the same status" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "mixed"
+                "/mixed"
+                { HttpApiEndpoint.empty with
+                    Success =
+                        [ HttpApiSchema.asJson clientMessageSchema
+                          HttpApiSchema.streamSseData clientDataSchema clientErrorSchema ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.streamBytes
+                    request
+                    200
+                    (Headers.ofList [ "content-type", "text/event-stream; charset=utf-8" ])
+                    (Stream.fromIterable [ bytes (Sse.encodeEvent (Sse.event "token" """{"text":"stream"}""")) ]))
+
+        let runtime = Runtime.make (Context.make HttpClient.tag httpClient)
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "mixed" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> Runtime.runSync runtime
+        with
+        | Decoded(DecodedStreamSse stream) ->
+            match Stream.runCollect stream |> Runtime.runSync runtime with
+            | [ value ] -> toBe (unbox<ClientData> value).Text "stream"
+            | other -> failwithf "expected one stream event, got %A" other
+        | other -> failwithf "expected decoded stream, got %A" other))
