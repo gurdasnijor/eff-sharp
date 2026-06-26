@@ -45,4 +45,38 @@ describe "NodeHttpServer" (fun () ->
                 closeHandle handle
                 |> Effect.map (fun () ->
                     toBe response.Status 404
-                    toBe response.Body "RouteNotFound (GET /missing)")))))
+                    toBe response.Body "RouteNotFound (GET /missing)"))))
+
+    itEffectIn nodeHttpContext "serves streamed response bodies over local HTTP" (fun () ->
+        let router =
+            HttpRouter.empty
+            |> HttpRouter.add
+                "GET"
+                "/stream"
+                (HttpServerResponse.streamBytesWith
+                    { HttpServerResponseOptions.empty with ContentType = Some "application/octet-stream" }
+                    (Stream.fromIterable [ [| 1uy; 2uy |]; [| 3uy |] ]))
+
+        NodeHttpServer.listenLocal 0 router
+        |> Effect.mapError (fun e -> box e)
+        |> Effect.flatMap (fun handle ->
+            let port = handle.Port |> Option.defaultWith (fun () -> failwith "expected allocated port")
+            let url = "http://127.0.0.1:" + string port + "/stream"
+
+            HttpClientRequest.get url
+            |> HttpClient.execute
+            |> Effect.mapError (fun e -> box e)
+            |> Effect.flatMap (fun response ->
+                match HttpClientResponse.bodyStream response with
+                | Some stream ->
+                    stream
+                    |> Stream.runCollect
+                    |> Effect.flatMap (fun chunks ->
+                        closeHandle handle
+                        |> Effect.map (fun () ->
+                            toBe response.Status 200
+                            toBe (Headers.get "content-type" response.Headers) (Some "application/octet-stream")
+                            toEqual (chunks |> List.collect Array.toList) [ 1uy; 2uy; 3uy ]))
+                | None ->
+                    closeHandle handle
+                    |> Effect.flatMap (fun () -> Effect.sync (fun () -> failwith "expected streamed response body"))))))

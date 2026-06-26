@@ -64,6 +64,12 @@ module HttpServerResponse =
 
     let bytes (body: byte array) : HttpServerResponse = bytesWith HttpServerResponseOptions.empty body
 
+    let streamBytesWith (options: HttpServerResponseOptions) (body: Stream<byte[], obj, Context>) : HttpServerResponse =
+        make options (HttpBody.streamBytes body)
+
+    let streamBytes (body: Stream<byte[], obj, Context>) : HttpServerResponse =
+        streamBytesWith HttpServerResponseOptions.empty body
+
     let redirect (location: string) : HttpServerResponse =
         emptyWith
             { HttpServerResponseOptions.empty with

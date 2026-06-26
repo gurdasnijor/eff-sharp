@@ -3,12 +3,13 @@ namespace Effect
 open System
 open System.Globalization
 
-/// Buffered HTTP request/response body values.
+/// HTTP request/response body values.
 type HttpBody =
     | EmptyBody
     | TextBody of body: string * contentType: string option
     | JsonBody of body: Json
     | BytesBody of body: byte array * contentType: string option
+    | StreamBody of body: Stream<byte[], obj, Context> * contentType: string option
 
 [<RequireQualifiedAccess>]
 module HttpBody =
@@ -25,9 +26,20 @@ module HttpBody =
 
     let bytesWithContentType (contentType: string) (body: byte array) : HttpBody = BytesBody(body, Some contentType)
 
+    let streamBytes (body: Stream<byte[], obj, Context>) : HttpBody =
+        StreamBody(body, None)
+
+    let streamBytesWithContentType (contentType: string) (body: Stream<byte[], obj, Context>) : HttpBody =
+        StreamBody(body, Some contentType)
+
     let isEmpty (body: HttpBody) : bool =
         match body with
         | EmptyBody -> true
+        | _ -> false
+
+    let isStream (body: HttpBody) : bool =
+        match body with
+        | StreamBody _ -> true
         | _ -> false
 
     let contentType (body: HttpBody) : string option =
@@ -36,6 +48,7 @@ module HttpBody =
         | TextBody(_, contentType) -> contentType
         | JsonBody _ -> Some "application/json"
         | BytesBody(_, contentType) -> contentType
+        | StreamBody(_, contentType) -> contentType
 
     let contentLength (body: HttpBody) : int option =
         match body with
@@ -43,6 +56,7 @@ module HttpBody =
         | TextBody(value, _) -> Some value.Length
         | JsonBody _ -> None
         | BytesBody(value, _) -> Some value.Length
+        | StreamBody _ -> None
 
     let private quoteJsonString (value: string) : string =
         let mutable escaped = value.Replace("\\", "\\\\")
@@ -82,6 +96,7 @@ module HttpBody =
         | TextBody(value, _) -> Some value
         | JsonBody value -> Some(toJsonString value)
         | BytesBody _ -> None
+        | StreamBody _ -> None
 
     let asText (body: HttpBody) : string option =
         match body with
@@ -89,3 +104,9 @@ module HttpBody =
         | TextBody(value, _) -> Some value
         | JsonBody _ -> None
         | BytesBody _ -> None
+        | StreamBody _ -> None
+
+    let asStream (body: HttpBody) : Stream<byte[], obj, Context> option =
+        match body with
+        | StreamBody(stream, _) -> Some stream
+        | _ -> None
