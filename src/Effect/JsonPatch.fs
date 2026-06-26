@@ -1,5 +1,9 @@
 namespace Effect
 
+open System
+open System.Globalization
+open System.Text
+
 /// Port of repos/effect-smol/packages/effect/src/JsonPatch.ts.
 ///
 /// Computes and applies deterministic patch documents for JSON values. A patch
@@ -33,6 +37,264 @@ type Operation =
     | Add of path: string * value: Json
     | Remove of path: string
     | Replace of path: string * value: Json
+
+[<RequireQualifiedAccess>]
+module Json =
+
+    type private Parser(text: string) =
+        let mutable index = 0
+
+        member private _.AtEnd = index >= text.Length
+
+        member private _.Peek =
+            if index >= text.Length then
+                '\u0000'
+            else
+                text.[index]
+
+        member private _.Next() =
+            let ch = text.[index]
+            index <- index + 1
+            ch
+
+        member private self.SkipWhitespace() =
+            while not self.AtEnd && Char.IsWhiteSpace self.Peek do
+                index <- index + 1
+
+        member private _.Error(message: string) =
+            Error(sprintf "%s at offset %d" message index)
+
+        member private self.Expect(expected: string) =
+            if index + expected.Length <= text.Length && text.Substring(index, expected.Length) = expected then
+                index <- index + expected.Length
+                Ok()
+            else
+                self.Error("Expected " + expected)
+
+        member private self.ParseString() =
+            let builder = StringBuilder()
+
+            let rec loop () =
+                if self.AtEnd then
+                    self.Error "Unterminated string"
+                else
+                    match self.Next() with
+                    | '"' -> Ok(JString(builder.ToString()))
+                    | '\\' ->
+                        if self.AtEnd then
+                            self.Error "Unterminated escape sequence"
+                        else
+                            match self.Next() with
+                            | '"' ->
+                                builder.Append('"') |> ignore
+                                loop ()
+                            | '\\' ->
+                                builder.Append('\\') |> ignore
+                                loop ()
+                            | '/' ->
+                                builder.Append('/') |> ignore
+                                loop ()
+                            | 'b' ->
+                                builder.Append('\b') |> ignore
+                                loop ()
+                            | 'f' ->
+                                builder.Append('\f') |> ignore
+                                loop ()
+                            | 'n' ->
+                                builder.Append('\n') |> ignore
+                                loop ()
+                            | 'r' ->
+                                builder.Append('\r') |> ignore
+                                loop ()
+                            | 't' ->
+                                builder.Append('\t') |> ignore
+                                loop ()
+                            | 'u' ->
+                                if index + 4 > text.Length then
+                                    self.Error "Invalid unicode escape"
+                                else
+                                    let hex = text.Substring(index, 4)
+                                    let mutable code = 0
+
+                                    if Int32.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, &code) then
+                                        index <- index + 4
+                                        builder.Append(char code) |> ignore
+                                        loop ()
+                                    else
+                                        self.Error "Invalid unicode escape"
+                            | other -> self.Error(sprintf "Invalid escape character '%c'" other)
+                    | ch when int ch < 0x20 -> self.Error "Invalid control character in string"
+                    | ch ->
+                        builder.Append(ch) |> ignore
+                        loop ()
+
+            if self.Next() <> '"' then
+                self.Error "Expected string"
+            else
+                loop ()
+
+        member private self.ParseNumber() =
+            let start = index
+
+            let takeWhile predicate =
+                while not self.AtEnd && predicate self.Peek do
+                    index <- index + 1
+
+            let readInteger () =
+                if self.Peek = '-' then
+                    index <- index + 1
+
+                if self.AtEnd then
+                    self.Error "Invalid number"
+                else
+                    match self.Peek with
+                    | '0' ->
+                        index <- index + 1
+                        Ok()
+                    | ch when ch >= '1' && ch <= '9' ->
+                        takeWhile Char.IsDigit
+                        Ok()
+                    | _ -> self.Error "Invalid number"
+
+            readInteger ()
+            |> Result.bind (fun () ->
+                if not self.AtEnd && self.Peek = '.' then
+                    index <- index + 1
+
+                    if self.AtEnd || not (Char.IsDigit self.Peek) then
+                        self.Error "Invalid number"
+                    else
+                        takeWhile Char.IsDigit
+                        Ok()
+                else
+                    Ok())
+            |> Result.bind (fun () ->
+                if not self.AtEnd && (self.Peek = 'e' || self.Peek = 'E') then
+                    index <- index + 1
+
+                    if not self.AtEnd && (self.Peek = '+' || self.Peek = '-') then
+                        index <- index + 1
+
+                    if self.AtEnd || not (Char.IsDigit self.Peek) then
+                        self.Error "Invalid number"
+                    else
+                        takeWhile Char.IsDigit
+                        Ok()
+                else
+                    Ok())
+            |> Result.bind (fun () ->
+                let raw = text.Substring(start, index - start)
+                let mutable value = 0.0
+
+                if Double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, &value) then
+                    Ok(JNumber value)
+                else
+                    self.Error "Invalid number")
+
+        member private self.ParseArray() =
+            let values = ResizeArray<Json>()
+            index <- index + 1
+            self.SkipWhitespace()
+
+            let rec loop () =
+                self.SkipWhitespace()
+
+                if not self.AtEnd && self.Peek = ']' then
+                    index <- index + 1
+                    Ok(JArray(List.ofSeq values))
+                else
+                    self.ParseValue()
+                    |> Result.bind (fun value ->
+                        values.Add value
+                        self.SkipWhitespace()
+
+                        if not self.AtEnd && self.Peek = ',' then
+                            index <- index + 1
+                            loop ()
+                        elif not self.AtEnd && self.Peek = ']' then
+                            index <- index + 1
+                            Ok(JArray(List.ofSeq values))
+                        else
+                            self.Error "Expected ',' or ']'")
+
+            loop ()
+
+        member private self.ParseObject() =
+            let fields = ResizeArray<string * Json>()
+            index <- index + 1
+            self.SkipWhitespace()
+
+            let rec loop () =
+                self.SkipWhitespace()
+
+                if not self.AtEnd && self.Peek = '}' then
+                    index <- index + 1
+                    Ok(JObject(Map.ofSeq fields))
+                elif self.AtEnd || self.Peek <> '"' then
+                    self.Error "Expected object key"
+                else
+                    self.ParseString()
+                    |> Result.bind (function
+                        | JString key ->
+                            self.SkipWhitespace()
+
+                            if self.AtEnd || self.Next() <> ':' then
+                                self.Error "Expected ':'"
+                            else
+                                self.SkipWhitespace()
+                                self.ParseValue()
+                                |> Result.bind (fun value ->
+                                    fields.Add(key, value)
+                                    self.SkipWhitespace()
+
+                                    if not self.AtEnd && self.Peek = ',' then
+                                        index <- index + 1
+                                        loop ()
+                                    elif not self.AtEnd && self.Peek = '}' then
+                                        index <- index + 1
+                                        Ok(JObject(Map.ofSeq fields))
+                                    else
+                                        self.Error "Expected ',' or '}'")
+                        | _ -> self.Error "Expected object key")
+
+            loop ()
+
+        member self.ParseValue() =
+            self.SkipWhitespace()
+
+            if self.AtEnd then
+                self.Error "Unexpected end of input"
+            else
+                match self.Peek with
+                | 'n' -> self.Expect("null") |> Result.map (fun () -> JNull)
+                | 't' -> self.Expect("true") |> Result.map (fun () -> JBool true)
+                | 'f' -> self.Expect("false") |> Result.map (fun () -> JBool false)
+                | '"' -> self.ParseString()
+                | '[' -> self.ParseArray()
+                | '{' -> self.ParseObject()
+                | '-' -> self.ParseNumber()
+                | ch when Char.IsDigit ch -> self.ParseNumber()
+                | ch -> self.Error(sprintf "Unexpected character '%c'" ch)
+
+        member self.Parse() =
+            let result = self.ParseValue()
+            self.SkipWhitespace()
+
+            match result with
+            | Error _ -> result
+            | Ok value ->
+                if self.AtEnd then
+                    Ok value
+                else
+                    self.Error "Unexpected trailing input"
+
+    let parse (text: string) : Result<Json, string> =
+        Parser(text).Parse()
+
+    let parseUnsafe (text: string) : Json =
+        match parse text with
+        | Ok value -> value
+        | Error message -> failwith message
 
 [<RequireQualifiedAccess>]
 module JsonPatch =

@@ -42,6 +42,21 @@ let private throwsContaining (sub: string) (f: unit -> 'a) =
 // get
 // ---------------------------------------------------------------------------
 
+test "Json.parse reads nested JSON values" (fun () ->
+    let parsed =
+        Json.parse """{"name":"Ada","age":42,"tags":["math",true,null],"nested":{"x":1.5}}"""
+
+    expectEqual<Result<Json, string>>(
+        Ok(
+            obj
+                [ "age", JNumber 42.0
+                  "name", s "Ada"
+                  "nested", obj [ "x", JNumber 1.5 ]
+                  "tags", arr [ s "math"; JBool true; JNull ] ]
+        ),
+        parsed
+    ))
+
 test "get: returns [] for identical values" (fun () ->
     for v in [ n 1; s "hello"; JBool true; JNull; arr [ n 1; n 2; n 3 ]; obj [ "a", n 1 ] ] do
         expectEqual<Operation list>([], get v v)
