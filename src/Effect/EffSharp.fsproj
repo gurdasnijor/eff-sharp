@@ -130,6 +130,11 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="ChildProcess.fs" />
     <Compile Include="ChildProcessSpawner.fs" />
+    <Compile Include="Reactivity.fs" />
+    <Compile Include="SqlError.fs" />
+    <Compile Include="SqlConnection.fs" />
+    <Compile Include="Statement.fs" />
+    <Compile Include="SqlClient.fs" />
     <Compile Include="Headers.fs" />
     <Compile Include="UrlParams.fs" />
     <Compile Include="HttpBody.fs" />
