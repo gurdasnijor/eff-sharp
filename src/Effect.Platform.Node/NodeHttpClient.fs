@@ -41,6 +41,7 @@ module NodeHttpClient =
         | JsonBody value -> box (HttpBody.toJsonString value)
         | BytesBody(value, _) -> box value
         | StreamBody _ -> invalidOp "Streaming request bodies are not supported by NodeHttpClient yet"
+        | FormDataBody formData -> formData
 
     let private baseContentType (contentType: string) =
         match contentType.IndexOf ';' with

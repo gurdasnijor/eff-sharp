@@ -47,3 +47,55 @@ module HttpApiTest =
         testClient.Client
         |> HttpApiClient.endpoint group endpoint input
         |> Effect.provideContext testClient.Context
+
+    let endpointWithMode
+        (group: string)
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.endpointWithMode group endpoint mode input
+        |> Effect.provideContext testClient.Context
+
+    let endpointTyped
+        (group: string)
+        (endpoint: string)
+        (input: HttpApiClientEndpointValueInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpClientResponse, HttpClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.endpointTyped group endpoint input
+        |> Effect.provideContext testClient.Context
+
+    let endpointWithModeTyped
+        (group: string)
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointValueInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.endpointWithModeTyped group endpoint mode input
+        |> Effect.provideContext testClient.Context
+
+    let topLevelEndpointWithMode
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.topLevelEndpointWithMode endpoint mode input
+        |> Effect.provideContext testClient.Context
+
+    let topLevelEndpointWithModeTyped
+        (endpoint: string)
+        (mode: HttpApiClientResponseMode)
+        (input: HttpApiClientEndpointValueInput)
+        (testClient: HttpApiTestClient)
+        : Effect<HttpApiClientResponse, HttpApiClientError, Context> =
+        testClient.Client
+        |> HttpApiClient.topLevelEndpointWithModeTyped endpoint mode input
+        |> Effect.provideContext testClient.Context

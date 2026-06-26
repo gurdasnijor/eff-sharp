@@ -162,6 +162,7 @@
     <Compile Include="$(EffectSrcDir)Headers.fs" />
     <Compile Include="$(EffectSrcDir)UrlParams.fs" />
     <Compile Include="$(EffectSrcDir)HttpBody.fs" />
+    <Compile Include="$(EffectSrcDir)Multipart.fs" />
     <Compile Include="$(EffectSrcDir)HttpClientRequest.fs" />
     <Compile Include="$(EffectSrcDir)HttpClientResponse.fs" />
     <Compile Include="$(EffectSrcDir)HttpServerRequest.fs" />

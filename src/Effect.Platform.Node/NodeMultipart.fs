@@ -3,14 +3,6 @@ namespace Effect.Platform.Node
 open Effect
 open Fable.Core
 
-type MultipartPart =
-    | MultipartField of key: string * value: string * contentType: string
-    | MultipartFile of key: string * name: string * contentType: string * content: Stream<byte[], PlatformError, Context> * source: obj
-
-type MultipartPersisted =
-    { Fields: Map<string, string>
-      Files: Map<string, MultipartPart list> }
-
 [<RequireQualifiedAccess>]
 module NodeMultipart =
 
@@ -65,10 +57,10 @@ module NodeMultipart =
         | tag -> invalidOp ("Unknown multipasta part tag: " + tag)
 
     let field key value contentType =
-        MultipartField(key, value, contentType)
+        Effect.Multipart.field key value contentType
 
     let file key name contentType source =
-        MultipartFile(key, name, contentType, NodeStream.fromReadable (fun () -> source), source)
+        Effect.Multipart.file key name contentType (NodeStream.fromReadable (fun () -> source)) source
 
     let fileToReadable (part: MultipartPart) : obj =
         match part with

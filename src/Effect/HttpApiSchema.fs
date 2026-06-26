@@ -6,13 +6,15 @@ type HttpApiEncoding =
     | FormUrlEncoded
     | Text
     | Uint8Array
-    | Multipart
+    | MultipartEncoding
 
 type HttpApiPayload =
     | Buffered of Schema<obj>
+    | MultipartBuffered of MultipartSchema<obj>
     | Empty
     | StreamSse of sseMode: string * events: Schema<obj> * failure: Schema<obj>
     | StreamBytes
+    | MultipartStream
 
 type HttpApiContent =
     { Status: int
@@ -61,6 +63,21 @@ module HttpApiSchema =
     let asUint8ArrayWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
         content (Buffered(Schema.erase schema)) 200 contentType
 
+    let asMultipart (schema: Schema<'T>) : HttpApiContent =
+        content (Buffered(Schema.erase schema)) 200 "multipart/form-data"
+
+    let asMultipartWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
+        content (Buffered(Schema.erase schema)) 200 contentType
+
+    let asMultipartSchema (schema: MultipartSchema<'T>) : HttpApiContent =
+        content (MultipartBuffered(Multipart.erase schema)) 200 "multipart/form-data"
+
+    let asMultipartSchemaWithContentType (contentType: string) (schema: MultipartSchema<'T>) : HttpApiContent =
+        content (MultipartBuffered(Multipart.erase schema)) 200 contentType
+
+    let asMultipartStream: HttpApiContent =
+        content MultipartStream 200 "multipart/form-data"
+
     let asNoContent (statusCode: int) : HttpApiContent =
         content Empty statusCode ""
 
@@ -98,6 +115,7 @@ module HttpApiSchema =
         match schema.Payload with
         | StreamSse _
         | StreamBytes -> true
+        | MultipartStream -> true
         | _ -> false
 
     let isStreamSse (schema: HttpApiContent) : bool =
@@ -123,6 +141,8 @@ module HttpApiSchema =
     let encoding (schema: HttpApiContent) : HttpApiEncoding =
         match schema.Payload with
         | Empty -> Json
+        | MultipartBuffered _
+        | MultipartStream -> MultipartEncoding
         | StreamSse _ -> Text
         | StreamBytes -> Uint8Array
         | Buffered _ ->
@@ -131,7 +151,7 @@ module HttpApiSchema =
             | "application/x-www-form-urlencoded" -> FormUrlEncoded
             | "text/plain" -> Text
             | "application/octet-stream" -> Uint8Array
-            | "multipart/form-data" -> Multipart
+            | "multipart/form-data" -> MultipartEncoding
             | _ -> Json
 
     let rec private containsReservedFailureEvent =

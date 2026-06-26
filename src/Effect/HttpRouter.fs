@@ -12,6 +12,8 @@ type HttpRouter = { Routes: HttpRoute list }
 [<RequireQualifiedAccess>]
 module HttpRouter =
 
+    let tag: Tag<HttpRouter> = Tag.make "Effect.HttpRouter"
+
     let empty: HttpRouter = { Routes = [] }
 
     let private normalizeMethod (method: string) = if method = "*" then "*" else method.ToUpperInvariant()

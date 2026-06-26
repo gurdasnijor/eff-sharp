@@ -100,6 +100,7 @@ module NodeHttpServer =
         | JsonBody value -> box (HttpBody.toJsonString value)
         | BytesBody(value, _) -> box value
         | StreamBody _ -> invalidOp "Streaming bodies must be written through writeServerResponse"
+        | FormDataBody formData -> formData
 
     let private requestBody (headers: Headers) (bodyText: string) : HttpBody =
         if bodyText = "" then
@@ -109,13 +110,41 @@ module NodeHttpServer =
             | Some contentType -> HttpBody.textWithContentType contentType bodyText
             | None -> HttpBody.text bodyText
 
-    let private toServerRequest (source: obj) (bodyText: string) : HttpServerRequest =
-        let headers = requestHeaders source |> Headers.ofSeq
+    let private baseContentType (contentType: string) =
+        match contentType.IndexOf ';' with
+        | -1 -> contentType.Trim().ToLowerInvariant()
+        | i -> contentType.Substring(0, i).Trim().ToLowerInvariant()
+
+    let private isMultipart (headers: Headers) =
+        match Headers.get "content-type" headers with
+        | Some contentType -> baseContentType contentType = "multipart/form-data"
+        | None -> false
+
+    let private toServerRequest (source: obj) (headers: Headers) (bodyText: string) : HttpServerRequest =
         let remoteAddress = requestRemoteAddress source
 
-        { HttpServerRequest.make (requestMethod source) (requestUrl source) headers (requestBody headers bodyText) with
-            Source = Some source
-            RemoteAddress = if remoteAddress = "" then None else Some remoteAddress }
+        let request =
+            { HttpServerRequest.make (requestMethod source) (requestUrl source) headers (requestBody headers bodyText) with
+                Source = Some source
+                RemoteAddress = if remoteAddress = "" then None else Some remoteAddress }
+
+        if isMultipart headers then
+            { request with
+                Multipart = Some(fun () -> NodeMultipart.persisted source headers)
+                MultipartStream = Some(fun () -> NodeMultipart.stream source headers) }
+        else
+            request
+
+    let private readServerRequest (source: obj) : Async<HttpServerRequest> =
+        async {
+            let headers = requestHeaders source |> Headers.ofSeq
+
+            if isMultipart headers then
+                return toServerRequest source headers ""
+            else
+                let! bodyText = Async.AwaitPromise(readBodyTextJs source)
+                return toServerRequest source headers bodyText
+        }
 
     let private errorResponse (error: HttpServerError) : HttpServerResponse =
         HttpServerResponse.textWith
@@ -169,8 +198,7 @@ module NodeHttpServer =
             Async.StartImmediate(
                 async {
                     try
-                        let! bodyText = Async.AwaitPromise(readBodyTextJs nodeRequest)
-                        let request = toServerRequest nodeRequest bodyText
+                        let! request = readServerRequest nodeRequest
                         let! exit = Runtime.runExit runtime (HttpRouter.handle request router)
 
                         let response =

@@ -10,6 +10,8 @@ type HttpServerRequest =
       Headers: Headers
       Cookies: Cookies
       Body: HttpBody
+      Multipart: (unit -> Effect<MultipartPersisted, PlatformError, Context>) option
+      MultipartStream: (unit -> Stream<MultipartPart, PlatformError, Context>) option
       Source: obj option
       RemoteAddress: string option }
 
@@ -77,6 +79,16 @@ module HttpServerRequest =
         | Some cookie -> Cookies.parse cookie
         | None -> Cookies.empty
 
+    let private multipartUnavailable methodName =
+        PlatformError.systemError
+            { Tag = SystemErrorTag.InvalidData
+              Module = "HttpServerRequest"
+              Method = methodName
+              Description = Some "Request does not provide multipart data"
+              Syscall = None
+              PathOrDescriptor = None
+              Cause = None }
+
     let make (method: string) (url: string) (headers: Headers) (body: HttpBody) : HttpServerRequest =
         let normalizedUrl = pathQueryHash url
 
@@ -86,6 +98,8 @@ module HttpServerRequest =
           Headers = headers
           Cookies = cookiesFromHeaders headers
           Body = body
+          Multipart = None
+          MultipartStream = None
           Source = None
           RemoteAddress = None }
 
@@ -105,6 +119,16 @@ module HttpServerRequest =
           Hash = hash
           Headers = request.Headers
           Body = request.Body }
+
+    let multipart (request: HttpServerRequest) : Effect<MultipartPersisted, PlatformError, Context> =
+        match request.Multipart with
+        | Some parse -> parse ()
+        | None -> Effect.fail (multipartUnavailable "multipart")
+
+    let multipartStream (request: HttpServerRequest) : Stream<MultipartPart, PlatformError, Context> =
+        match request.MultipartStream with
+        | Some stream -> stream ()
+        | None -> { Run = fun _ -> Effect.fail (multipartUnavailable "multipartStream") }
 
     let searchParams (request: HttpServerRequest) : UrlParams =
         let noHash, _ = splitFragment request.Url
