@@ -259,6 +259,55 @@ module Effect =
     let zipWith (f: 'A -> 'B -> 'C) (b: Effect<'B, 'E, 'R>) (a: Effect<'A, 'E, 'R>) : Effect<'C, 'E, 'R> =
         a |> flatMap (fun av -> b |> map (fun bv -> f av bv))
 
+    /// Alias for sequencing when the left value is discarded. (Effect.andThen)
+    let andThen (b: Effect<'B, 'E, 'R>) (a: Effect<'A, 'E, 'R>) : Effect<'B, 'E, 'R> = zipRight b a
+
+    /// Replace a success value with a constant. (Effect.as)
+    let asValue (value: 'B) (eff: Effect<'A, 'E, 'R>) : Effect<'B, 'E, 'R> = eff |> map (fun _ -> value)
+
+    /// Replace a success value with unit. (Effect.asVoid)
+    let asVoid (eff: Effect<'A, 'E, 'R>) : Effect<unit, 'E, 'R> = eff |> map ignore
+
+    /// A successful unit effect. (Effect.void)
+    let void'<'E, 'R> : Effect<unit, 'E, 'R> = succeed ()
+
+    /// Run an effectful observation while preserving the original success value. (Effect.tap)
+    let tap (f: 'A -> Effect<unit, 'E, 'R>) (eff: Effect<'A, 'E, 'R>) : Effect<'A, 'E, 'R> =
+        eff |> flatMap (fun a -> f a |> map (fun () -> a))
+
+    /// Alias for `catchAll`. (Effect.catch)
+    let catch (handler: 'E -> Effect<'A, 'E2, 'R>) (eff: Effect<'A, 'E, 'R>) : Effect<'A, 'E2, 'R> =
+        catchAll handler eff
+
+    /// Keep only values satisfying `predicate`, otherwise fail with `orFail value`.
+    /// (Effect.filterOrFail)
+    let filterOrFail
+        (predicate: 'A -> bool)
+        (orFail: 'A -> 'E)
+        (eff: Effect<'A, 'E, 'R>)
+        : Effect<'A, 'E, 'R> =
+        eff
+        |> flatMap (fun a ->
+            if predicate a then
+                succeed a
+            else
+                fail (orFail a))
+
+    /// Swap the success and typed failure channels. Defects/interrupts remain
+    /// failures. (Effect.flip)
+    let flip (Effect run) : Effect<'E, 'A, 'R> =
+        Effect(fun fib r ->
+            async {
+                let! exit = run fib r
+
+                match exit with
+                | Success a -> return Exit.fail a
+                | Failure cause ->
+                    match Cause.failures cause |> List.tryHead with
+                    | Some e -> return Success e
+                    | None -> return Failure(retagDefects cause)
+            })
+
     // --- fibers & interruption (slice: wave3 kernel) ---
 
     /// Run `eff` and capture its full `Exit` (success / typed failure / defect /
@@ -305,6 +354,9 @@ module Effect =
                 return Success { Task = task; Runtime = child }
 #endif
             })
+
+    /// Fork and intentionally discard the fiber handle. (Effect.forkDetach)
+    let forkDetach (eff: Effect<'A, 'E, 'R>) : Effect<unit, 'E2, 'R> = fork eff |> map ignore
 
     /// Wait for a fiber to complete and observe its full `Exit`. (Fiber.await)
     let await (fib: Fiber<'A, 'E>) : Effect<Exit<'A, 'E>, 'E2, 'R> =

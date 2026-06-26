@@ -14,7 +14,20 @@ describe "Effect — runs on Node via Fable" (fun () ->
         Effect.succeed 10
         |> Effect.flatMap (fun a -> Effect.succeed (a * 2))
         |> Effect.flatMap (fun b -> Effect.succeed (b + 1))
-        |> Effect.map (fun x -> toBe x 21)))
+        |> Effect.map (fun x -> toBe x 21))
+
+    itEffect "compatibility helpers map to core semantics" (fun () ->
+        Effect.succeed 2
+        |> Effect.tap (fun value -> Effect.sync (fun () -> toBe value 2))
+        |> Effect.filterOrFail (fun value -> value > 1) (fun value -> sprintf "too small: %d" value)
+        |> Effect.andThen (Effect.succeed 10)
+        |> Effect.asValue 11
+        |> Effect.map (fun value -> toBe value 11))
+
+    itEffect "flip swaps typed failure into success" (fun () ->
+        Effect.fail "nope"
+        |> Effect.flip
+        |> Effect.map (fun error -> toBe error "nope")))
 
 // Proves the ported TestClock actually runs on Node (Cell-backed, no TCS).
 describe "TestClock — Fable-portable (Cell-backed)" (fun () ->

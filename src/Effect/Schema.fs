@@ -45,6 +45,7 @@ namespace Effect
 /// structural AST + `ADeclare`). See DESIGN.md "Phased plan".
 
 open System
+open System.Numerics
 open Microsoft.FSharp.Reflection
 
 /// Reified shape of a schema. **Structural**: composites carry their children, so
@@ -240,6 +241,33 @@ module Schema =
             | j -> Error [ InvalidType("number", j) ])
           Encode = fun d -> JNumber(ofDecimal d) }
 
+    /// Matches any JSON value. (Schema.Unknown)
+    let unknown: Schema<Json> =
+        { Ast = ADeclare "unknown"
+          Decode = Ok
+          Encode = id }
+
+    /// Matches JSON null. F# represents the decoded value as unit. (Schema.Null)
+    let null': Schema<unit> =
+        { Ast = ALiteral JNull
+          Decode =
+            (function
+            | JNull -> Ok()
+            | j -> Error [ InvalidType("null", j) ])
+          Encode = fun () -> JNull }
+
+    /// Matches an arbitrary-precision integer encoded as a JSON string. (Schema.BigInt)
+    let bigInt: Schema<bigint> =
+        { Ast = AString
+          Decode =
+            (function
+            | JString s ->
+                match BigInteger.TryParse s with
+                | true, value -> Ok value
+                | false, _ -> Error [ InvalidValue("Expected a bigint string", JString s) ]
+            | j -> Error [ InvalidType("string", j) ])
+          Encode = fun value -> JString(toText value) }
+
     /// Matches exactly one JSON literal value. (Schema.Literal)
     let literal (value: Json) : Schema<Json> =
         { Ast = ALiteral value
@@ -268,6 +296,19 @@ module Schema =
                 | Some(j, _) -> j
                 | None -> JNull) }
 
+    /// Closed set of JSON literals. (Schema.Literals)
+    let literals (values: Json list) : Schema<Json> =
+        let expected = values |> List.map (sprintf "%A") |> String.concat ", "
+
+        { Ast = AUnion(values |> List.map ALiteral)
+          Decode =
+            (fun j ->
+                if values |> List.exists ((=) j) then
+                    Ok j
+                else
+                    Error [ InvalidValue(sprintf "Expected one of: %s" expected, j) ])
+          Encode = id }
+
     // -- filters (Schema<'T> -> Schema<'T>) -----------------------------------
 
     /// Refine an existing schema with a predicate; on failure reports
@@ -294,6 +335,27 @@ module Schema =
     let minLength (n: int) (s: Schema<string>) : Schema<string> =
         s
         |> refine (fun str -> String.length str >= n) (sprintf "Expected a string of length at least %d" n)
+
+    /// Require a string of at most `n` characters. (Schema.isMaxLength)
+    let maxLength (n: int) (s: Schema<string>) : Schema<string> =
+        s
+        |> refine (fun str -> String.length str <= n) (sprintf "Expected a string of length at most %d" n)
+
+    /// Require a comparable value to be greater than or equal to `minimum`.
+    /// (Schema.isGreaterThanOrEqualTo)
+    let greaterThanOrEqualTo (minimum: 'T) (s: Schema<'T>) : Schema<'T> =
+        s
+        |> refine (fun value -> value >= minimum) (sprintf "Expected a value greater than or equal to %A" minimum)
+
+    /// Require a comparable value to be less than or equal to `maximum`.
+    /// (Schema.isLessThanOrEqualTo)
+    let lessThanOrEqualTo (maximum: 'T) (s: Schema<'T>) : Schema<'T> =
+        s
+        |> refine (fun value -> value <= maximum) (sprintf "Expected a value less than or equal to %A" maximum)
+
+    /// Require a JSON number to be integral. (Schema.isInt)
+    let isInt (s: Schema<float>) : Schema<float> =
+        s |> refine isIntegerNumber "Expected an integer"
 
     /// Require a comparable value within `[lo, hi]`. (Schema.isBetween)
     let between (lo: 'T) (hi: 'T) (s: Schema<'T>) : Schema<'T> =
@@ -355,6 +417,14 @@ module Schema =
             (function
             | Some v -> s.Encode v
             | None -> JNull) }
+
+    /// Lazily tie a recursive schema knot. The executable codec is delegated to
+    /// the schema produced by `f`; the AST uses a declaration placeholder.
+    /// (Schema.suspend)
+    let suspend (f: unit -> Schema<'T>) : Schema<'T> =
+        { Ast = ADeclare "suspended"
+          Decode = fun json -> (f ()).Decode json
+          Encode = fun value -> (f ()).Encode value }
 
     /// A homogeneous JSON array; per-element issues are tagged with their index.
     /// (Schema.Array)
@@ -540,6 +610,23 @@ module Schema =
                 | None -> Error [ MissingKey key ]
                 | Some j -> schema.Decode j |> Validation.mapError (List.map (fun e -> Pointer([ key ], e)))) }
 
+    /// One optional object field. Missing and `null` both decode to `None`; `None`
+    /// is omitted on encode. (Schema.optionalKey)
+    let optionalKey (key: string) (schema: Schema<'F>) (getter: 'R -> 'F option) : ObjectCodec<'R, 'F option> =
+        { Keys = [ key ]
+          Fields = [ key, AOption schema.Ast ]
+          EncodeFields =
+            (fun r ->
+                match getter r with
+                | Some value -> [ key, schema.Encode value ]
+                | None -> [])
+          DecodeFields =
+            (fun m ->
+                match Map.tryFind key m with
+                | None
+                | Some JNull -> Ok None
+                | Some j -> schema.Decode j |> Validation.map Some |> Validation.mapError (List.map (fun e -> Pointer([ key ], e)))) }
+
     /// Applicative builder for struct schemas. `let!`/`and!` run every field
     /// decoder and accumulate ALL issues (via `Validation.zip`); `return` builds
     /// the record (so a field mismatch is a *compile* error). Bidirectional via the
@@ -561,6 +648,10 @@ module Schema =
 
     /// `Schema.object { let! a = field ...; and! b = field ...; return record }`
     let object = ObjectBuilder()
+
+    /// Alias for the object builder. Native F# call sites should still prefer
+    /// `Schema.object { ... }`; this is a bridge for porting from `Schema.Struct`.
+    let Struct = object
 
     // -- active patterns ------------------------------------------------------
 
@@ -748,6 +839,12 @@ module Schema =
     /// Decode into the `Effect` channel (so v2 effectful filters/services compose).
     let decodeEffect (s: Schema<'T>) (j: Json) : Effect<'T, SchemaError, 'R> = Effect.fromResult (decode s j)
 
+    let decodeUnknownEffect (s: Schema<'T>) (j: Json) : Effect<'T, SchemaError, 'R> = decodeEffect s j
+
+    let encodeEffect (s: Schema<'T>) (value: 'T) : Effect<Json, SchemaError, 'R> = Effect.succeed (encode s value)
+
+    let encodeUnknownEffect (s: Schema<'T>) (value: 'T) : Effect<Json, SchemaError, 'R> = encodeEffect s value
+
     // == AST-fold interpreters ================================================
     //
     // The payoff of making the AST structural: four of Effect's seven operations
@@ -921,3 +1018,30 @@ module Schema =
     /// (Schema/Formatter error rendering)
     let format (error: SchemaError) : string =
         renderIssue [] error.Issue |> String.concat "\n"
+
+    // -- TS-style compatibility aliases --------------------------------------
+    //
+    // Keep these at the end of the module: names like `Array` and `String` are
+    // useful for porting, but would shadow FSharp.Core modules inside this file.
+
+    let String = string
+    let Boolean = bool
+    let Number = float
+    let Int = int
+    let BigInt = bigInt
+    let Unknown = unknown
+    let Null = null'
+    let Array = array
+    let Literal = literal
+    let Literals = literals
+    let Union = union
+    let Tuple2 = tuple2
+    let Tuple3 = tuple3
+    let optional = option
+    let isMinLength = minLength
+    let isMaxLength = maxLength
+    let isPattern = matches
+    let isGreaterThanOrEqualTo = greaterThanOrEqualTo
+    let isLessThanOrEqualTo = lessThanOrEqualTo
+    let isGreaterThanOrEqualToBigInt = greaterThanOrEqualTo
+    let isLessThanOrEqualToBigInt = lessThanOrEqualTo

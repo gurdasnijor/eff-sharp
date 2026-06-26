@@ -33,6 +33,7 @@
     <Compile Include="Exit.fs" />
     <Compile Include="Context.fs" />
     <Compile Include="Effect.fs" />
+    <Compile Include="Option.fs" />
     <Compile Include="Cell.fs" />
     <Compile Include="Scope.fs" />
     <Compile Include="Fiber.fs" />
