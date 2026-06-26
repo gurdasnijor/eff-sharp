@@ -19,6 +19,9 @@ BenchmarkDotNet.Artifacts/
 # Test results emitted by tools/ci/check.sh
 TestResults/
 
+# NuGet packages emitted by tools/pack/fable-packages.sh
+artifacts/
+
 # JS / Fable build output
 node_modules/
 **/node_modules/

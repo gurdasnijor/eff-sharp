@@ -1,0 +1,56 @@
+name: Publish NuGet packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  publish:
+    name: Publish Fable packages
+    runs-on: ubuntu-latest
+    if: github.repository == 'gurdasnijor/eff-sharp'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.301'
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.fsproj', 'Directory.Packages.props', 'global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Pack packages
+        run: bash tools/pack/fable-packages.sh
+
+      - name: Configure GitHub Packages source
+        run: |
+          dotnet nuget add source \
+            --username gurdasnijor \
+            --password "${{ secrets.GITHUB_TOKEN }}" \
+            --store-password-in-clear-text \
+            --name github \
+            "https://nuget.pkg.github.com/gurdasnijor/index.json"
+
+      - name: Push packages
+        run: |
+          for package in artifacts/nuget/*.nupkg; do
+            dotnet nuget push "$package" \
+              --source github \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          done
