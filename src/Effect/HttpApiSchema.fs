@@ -30,6 +30,13 @@ module HttpApiSchema =
           ContentType = contentType
           Payload = payload }
 
+    let private causePayload (error: Schema<'Error>) : Schema<obj> =
+        let cause = Schema.cause error
+
+        { Ast = cause.Ast
+          Decode = fun json -> cause.Decode json |> Result.map (Cause.map box >> box)
+          Encode = fun value -> cause.Encode (unbox<Cause<obj>> value |> Cause.map unbox<'Error>) }
+
     let asJson (schema: Schema<'T>) : HttpApiContent =
         content (Buffered(Schema.erase schema)) 200 "application/json"
 
@@ -73,13 +80,13 @@ module HttpApiSchema =
         { schema with Status = statusCode }
 
     let streamSse (events: Schema<'Event>) (error: Schema<'Error>) : HttpApiContent =
-        content (StreamSse("events", Schema.erase events, Schema.erase error)) 200 "text/event-stream"
+        content (StreamSse("events", Schema.erase events, causePayload error)) 200 "text/event-stream"
 
     let streamSseWithContentType (contentType: string) (events: Schema<'Event>) (error: Schema<'Error>) : HttpApiContent =
-        content (StreamSse("events", Schema.erase events, Schema.erase error)) 200 contentType
+        content (StreamSse("events", Schema.erase events, causePayload error)) 200 contentType
 
     let streamSseData (data: Schema<'Data>) (error: Schema<'Error>) : HttpApiContent =
-        content (StreamSse("data", Schema.erase data, Schema.erase error)) 200 "text/event-stream"
+        content (StreamSse("data", Schema.erase data, causePayload error)) 200 "text/event-stream"
 
     let streamUint8Array: HttpApiContent =
         content StreamBytes 200 "application/octet-stream"

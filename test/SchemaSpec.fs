@@ -174,6 +174,23 @@ describe "Schema · composites" (fun () ->
         | Pointer([ i ], _) -> toBe i "1"
         | _ -> failwith "expected an indexed pointer")
 
+    test "cause encodes and decodes full failure causes" (fun () ->
+        let s = Schema.cause Schema.string
+        let cause = Cause.combine (Cause.fail "boom") (Cause.interrupt (Some 42))
+        let encoded = Schema.encode s cause
+        let expected =
+            JArray
+                [ JObject(Map.ofList [ "_tag", JString "Fail"; "error", JString "boom" ])
+                  JObject(Map.ofList [ "_tag", JString "Interrupt"; "fiberId", JNumber 42.0 ]) ]
+
+        toBe (encoded = expected) true
+
+        match Schema.decode s encoded with
+        | Ok decoded ->
+            toEqual (Cause.failures decoded) [ "boom" ]
+            toEqual decoded.Reasons cause.Reasons
+        | Error error -> failwithf "expected cause decode, got %A" error)
+
     test "tuple2 decodes, round-trips, and rejects wrong length" (fun () ->
         let s = Schema.tuple2 Schema.int Schema.string
         let j = JArray [ JNumber 7.0; JString "k" ]

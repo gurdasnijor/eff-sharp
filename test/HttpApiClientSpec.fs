@@ -369,4 +369,40 @@ describe "HttpApiClient response modes" (fun () ->
             match Stream.runCollect stream |> Runtime.runSync runtime with
             | [ value ] -> toBe (unbox<ClientData> value).Text "hello"
             | other -> failwithf "expected one event, got %A" other
-        | other -> failwithf "expected decoded sse data stream, got %A" other))
+        | other -> failwithf "expected decoded sse data stream, got %A" other)
+
+    test "decodes reserved StreamSse failure events as full causes" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "events"
+                "/events"
+                { HttpApiEndpoint.empty with Success = [ HttpApiSchema.streamSse clientEventSchema clientErrorSchema ] }
+
+        let api = HttpApi.make "Api" |> HttpApi.add (HttpApiGroup.make "test" |> HttpApiGroup.add endpoint)
+        let expected = Cause.fail { Reason = "boom" }
+        let data = expected |> Schema.encode (Schema.cause clientErrorSchema) |> HttpBody.toJsonString
+
+        let httpClient =
+            fakeClient (fun request ->
+                HttpClientResponse.streamBytes
+                    request
+                    200
+                    (Headers.ofList [ "content-type", "text/event-stream" ])
+                    (Stream.fromIterable [ bytes (Sse.encodeEvent (Sse.event HttpApiSchema.streamFailureEvent data)) ]))
+
+        let runtime = Runtime.make (Context.make HttpClient.tag httpClient)
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        match
+            client
+            |> HttpApiClient.endpointWithMode "test" "events" DecodedOnly HttpApiClient.emptyEndpointInput
+            |> Runtime.runSync runtime
+        with
+        | Decoded(DecodedStreamSse stream) ->
+            match Stream.runCollect stream |> Effect.runSync runtime.Context with
+            | Success _ -> failwith "expected stream failure"
+            | Failure cause ->
+                match Cause.failures cause with
+                | [ error ] -> toBe (unbox<ClientErrorBody> error).Reason "boom"
+                | other -> failwithf "expected decoded cause failure, got %A" other
+        | other -> failwithf "expected decoded sse stream, got %A" other))

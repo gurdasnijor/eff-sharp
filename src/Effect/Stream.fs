@@ -179,6 +179,10 @@ module Stream =
     let flatMap (f: 'A -> Stream<'B, 'E, 'R>) (self: Stream<'A, 'E, 'R>) : Stream<'B, 'E, 'R> =
         { Run = fun emit -> self.Run(fun a -> (f a).Run emit) }
 
+    /// Recover from a stream failure by switching to another stream.
+    let catchAll (handler: 'E -> Stream<'A, 'E, 'R>) (self: Stream<'A, 'E, 'R>) : Stream<'A, 'E, 'R> =
+        { Run = fun emit -> self.Run emit |> Effect.catchAll (fun error -> (handler error).Run emit) }
+
     /// `a` then `b`. (Stream.concat)
     let concat (a: Stream<'A, 'E, 'R>) (b: Stream<'A, 'E, 'R>) : Stream<'A, 'E, 'R> =
         { Run = fun emit -> a.Run emit |> Effect.flatMap (fun () -> b.Run emit) }

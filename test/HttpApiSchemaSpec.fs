@@ -41,7 +41,7 @@ describe "HttpApiSchema" (fun () ->
             | StreamSse(mode, events, failure) ->
                 toBe mode "events"
                 toBe (events.Ast = eventsSchema.Ast) true
-                toBe (failure.Ast = errorSchema.Ast) true
+                toBe (failure.Ast = (Schema.cause errorSchema).Ast) true
 
                 match events.Decode (JObject(Map.ofList [ "event", JString "message"; "data", JString "hello" ])) with
                 | Ok value ->
@@ -49,6 +49,16 @@ describe "HttpApiSchema" (fun () ->
                     toBe event.Event "message"
                     toBe event.Data "hello"
                 | Error issues -> failwithf "expected erased event codec to decode, got %A" issues
+
+                let failureJson = Schema.encode (Schema.cause errorSchema) (Cause.fail { Reason = "boom" })
+
+                match failure.Decode failureJson with
+                | Ok value ->
+                    let cause = unbox<Cause<obj>> value
+                    match Cause.failures cause with
+                    | [ error ] -> toBe (unbox<ErrorBody> error).Reason "boom"
+                    | other -> failwithf "expected one failure, got %A" other
+                | Error issues -> failwithf "expected erased failure cause codec to decode, got %A" issues
             | _ -> failwith "expected StreamSse")
 
         test "stores custom content type" (fun () ->
@@ -64,7 +74,7 @@ describe "HttpApiSchema" (fun () ->
             | StreamSse(mode, data, failure) ->
                 toBe mode "data"
                 toBe (data.Ast = payloadSchema.Ast) true
-                toBe (failure.Ast = errorSchema.Ast) true
+                toBe (failure.Ast = (Schema.cause errorSchema).Ast) true
             | _ -> failwith "expected StreamSse"))
 
     describe "StreamUint8Array" (fun () ->

@@ -364,6 +364,69 @@ module Schema =
                 |> Validation.sequence
             | j -> Error [ InvalidType("array", j) ]) }
 
+    /// A Cause codec using upstream's wire shape:
+    /// `[ { "_tag": "Fail", "error": ... }, { "_tag": "Die", "defect": ... },
+    ///    { "_tag": "Interrupt", "fiberId": number | null } ]`.
+    /// Defects are represented as strings in v1; typed failures use `error`.
+    let cause (error: Schema<'E>) : Schema<Cause<'E>> =
+        let reasonAst =
+            ATaggedUnion
+                [ "Fail", AObject [ "_tag", ALiteral(JString "Fail"); "error", error.Ast ]
+                  "Die", AObject [ "_tag", ALiteral(JString "Die"); "defect", AString ]
+                  "Interrupt", AObject [ "_tag", ALiteral(JString "Interrupt"); "fiberId", AOption AInt ] ]
+
+        let reasonToJson =
+            function
+            | Reason.Fail value ->
+                JObject(Map.ofList [ "_tag", JString "Fail"; "error", error.Encode value ])
+            | Reason.Die defect ->
+                JObject(Map.ofList [ "_tag", JString "Die"; "defect", JString(Cause.renderValue defect) ])
+            | Reason.Interrupt fiberId ->
+                JObject(
+                    Map.ofList
+                        [ "_tag", JString "Interrupt"
+                          "fiberId",
+                          match fiberId with
+                          | Some id -> JNumber(toFloat id)
+                          | None -> JNull ]
+                )
+
+        let decodeReason json =
+            match json with
+            | JObject fields ->
+                match Map.tryFind "_tag" fields with
+                | Some(JString "Fail") ->
+                    match Map.tryFind "error" fields with
+                    | Some errorJson -> error.Decode errorJson |> Validation.map Reason.Fail
+                    | None -> Error [ MissingKey "error" ]
+                | Some(JString "Die") ->
+                    match Map.tryFind "defect" fields with
+                    | Some(JString defect) -> Ok(Reason.Die(box defect))
+                    | Some defect -> Error [ InvalidType("string", defect) ]
+                    | None -> Error [ MissingKey "defect" ]
+                | Some(JString "Interrupt") ->
+                    match Map.tryFind "fiberId" fields with
+                    | None
+                    | Some JNull -> Ok(Reason.Interrupt None)
+                    | Some(JNumber n) when n % 1.0 = 0.0 -> Ok(Reason.Interrupt(Some(toInt n)))
+                    | Some other -> Error [ InvalidType("integer or null", other) ]
+                | Some tag -> Error [ InvalidValue("Expected Cause reason tag", tag) ]
+                | None -> Error [ MissingKey "_tag" ]
+            | other -> Error [ InvalidType("object", other) ]
+
+        { Ast = AArray reasonAst
+          Encode = fun cause -> JArray(List.map reasonToJson cause.Reasons)
+          Decode =
+            function
+            | JArray reasons ->
+                reasons
+                |> List.mapi (fun i reason ->
+                    decodeReason reason
+                    |> Validation.mapError (List.map (fun issue -> Pointer([ toText i ], issue))))
+                |> Validation.sequence
+                |> Validation.map (fun reasons -> { Reasons = reasons })
+            | other -> Error [ InvalidType("array", other) ] }
+
     /// A 2-tuple `[a, b]`. (Schema.Tuple — v1 ships tuple2/tuple3.)
     let tuple2 (a: Schema<'A>) (b: Schema<'B>) : Schema<'A * 'B> =
         { Ast = ATuple [ a.Ast; b.Ast ]
