@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Fable bench: compiles the minimal eff-sharp core subset the workloads need
+       (the async Effect kernel) + Workloads.fs to ESM, run by effsharp.bench.mjs
+       on Node. Kept to the smallest dependency closure so the bench builds fast
+       and is robust to churn elsewhere in the core. -->
+
+  <PropertyGroup>
+    <EffectSrcDir>$(MSBuildThisFileDirectory)../../src/Effect/</EffectSrcDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Promise" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- async Effect kernel: error model -> Context -> Reader-over-Async core -->
+    <Compile Include="$(EffectSrcDir)Cause.fs" />
+    <Compile Include="$(EffectSrcDir)Exit.fs" />
+    <Compile Include="$(EffectSrcDir)Context.fs" />
+    <Compile Include="$(EffectSrcDir)Effect.fs" />
+    <Compile Include="Workloads.fs" />
+  </ItemGroup>
+
+</Project>
