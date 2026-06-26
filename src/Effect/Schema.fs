@@ -45,6 +45,7 @@ namespace Effect
 /// structural AST + `ADeclare`). See DESIGN.md "Phased plan".
 
 open System
+open System.Globalization
 open System.Numerics
 open Microsoft.FSharp.Reflection
 
@@ -63,10 +64,13 @@ type SchemaAst =
     | ATuple of SchemaAst list
     | AObject of fields: (string * SchemaAst) list
     | AOption of SchemaAst
+    | AOptionalKey of SchemaAst
     | AUnion of SchemaAst list
     | ATaggedUnion of cases: (string * SchemaAst) list
     | ARefine of SchemaAst * description: string
+    | ATransform of from: SchemaAst * into: SchemaAst
     | AMeasured of SchemaAst
+    | AAnnotated of SchemaAst * annotations: Map<string, obj>
     | ADeclare of name: string
 
 /// The structured decode/encode error tree (port of effect's `SchemaIssue`).
@@ -97,6 +101,13 @@ type Schema<'T> =
     { Decode: Json -> Validation<'T>
       Encode: 'T -> Json
       Ast: SchemaAst }
+
+/// Total bidirectional transform used by `Schema.decodeTo`: decode maps the
+/// source schema's value into the target value; encode maps target values back
+/// through the source encoder.
+type SchemaTransform<'From, 'Into> =
+    { Decode: 'From -> 'Into
+      Encode: 'Into -> 'From }
 
 /// An applicative object-field codec used by the `Schema.object { }` builder. It
 /// is bidirectional: `DecodeFields` reads the keys it owns out of a JSON object
@@ -170,6 +181,37 @@ module Schema =
     let inline private ofDecimal (d: decimal) : float = float d
     let inline private eraseMeasure<[<Measure>] 'u> (n: float<'u>) : float = float n
     let inline private toText (value: 'T) : string = string value
+
+    let private quoteJsonString (s: string) =
+        "\""
+        + (s
+           |> Seq.map (function
+               | '"' -> "\\\""
+               | '\\' -> "\\\\"
+               | '\b' -> "\\b"
+               | '\f' -> "\\f"
+               | '\n' -> "\\n"
+               | '\r' -> "\\r"
+               | '\t' -> "\\t"
+               | c -> string c)
+           |> String.concat "")
+        + "\""
+
+    let rec private toJsonString (json: Json) : string =
+        match json with
+        | JNull -> "null"
+        | JBool true -> "true"
+        | JBool false -> "false"
+        | JNumber n -> n.ToString("G17", CultureInfo.InvariantCulture)
+        | JString s -> quoteJsonString s
+        | JArray items -> "[" + (items |> List.map toJsonString |> String.concat ",") + "]"
+        | JObject fields ->
+            "{"
+            + (fields
+               |> Map.toList
+               |> List.map (fun (key, value) -> quoteJsonString key + ":" + toJsonString value)
+               |> String.concat ",")
+            + "}"
 
     // -- tagged-union JSON tag helpers ----------------------------------------
 
@@ -267,6 +309,27 @@ module Schema =
                 | false, _ -> Error [ InvalidValue("Expected a bigint string", JString s) ]
             | j -> Error [ InvalidType("string", j) ])
           Encode = fun value -> JString(toText value) }
+
+    /// Matches an ISO-8601 date/time string. (Schema.DateFromString)
+    let dateFromString: Schema<DateTime> =
+        { Ast = AString
+          Decode =
+            (function
+            | JString s ->
+                match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) with
+                | true, value -> Ok value
+                | false, _ -> Error [ InvalidValue("Expected an ISO-8601 date/time string", JString s) ]
+            | j -> Error [ InvalidType("string", j) ])
+          Encode = fun value -> JString(value.ToString("O", CultureInfo.InvariantCulture)) }
+
+    /// JSON value encoded inside a JSON string. (Schema.UnknownFromJsonString)
+    let unknownFromJsonString: Schema<Json> =
+        { Ast = AString
+          Decode =
+            (function
+            | JString s -> Json.parse s |> Result.mapError (fun message -> [ InvalidValue(message, JString s) ])
+            | j -> Error [ InvalidType("string", j) ])
+          Encode = fun value -> JString(toJsonString value) }
 
     /// Matches exactly one JSON literal value. (Schema.Literal)
     let literal (value: Json) : Schema<Json> =
@@ -373,6 +436,12 @@ module Schema =
         { s with
             Ast = ARefine(s.Ast, sprintf "brand:%s" name) }
 
+    /// Attach arbitrary metadata to the schema AST. The executable codec is
+    /// unchanged; AST interpreters can opt into the metadata. (Schema.annotate)
+    let annotate (key: string) (value: 'A) (s: Schema<'T>) : Schema<'T> =
+        { s with
+            Ast = AAnnotated(s.Ast, Map.ofList [ key, box value ]) }
+
     /// Map a schema's decoded value through an isomorphism (e.g. into a
     /// single-case DU for nominal typing). Total — for fallible decode use
     /// `refine` first.
@@ -380,6 +449,14 @@ module Schema =
         { Ast = s.Ast
           Decode = (fun j -> s.Decode j |> Validation.map forward)
           Encode = (fun u -> s.Encode(backward u)) }
+
+    /// Transform a source schema into the target schema's value type. The target
+    /// AST is kept for downstream interpreters, while the source codec owns the
+    /// wire representation. (Schema.decodeTo)
+    let decodeTo (target: Schema<'Into>) (transform: SchemaTransform<'From, 'Into>) (source: Schema<'From>) : Schema<'Into> =
+        { Ast = ATransform(source.Ast, target.Ast)
+          Decode = fun json -> source.Decode json |> Validation.map transform.Decode
+          Encode = fun value -> source.Encode (transform.Encode value) }
 
     // -- units of measure -----------------------------------------------------
 
@@ -440,6 +517,25 @@ module Schema =
                     |> Validation.mapError (List.map (fun e -> Pointer([ toText i ], e))))
                 |> Validation.sequence
             | j -> Error [ InvalidType("array", j) ]) }
+
+    /// Object with arbitrary string keys and homogeneous values. The key schema is
+    /// currently validation-only for decoded keys; JSON object keys are strings.
+    /// (Schema.Record)
+    let record (_key: Schema<string>) (value: Schema<'V>) : Schema<Map<string, 'V>> =
+        { Ast = AObject [ "<record>", value.Ast ]
+          Encode = fun entries -> JObject(entries |> Map.map (fun _ v -> value.Encode v))
+          Decode =
+            function
+            | JObject fields ->
+                fields
+                |> Map.toList
+                |> List.map (fun (key, json) ->
+                    value.Decode json
+                    |> Validation.map (fun decoded -> key, decoded)
+                    |> Validation.mapError (List.map (fun issue -> Pointer([ key ], issue))))
+                |> Validation.sequence
+                |> Validation.map Map.ofList
+            | j -> Error [ InvalidType("object", j) ] }
 
     /// A Cause codec using upstream's wire shape:
     /// `[ { "_tag": "Fail", "error": ... }, { "_tag": "Die", "defect": ... },
@@ -614,7 +710,7 @@ module Schema =
     /// is omitted on encode. (Schema.optionalKey)
     let optionalKey (key: string) (schema: Schema<'F>) (getter: 'R -> 'F option) : ObjectCodec<'R, 'F option> =
         { Keys = [ key ]
-          Fields = [ key, AOption schema.Ast ]
+          Fields = [ key, AOptionalKey schema.Ast ]
           EncodeFields =
             (fun r ->
                 match getter r with
@@ -879,8 +975,12 @@ module Schema =
     let rec private prettyValue (ast: SchemaAst) (j: Json) : string =
         match ast, j with
         | ADeclare name, _ -> name + " " + prettyJson j
+        | AAnnotated(inner, _), _ -> prettyValue inner j
         | AMeasured inner, _ -> prettyValue inner j
+        | ATransform(_, into), _ -> prettyValue into j
         | ARefine(inner, _), _ -> prettyValue inner j
+        | AOptionalKey _, JNull -> "None"
+        | AOptionalKey inner, _ -> "Some " + prettyValue inner j
         | AOption _, JNull -> "None"
         | AOption inner, _ -> "Some " + prettyValue inner j
         | AObject fields, JObject m ->
@@ -933,13 +1033,24 @@ module Schema =
                   "maxItems", JNumber(toFloat n)
                   "additionalItems", JBool false ]
         | AObject fields ->
-            // Every field is a required *key* (value may be null for AOption) —
-            // this matches the decoder, which raises MissingKey on absence.
+            let propertyAst ast =
+                match ast with
+                | AOptionalKey inner -> AOption inner
+                | other -> other
+
+            let requiredFields =
+                fields
+                |> List.choose (fun (key, ast) ->
+                    match ast with
+                    | AOptionalKey _ -> None
+                    | _ -> Some(JString key))
+
             jobj
                 [ "type", JString "object"
-                  "properties", JObject(fields |> List.map (fun (k, a) -> k, astToJsonSchema a) |> Map.ofList)
-                  "required", JArray(fields |> List.map (fun (k, _) -> JString k))
+                  "properties", JObject(fields |> List.map (fun (k, a) -> k, astToJsonSchema (propertyAst a)) |> Map.ofList)
+                  "required", JArray requiredFields
                   "additionalProperties", JBool false ]
+        | AOptionalKey a -> jobj [ "anyOf", JArray [ astToJsonSchema a; jobj [ "type", JString "null" ] ] ]
         | AOption a -> jobj [ "anyOf", JArray [ astToJsonSchema a; jobj [ "type", JString "null" ] ] ]
         | AUnion asts -> jobj [ "anyOf", JArray(List.map astToJsonSchema asts) ]
         | ATaggedUnion cases ->
@@ -969,7 +1080,9 @@ module Schema =
             match astToJsonSchema a with
             | JObject m -> JObject(Map.add "description" (JString desc) m)
             | other -> other
+        | ATransform(_, into) -> astToJsonSchema into
         | AMeasured a -> astToJsonSchema a // unit is erased; not expressible in JSON Schema
+        | AAnnotated(a, _) -> astToJsonSchema a
         | ADeclare name -> jobj [ "$ref", JString("#/$defs/" + name) ]
 
     /// Emit a draft-07 JSON Schema document for the schema. Pure fold over the AST.
@@ -1029,9 +1142,12 @@ module Schema =
     let Number = float
     let Int = int
     let BigInt = bigInt
+    let DateFromString = dateFromString
     let Unknown = unknown
+    let UnknownFromJsonString = unknownFromJsonString
     let Null = null'
     let Array = array
+    let Record = record
     let Literal = literal
     let Literals = literals
     let Union = union

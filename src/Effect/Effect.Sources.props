@@ -99,6 +99,8 @@
     <Compile Include="$(EffectSrcDir)Formatter.fs" />
     <!-- w4-schema: type-first codec (needs JsonPatch.Json + Formatter above) -->
     <Compile Include="$(EffectSrcDir)Schema.fs" />
+    <Compile Include="$(EffectSrcDir)SchemaAST.fs" />
+    <Compile Include="$(EffectSrcDir)SchemaGetter.fs" />
     <Compile Include="$(EffectSrcDir)PlatformError.fs" />
     <Compile Include="$(EffectSrcDir)PrimaryKey.fs" />
     <Compile Include="$(EffectSrcDir)RegExp.fs" />
