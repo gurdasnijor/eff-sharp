@@ -94,6 +94,7 @@
     <Compile Include="Random.fs" />
     <Compile Include="Console.fs" />
     <Compile Include="Terminal.fs" />
+    <Compile Include="Cli.fs" />
     <Compile Include="Crypto.fs" />
     <Compile Include="ScopedRef.fs" />
     <Compile Include="RcRef.fs" />

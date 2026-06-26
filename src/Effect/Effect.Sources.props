@@ -111,6 +111,8 @@
     <Compile Include="$(EffectSrcDir)Console.fs" />
     <!-- w6-terminal: CLI terminal service over Context + PlatformError (+ Layer) -->
     <Compile Include="$(EffectSrcDir)Terminal.fs" />
+    <!-- unstable/cli: command description/parsing DSL over Console/Terminal services -->
+    <Compile Include="$(EffectSrcDir)Cli.fs" />
     <Compile Include="$(EffectSrcDir)Crypto.fs" />
     <Compile Include="$(EffectSrcDir)ScopedRef.fs" />
     <Compile Include="$(EffectSrcDir)RcRef.fs" />
