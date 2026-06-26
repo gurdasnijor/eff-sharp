@@ -65,6 +65,22 @@ module NodeHttpServer =
         : unit =
         jsNative
 
+    [<Emit("$0.statusCode = $1; if ($2 != null) $0.statusMessage = $2; $3.forEach(function(pair) { $0.setHeader(pair[0], pair[1]); }); if ($4.length > 0) $0.setHeader('Set-Cookie', $4.map(function(pair) { return pair[0] + '=' + pair[1]; }));")>]
+    let private beginResponseJs
+        (response: obj)
+        (status: int)
+        (statusText: obj)
+        (headers: (string * string) array)
+        (cookies: (string * string) array)
+        : unit =
+        jsNative
+
+    [<Emit("$0.write(Buffer.from($1))")>]
+    let private writeChunkJs (response: obj) (chunk: byte[]) : unit = jsNative
+
+    [<Emit("$0.end()")>]
+    let private endResponseJs (response: obj) : unit = jsNative
+
     let private toError (ex: exn) : NodeHttpServerError = { Reason = ex.Message }
 
     let private hostObj (host: string option) : obj =
@@ -83,6 +99,7 @@ module NodeHttpServer =
         | TextBody(value, _) -> box value
         | JsonBody value -> box (HttpBody.toJsonString value)
         | BytesBody(value, _) -> box value
+        | StreamBody _ -> invalidOp "Streaming bodies must be written through writeServerResponse"
 
     let private requestBody (headers: Headers) (bodyText: string) : HttpBody =
         if bodyText = "" then
@@ -110,20 +127,42 @@ module NodeHttpServer =
             { HttpServerResponseOptions.empty with Status = Some 500 }
             (Cause.render cause)
 
-    let private writeServerResponse (nodeResponse: obj) (request: HttpServerRequest) (response: HttpServerResponse) : unit =
-        let body =
-            if request.Method = "HEAD" then
-                null
-            else
-                bodyPayload response.Body
+    let private writeServerResponse (runtime: Runtime) (nodeResponse: obj) (request: HttpServerRequest) (response: HttpServerResponse) : Async<unit> =
+        async {
+            match response.Body with
+            | StreamBody(stream, _) when request.Method <> "HEAD" ->
+                beginResponseJs
+                    nodeResponse
+                    response.Status
+                    (statusTextObj response.StatusText)
+                    (response.Headers |> Headers.toSeq |> Seq.toArray)
+                    (response.Cookies |> Map.toSeq |> Seq.toArray)
 
-        writeResponseJs
-            nodeResponse
-            response.Status
-            (statusTextObj response.StatusText)
-            (response.Headers |> Headers.toSeq |> Seq.toArray)
-            (response.Cookies |> Map.toSeq |> Seq.toArray)
-            body
+                let! exit =
+                    stream
+                    |> Stream.runForEach (fun chunk -> Effect.sync (fun () -> writeChunkJs nodeResponse chunk))
+                    |> Runtime.runExit runtime
+
+                endResponseJs nodeResponse
+
+                match exit with
+                | Success() -> ()
+                | Failure cause -> raise (System.Exception(Cause.render cause))
+            | _ ->
+                let body =
+                    if request.Method = "HEAD" then
+                        null
+                    else
+                        bodyPayload response.Body
+
+                writeResponseJs
+                    nodeResponse
+                    response.Status
+                    (statusTextObj response.StatusText)
+                    (response.Headers |> Headers.toSeq |> Seq.toArray)
+                    (response.Cookies |> Map.toSeq |> Seq.toArray)
+                    body
+        }
 
     let private makeHandler (runtime: Runtime) (router: HttpRouter) : System.Func<obj, obj, unit> =
         System.Func<obj, obj, unit>(fun nodeRequest nodeResponse ->
@@ -142,7 +181,7 @@ module NodeHttpServer =
                                 | Some error -> errorResponse error
                                 | None -> defectResponse cause
 
-                        writeServerResponse nodeResponse request response
+                        do! writeServerResponse runtime nodeResponse request response
                     with ex ->
                         let response =
                             HttpServerResponse.textWith

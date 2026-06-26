@@ -33,4 +33,25 @@ describe "HttpServerResponse" (fun () ->
         toBe clientResponse.Status 201
         toBe (Headers.get "x-test" clientResponse.Headers) (Some "ok")
         toBe roundTrip.Status 201
-        toBe (Headers.get "content-type" roundTrip.Headers) (Some "application/json")))
+        toBe (Headers.get "content-type" roundTrip.Headers) (Some "application/json"))
+
+    itEffect "preserves stream bodies through client response conversion" (fun () ->
+        let request = HttpClientRequest.get "http://localhost:3000/events"
+
+        let serverResponse =
+            HttpServerResponse.streamBytesWith
+                { HttpServerResponseOptions.empty with ContentType = Some "text/event-stream" }
+                (Stream.fromIterable [ [| 1uy |]; [| 2uy; 3uy |] ])
+
+        let clientResponse = HttpServerResponse.toClientResponse request serverResponse
+        let roundTrip = HttpServerResponse.fromClientResponse clientResponse
+
+        match HttpBody.asStream roundTrip.Body with
+        | Some stream ->
+            stream
+            |> Stream.runCollect
+            |> Effect.map (fun chunks ->
+                toBe clientResponse.Status 200
+                toBe (Headers.get "content-type" roundTrip.Headers) (Some "text/event-stream")
+                toEqual (chunks |> List.map Array.toList) [ [ 1uy ]; [ 2uy; 3uy ] ])
+        | None -> Effect.sync (fun () -> failwith "expected stream body")))

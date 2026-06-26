@@ -18,17 +18,20 @@ module NodeHttpClient =
 
     open Fable.Core
 
-    [<Emit("fetch($0, { method: $1, headers: Object.fromEntries($2), body: $3 == null ? undefined : $3 }).then(function(r){ return r.text().then(function(b){ return { status: r.status, body: b, headers: Array.from(r.headers.entries()) }; }); })")>]
+    [<Emit("fetch($0, { method: $1, headers: Object.fromEntries($2), body: $3 == null ? undefined : $3 })")>]
     let private fetchJs (url: string) (method: string) (headers: (string * string) array) (body: obj) : JS.Promise<obj> =
         jsNative
 
     [<Emit("$0.status")>]
     let private respStatus (o: obj) : int = jsNative
 
-    [<Emit("$0.body")>]
-    let private respBody (o: obj) : string = jsNative
+    [<Emit("$0.text()")>]
+    let private respText (o: obj) : JS.Promise<string> = jsNative
 
-    [<Emit("$0.headers")>]
+    [<Emit("$0.body")>]
+    let private respBodyStream (o: obj) : obj = jsNative
+
+    [<Emit("Array.from($0.headers.entries())")>]
     let private respHeaders (o: obj) : (string * string) array = jsNative
 
     let private bodyPayload (body: HttpBody) : obj =
@@ -37,6 +40,21 @@ module NodeHttpClient =
         | TextBody(value, _) -> box value
         | JsonBody value -> box (HttpBody.toJsonString value)
         | BytesBody(value, _) -> box value
+        | StreamBody _ -> invalidOp "Streaming request bodies are not supported by NodeHttpClient yet"
+
+    let private baseContentType (contentType: string) =
+        match contentType.IndexOf ';' with
+        | -1 -> contentType.Trim().ToLowerInvariant()
+        | i -> contentType.Substring(0, i).Trim().ToLowerInvariant()
+
+    let private shouldStreamResponse (headers: Headers) =
+        match Headers.get "content-type" headers with
+        | Some contentType ->
+            match baseContentType contentType with
+            | "text/event-stream"
+            | "application/octet-stream" -> true
+            | _ -> false
+        | None -> false
 
     let private execute (req: HttpClientRequest) : Effect<HttpClientResponse, HttpClientError, Context> =
         let url = HttpClientRequest.urlWithParams req
@@ -48,8 +66,20 @@ module NodeHttpClient =
                 try
                     let! r = Async.AwaitPromise(fetchJs url req.Method headers body)
                     let responseHeaders = r |> respHeaders |> Headers.ofSeq
+                    let status = respStatus r
 
-                    return Ok(HttpClientResponse.text req (respStatus r) responseHeaders (respBody r))
+                    if shouldStreamResponse responseHeaders then
+                        let contentType =
+                            Headers.get "content-type" responseHeaders
+                            |> Option.defaultValue "application/octet-stream"
+
+                        let stream =
+                            Stream.fromReadableStreamJS (respBodyStream r) box
+
+                        return Ok(HttpClientResponse.make req status responseHeaders (HttpBody.streamBytesWithContentType contentType stream))
+                    else
+                        let! body = Async.AwaitPromise(respText r)
+                        return Ok(HttpClientResponse.text req status responseHeaders body)
                 with ex ->
                     return Error ex.Message
             })
