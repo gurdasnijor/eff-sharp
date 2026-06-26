@@ -15,9 +15,8 @@ namespace Effect
 /// `attempts` retries.
 ///
 /// Deferred (noted): the `Stream` integration and partial-stream fallback rules;
-/// `CurrentMetadata` (a `Context.Reference`, which the port lacks) and the
-/// metadata threading; per-step `Schedule` and `while` predicates; input/error
-/// row-types (the single error channel uses one `'E`).
+/// per-step `Schedule` and `while` predicates; input/error row-types (the single
+/// error channel uses one `'E`).
 /// One fallback step: a layer to provide, with a retry budget.
 type ExecutionStep<'E> =
     { Provide: Layer<'E, unit>
@@ -33,6 +32,10 @@ type Metadata = { Attempt: int; StepIndex: int }
 
 [<RequireQualifiedAccess>]
 module ExecutionPlan =
+
+    /// Metadata for the currently running execution-plan attempt.
+    let CurrentMetadata: Reference<Metadata> =
+        Reference.make "effect/ExecutionPlan/CurrentMetadata" { Attempt = 0; StepIndex = 0 }
 
     /// A single step that provides `layer` and is attempted once.
     let step (layer: Layer<'E, unit>) : ExecutionStep<'E> = { Provide = layer; Attempts = 1 }
@@ -61,21 +64,26 @@ module ExecutionPlan =
     /// falling back on failure until one succeeds or the plan is exhausted. The
     /// last step's failure propagates. (Effect.withExecutionPlan)
     let withExecutionPlan (plan: ExecutionPlan<'E>) (effect: Effect<'A, 'E, Context>) : Effect<'A, 'E, unit> =
-        let runStep (s: ExecutionStep<'E>) : Effect<'A, 'E, unit> =
-            let rec withRetries (remaining: int) : Effect<'A, 'E, unit> =
-                let once = Layer.provide s.Provide effect
+        let runStep (stepIndex: int) (s: ExecutionStep<'E>) : Effect<'A, 'E, unit> =
+            let rec withRetries (attempt: int) (remaining: int) : Effect<'A, 'E, unit> =
+                let metadata = { Attempt = attempt; StepIndex = stepIndex }
+
+                let once =
+                    effect
+                    |> Effect.provideServiceReference CurrentMetadata metadata
+                    |> Layer.provide s.Provide
 
                 if remaining <= 1 then
                     once
                 else
-                    once |> Effect.catchAll (fun _ -> withRetries (remaining - 1))
+                    once |> Effect.catchAll (fun _ -> withRetries (attempt + 1) (remaining - 1))
 
-            withRetries s.Attempts
+            withRetries 1 s.Attempts
 
-        let rec tryFrom (remaining: ExecutionStep<'E> list) : Effect<'A, 'E, unit> =
+        let rec tryFrom (stepIndex: int) (remaining: ExecutionStep<'E> list) : Effect<'A, 'E, unit> =
             match remaining with
             | [] -> Effect.failCause (Cause.die (box "ExecutionPlan: empty plan"))
-            | [ last ] -> runStep last
-            | s :: rest -> runStep s |> Effect.catchAll (fun _ -> tryFrom rest)
+            | [ last ] -> runStep stepIndex last
+            | s :: rest -> runStep stepIndex s |> Effect.catchAll (fun _ -> tryFrom (stepIndex + 1) rest)
 
-        tryFrom plan.Steps
+        tryFrom 0 plan.Steps
