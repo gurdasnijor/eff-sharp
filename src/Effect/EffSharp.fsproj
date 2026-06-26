@@ -42,6 +42,7 @@
     <Compile Include="Sink.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Channel.fs" />
+    <Compile Include="Match.fs" />
     <Compile Include="Equivalence.fs" />
     <Compile Include="Order.fs" />
     <Compile Include="Brand.fs" />
@@ -93,6 +94,7 @@
     <Compile Include="Random.fs" />
     <Compile Include="Console.fs" />
     <Compile Include="Terminal.fs" />
+    <Compile Include="Cli.fs" />
     <Compile Include="Crypto.fs" />
     <Compile Include="ScopedRef.fs" />
     <Compile Include="RcRef.fs" />
