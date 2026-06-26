@@ -42,6 +42,11 @@ module OpenApi =
                 schema.ContentType,
                 jo [ "schema", schemaAstToJson codec.Ast ]
             )
+        | MultipartBuffered codec ->
+            Some(
+                schema.ContentType,
+                jo [ "schema", schemaAstToJson codec.Ast ]
+            )
         | StreamBytes ->
             Some(
                 schema.ContentType,
@@ -62,6 +67,15 @@ module OpenApi =
                             "failureEvent", js HttpApiSchema.streamFailureEvent
                             "errorSchema", schemaAstToJson failure.Ast
                             "causeSchema", jo [ "type", js "object" ] ] ]
+            )
+        | MultipartStream ->
+            Some(
+                schema.ContentType,
+                jo
+                    [ "x-effect-stream",
+                      jo
+                          [ "encoding", js "multipart"
+                            "contentType", js schema.ContentType ] ]
             )
 
     let private contentMap (schemas: HttpApiContent list) =

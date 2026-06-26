@@ -167,6 +167,8 @@ module HttpApiBuilder =
                 match HttpBody.encodedText body with
                 | Some text -> Json.parse text |> Result.mapError (fun error -> "Invalid JSON request body: " + error)
                 | None -> Error "Expected buffered request body"
+        | HttpApiPayload.MultipartBuffered _
+        | HttpApiPayload.MultipartStream -> Error "Multipart request payloads are decoded directly"
         | HttpApiPayload.StreamBytes
         | HttpApiPayload.StreamSse _ -> Error "Streaming request payload schemas are not supported"
 
@@ -178,6 +180,19 @@ module HttpApiBuilder =
             |> Effect.map Some
 
         match content.Payload with
+        | HttpApiPayload.MultipartBuffered schema ->
+            HttpServerRequest.multipart request
+            |> Effect.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + error.Message))
+            |> Effect.flatMap (fun form ->
+                Multipart.decode schema form
+                |> Result.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + schemaErrorText error))
+                |> Effect.fromResult
+                |> Effect.map Some)
+        | HttpApiPayload.MultipartStream ->
+            HttpServerRequest.multipartStream request
+            |> box
+            |> Some
+            |> Effect.succeed
         | HttpApiPayload.Buffered schema when HttpApiSchema.encoding content = MultipartEncoding ->
             HttpServerRequest.multipart request
             |> Effect.map Effect.Multipart.toJson
@@ -287,6 +302,7 @@ module HttpApiBuilder =
         |> List.tryFind (fun content ->
             match result, content.Payload with
             | HttpApiHandlerResult.Buffered _, HttpApiPayload.Buffered _
+            | HttpApiHandlerResult.Buffered _, HttpApiPayload.MultipartBuffered _
             | HttpApiHandlerResult.Buffered _, Empty
             | HttpApiHandlerResult.StreamSse _, HttpApiPayload.StreamSse _
             | HttpApiHandlerResult.StreamBytes _, HttpApiPayload.StreamBytes -> true
@@ -354,6 +370,10 @@ module HttpApiBuilder =
             | Json
             | FormUrlEncoded
             | MultipartEncoding -> HttpServerResponse.jsonWith options json
+        | HttpApiHandlerResult.Buffered value, HttpApiPayload.MultipartBuffered _ ->
+            match value with
+            | :? MultipartPersisted as form -> HttpServerResponse.make options (Multipart.toFormDataBody form)
+            | _ -> invalidOp "Multipart buffered responses require MultipartPersisted values"
         | HttpApiHandlerResult.StreamBytes stream, HttpApiPayload.StreamBytes ->
             stream
             |> HttpServerResponse.streamBytesWith options

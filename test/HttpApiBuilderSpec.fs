@@ -10,6 +10,7 @@ type DecodedParams = { Id: string }
 type DecodedQuery = { Include: string; Tags: string list }
 type DecodedHeaders = { Trace: string }
 type DecodedPayload = { Name: string }
+type MultipartUploadPayload = { Name: string; Files: MultipartPart list }
 
 let private getTodo =
     HttpApiEndpoint.get
@@ -64,6 +65,13 @@ let private decodedPayloadSchema: Schema<DecodedPayload> =
     Schema.object {
         let! name = Schema.field "name" Schema.string (fun p -> p.Name)
         return { Name = name }
+    }
+
+let private multipartUploadSchema: MultipartSchema<MultipartUploadPayload> =
+    Multipart.object {
+        let! name = Multipart.fieldSchema "name" Schema.string
+        and! files = Multipart.filesSchema "files"
+        return { Name = name; Files = files }
     }
 
 describe "HttpApiBuilder" (fun () ->
@@ -227,6 +235,57 @@ describe "HttpApiBuilder" (fun () ->
 
         toBe response.Status 200
         toBe (HttpBody.asText response.Body) (Some "from multipart"))
+
+    test "decodes multipart file payloads through multipart-native schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "upload"
+                "/upload"
+                { HttpApiEndpoint.empty with
+                    Payload = [ HttpApiSchema.asMultipartSchema multipartUploadSchema ]
+                    Success = [ HttpApiSchema.asText Schema.string ] }
+
+        let api =
+            HttpApi.make "DecodedApi"
+            |> HttpApi.add (HttpApiGroup.make "forms" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "forms"
+                (Map.ofList
+                    [ "upload",
+                      fun input ->
+                          let payload = input.PayloadValue |> Option.get |> unbox<MultipartUploadPayload>
+
+                          let fileName =
+                              match payload.Files with
+                              | MultipartFile(_, name, _, _, _) :: _ -> name
+                              | _ -> "missing"
+
+                          Effect.succeed (HttpServerResponse.text (payload.Name + ":" + fileName)) ])
+
+        let file = Multipart.file "files" "upload.txt" "text/plain" Stream.empty (box "source")
+
+        let request =
+            { HttpServerRequest.make
+                "POST"
+                "/upload"
+                (Headers.ofList [ "content-type", "multipart/form-data; boundary=test" ])
+                HttpBody.empty with
+                Multipart =
+                    Some(fun () ->
+                        Effect.succeed
+                            { Fields = Map.ofList [ "name", "from multipart" ]
+                              Files = Map.ofList [ "files", [ file ] ] }) }
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle request
+            |> run
+
+        toBe response.Status 200
+        toBe (HttpBody.asText response.Body) (Some "from multipart:upload.txt"))
 
     test "fails before invoking handlers when request schema decoding fails" (fun () ->
         let endpoint =

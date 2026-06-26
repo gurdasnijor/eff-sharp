@@ -188,7 +188,13 @@ module HttpApiClient =
                     match value with
                     | :? (byte[]) as bytes -> Some(HttpBody.bytesWithContentType content.ContentType bytes)
                     | _ -> Some(HttpBody.textWithContentType content.ContentType (jsonString json))
+            | MultipartBuffered _ ->
+                match value with
+                | :? HttpBody as body -> Some body
+                | :? MultipartPersisted as form -> Some(Multipart.toFormDataBody form)
+                | _ -> None
             | Empty
+            | MultipartStream
             | StreamBytes
             | StreamSse _ -> None
         | _ -> None
@@ -362,6 +368,10 @@ module HttpApiClient =
         match content.Payload with
         | Empty -> Effect.succeed DecodedNoContent
         | Buffered schema -> decodeBuffered schema content response
+        | MultipartBuffered _ ->
+            Effect.fail (DecodeError "Multipart response decoding is not supported")
+        | MultipartStream ->
+            Effect.fail (DecodeError "Multipart stream response decoding is not supported")
         | StreamBytes ->
             streamOrError response
             |> Result.map DecodedStreamBytes
