@@ -42,6 +42,20 @@ let private reservedEventsSchema: Schema<ReservedEvent> =
 let private sse () = HttpApiSchema.streamSse eventsSchema errorSchema
 let private endpoint success = HttpApiEndpoint.get "events" "/events" { HttpApiEndpoint.empty with Success = success }
 
+let private hasSseLike (expected: HttpApiContent) (schemas: HttpApiContent list) =
+    schemas
+    |> List.exists (fun schema ->
+        schema.Status = expected.Status
+        && schema.ContentType = expected.ContentType
+        && HttpApiSchema.isStreamSse schema)
+
+let private hasBytesLike (expected: HttpApiContent) (schemas: HttpApiContent list) =
+    schemas
+    |> List.exists (fun schema ->
+        schema.Status = expected.Status
+        && schema.ContentType = expected.ContentType
+        && HttpApiSchema.isStreamUint8Array schema)
+
 describe "HttpApiEndpoint streaming success schemas" (fun () ->
     test "OPTIONS endpoint and prefix preserve endpoint metadata" (fun () ->
         let endpoint =
@@ -64,12 +78,12 @@ describe "HttpApiEndpoint streaming success schemas" (fun () ->
     test "GET endpoint accepts StreamSse success" (fun () ->
         let stream = sse ()
         let endpoint = endpoint [ stream ]
-        toBe (endpoint.Options.Success |> List.contains stream) true)
+        toBe (endpoint.Options.Success |> hasSseLike stream) true)
 
     test "GET endpoint accepts StreamUint8Array success" (fun () ->
         let stream = HttpApiSchema.streamUint8Array
         let endpoint = HttpApiEndpoint.get "download" "/download" { HttpApiEndpoint.empty with Success = [ stream ] }
-        toBe (endpoint.Options.Success |> List.contains stream) true)
+        toBe (endpoint.Options.Success |> hasBytesLike stream) true)
 
     test "streaming schema in error throws during endpoint construction" (fun () ->
         toThrow (fun () ->
@@ -85,7 +99,7 @@ describe "HttpApiEndpoint streaming success schemas" (fun () ->
     test "streaming success mixed with a buffered success at the same status is allowed for distinct content types" (fun () ->
         let stream = sse ()
         let endpoint = endpoint [ stream; HttpApiSchema.asJson okSchema ]
-        toBe (endpoint.Options.Success |> List.contains stream) true)
+        toBe (endpoint.Options.Success |> hasSseLike stream) true)
 
     test "streaming success mixed with a buffered success at the same content type throws" (fun () ->
         let stream = HttpApiSchema.streamSseWithContentType "application/json" eventsSchema errorSchema
@@ -98,12 +112,12 @@ describe "HttpApiEndpoint streaming success schemas" (fun () ->
     test "streaming success mixed with a buffered success at distinct statuses is allowed" (fun () ->
         let stream = sse () |> HttpApiSchema.status 206
         let endpoint = endpoint [ stream; HttpApiSchema.asJson okSchema ]
-        toBe (endpoint.Options.Success |> List.contains stream) true)
+        toBe (endpoint.Options.Success |> hasSseLike stream) true)
 
     test "streaming success mixed with NoContent at distinct statuses is allowed" (fun () ->
         let stream = sse () |> HttpApiSchema.status 200
         let endpoint = endpoint [ stream; HttpApiSchema.noContent ]
-        toBe (endpoint.Options.Success |> List.contains stream) true)
+        toBe (endpoint.Options.Success |> hasSseLike stream) true)
 
     test "two streaming successes for the same status throw" (fun () ->
         toThrow (fun () ->
@@ -116,8 +130,8 @@ describe "HttpApiEndpoint streaming success schemas" (fun () ->
             |> HttpApiSchema.status 200
 
         let endpoint = endpoint [ stream; bytes ]
-        toBe (endpoint.Options.Success |> List.contains stream) true
-        toBe (endpoint.Options.Success |> List.contains bytes) true)
+        toBe (endpoint.Options.Success |> hasSseLike stream) true
+        toBe (endpoint.Options.Success |> hasBytesLike bytes) true)
 
     test "statically detectable SSE reserved failure event name throws" (fun () ->
         let stream = HttpApiSchema.streamSse reservedEventsSchema errorSchema

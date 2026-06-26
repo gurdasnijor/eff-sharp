@@ -35,14 +35,14 @@ module OpenApi =
         | ADeclare name -> jo [ "$ref", js ("#/$defs/" + name) ]
 
     let private responseContent (schema: HttpApiContent) =
-        match schema.Kind with
+        match schema.Payload with
         | Empty -> None
-        | Buffered ->
+        | Buffered codec ->
             Some(
                 schema.ContentType,
-                jo [ "schema", schema.Schema |> Option.map schemaAstToJson |> Option.defaultValue (jo []) ]
+                jo [ "schema", schemaAstToJson codec.Ast ]
             )
-        | StreamUint8Array ->
+        | StreamBytes ->
             Some(
                 schema.ContentType,
                 jo
@@ -51,7 +51,7 @@ module OpenApi =
                           [ "encoding", js "uint8array"
                             "contentType", js schema.ContentType ] ]
             )
-        | StreamSse(mode, _events, error) ->
+        | StreamSse(mode, _events, failure) ->
             Some(
                 schema.ContentType,
                 jo
@@ -60,7 +60,7 @@ module OpenApi =
                           [ "encoding", js "sse"
                             "mode", js mode
                             "failureEvent", js HttpApiSchema.streamFailureEvent
-                            "errorSchema", schemaAstToJson error
+                            "errorSchema", schemaAstToJson failure.Ast
                             "causeSchema", jo [ "type", js "object" ] ] ]
             )
 
