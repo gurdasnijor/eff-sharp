@@ -114,6 +114,29 @@ describe "Schema · primitives & refinements" (fun () ->
         | InvalidValue(msg, _) -> toBe (msg.Contains "one of") true
         | _ -> failwith "expected an InvalidValue")
 
+    test "erase preserves executable codec and AST" (fun () ->
+        let erased = Schema.erase userSchema
+        toBe (erased.Ast = userSchema.Ast) true
+
+        let json = jobj [ "name", JString "Ada"; "age", JNumber 37.0 ]
+
+        match erased.Decode json with
+        | Ok value ->
+            let user = unbox<User> value
+            toBe user.Name "Ada"
+            toBe user.Age 37
+            match erased.Encode value with
+            | JObject fields ->
+                match Map.find "name" fields with
+                | JString name -> toBe name "Ada"
+                | other -> failwithf "expected encoded name string, got %A" other
+
+                match Map.find "age" fields with
+                | JNumber age -> toBe age 37.0
+                | other -> failwithf "expected encoded age number, got %A" other
+            | other -> failwithf "expected encoded object, got %A" other
+        | Error issues -> failwithf "expected erased schema to decode, got %A" issues)
+
     test "minLength accepts long-enough strings and rejects short ones" (fun () ->
         let s = Schema.string |> Schema.minLength 3
         toBe (decodeOk s (JString "abcd") = "abcd") true

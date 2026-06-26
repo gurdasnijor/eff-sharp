@@ -661,6 +661,13 @@ module Schema =
     /// Encode `'T` back to JSON. (Schema.encode)
     let encode (s: Schema<'T>) (value: 'T) : Json = s.Encode value
 
+    /// Type-erase a codec for heterogeneous runtime registries. Keep this as the
+    /// only boxing boundary so the executable codec and AST cannot drift.
+    let erase (s: Schema<'T>) : Schema<obj> =
+        { Ast = s.Ast
+          Decode = fun j -> s.Decode j |> Result.map box
+          Encode = fun value -> s.Encode (unbox<'T> value) }
+
     /// Decode into an `Exit`: success or `Failure(Cause([Fail(SchemaError …)]))`.
     /// The failure is a typed `Reason.Fail`, never a `Die` defect.
     let decodeExit (s: Schema<'T>) (j: Json) : Exit<'T, SchemaError> =

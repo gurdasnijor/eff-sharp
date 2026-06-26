@@ -8,17 +8,16 @@ type HttpApiEncoding =
     | Uint8Array
     | Multipart
 
-type HttpApiContentKind =
-    | Buffered
+type HttpApiPayload =
+    | Buffered of Schema<obj>
     | Empty
-    | StreamSse of sseMode: string * events: SchemaAst * error: SchemaAst
-    | StreamUint8Array
+    | StreamSse of sseMode: string * events: Schema<obj> * failure: Schema<obj>
+    | StreamBytes
 
 type HttpApiContent =
-    { Kind: HttpApiContentKind
-      Status: int
+    { Status: int
       ContentType: string
-      Schema: SchemaAst option }
+      Payload: HttpApiPayload }
 
 [<RequireQualifiedAccess>]
 module HttpApiSchema =
@@ -26,89 +25,86 @@ module HttpApiSchema =
     [<Literal>]
     let streamFailureEvent = "effect/httpapi/stream/failure"
 
-    let private content kind status contentType schema =
-        { Kind = kind
-          Status = status
+    let private content payload status contentType =
+        { Status = status
           ContentType = contentType
-          Schema = schema }
+          Payload = payload }
 
     let asJson (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 "application/json" (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 "application/json"
 
     let asJsonWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 contentType (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 contentType
 
     let asFormUrlEncoded (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 "application/x-www-form-urlencoded" (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 "application/x-www-form-urlencoded"
 
     let asFormUrlEncodedWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 contentType (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 contentType
 
     let asText (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 "text/plain" (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 "text/plain"
 
     let asTextWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 contentType (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 contentType
 
     let asUint8Array (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 "application/octet-stream" (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 "application/octet-stream"
 
     let asUint8ArrayWithContentType (contentType: string) (schema: Schema<'T>) : HttpApiContent =
-        content Buffered 200 contentType (Some schema.Ast)
+        content (Buffered(Schema.erase schema)) 200 contentType
 
     let asNoContent (statusCode: int) : HttpApiContent =
-        content Empty statusCode "" None
+        content Empty statusCode ""
 
     let noContent: HttpApiContent =
-        content Empty 204 "" None
+        content Empty 204 ""
 
     let created: HttpApiContent =
-        content Empty 201 "" None
+        content Empty 201 ""
 
     let accepted: HttpApiContent =
-        content Empty 202 "" None
+        content Empty 202 ""
 
     let empty (statusCode: int) : HttpApiContent =
-        content Empty statusCode "" None
+        content Empty statusCode ""
 
     let status (statusCode: int) (schema: HttpApiContent) : HttpApiContent =
         { schema with Status = statusCode }
 
     let streamSse (events: Schema<'Event>) (error: Schema<'Error>) : HttpApiContent =
-        content (StreamSse("events", events.Ast, error.Ast)) 200 "text/event-stream" None
+        content (StreamSse("events", Schema.erase events, Schema.erase error)) 200 "text/event-stream"
 
     let streamSseWithContentType (contentType: string) (events: Schema<'Event>) (error: Schema<'Error>) : HttpApiContent =
-        content (StreamSse("events", events.Ast, error.Ast)) 200 contentType None
+        content (StreamSse("events", Schema.erase events, Schema.erase error)) 200 contentType
 
     let streamSseData (data: Schema<'Data>) (error: Schema<'Error>) : HttpApiContent =
-        // For OpenAPI/endpoint validation we only need to know this is an SSE
-        // stream whose payload is JSON data.
-        content (StreamSse("data", data.Ast, error.Ast)) 200 "text/event-stream" None
+        content (StreamSse("data", Schema.erase data, Schema.erase error)) 200 "text/event-stream"
 
     let streamUint8Array: HttpApiContent =
-        content StreamUint8Array 200 "application/octet-stream" None
+        content StreamBytes 200 "application/octet-stream"
 
     let streamUint8ArrayWithContentType (contentType: string) : HttpApiContent =
-        content StreamUint8Array 200 contentType None
+        content StreamBytes 200 contentType
 
     let isStream (schema: HttpApiContent) : bool =
-        match schema.Kind with
+        match schema.Payload with
         | StreamSse _
-        | StreamUint8Array -> true
+        | StreamBytes -> true
         | _ -> false
 
     let isStreamSse (schema: HttpApiContent) : bool =
-        match schema.Kind with
+        match schema.Payload with
         | StreamSse _ -> true
         | _ -> false
 
     let isStreamUint8Array (schema: HttpApiContent) : bool =
-        match schema.Kind with
-        | StreamUint8Array -> true
+        match schema.Payload with
+        | StreamBytes -> true
         | _ -> false
 
     let isNoContent (schema: HttpApiContent) : bool =
-        match schema.Kind with
+        match schema.Payload with
         | Empty -> true
         | _ -> false
 
@@ -118,11 +114,11 @@ module HttpApiSchema =
         | i -> contentType.Substring(0, i).Trim().ToLowerInvariant()
 
     let encoding (schema: HttpApiContent) : HttpApiEncoding =
-        match schema.Kind with
+        match schema.Payload with
         | Empty -> Json
         | StreamSse _ -> Text
-        | StreamUint8Array -> Uint8Array
-        | Buffered ->
+        | StreamBytes -> Uint8Array
+        | Buffered _ ->
             match baseContentType schema.ContentType with
             | "application/json" -> Json
             | "application/x-www-form-urlencoded" -> FormUrlEncoded
@@ -148,6 +144,6 @@ module HttpApiSchema =
         | _ -> false
 
     let hasReservedFailureEvent (schema: HttpApiContent) : bool =
-        match schema.Kind with
-        | StreamSse(_, events, _) -> containsReservedFailureEvent events
+        match schema.Payload with
+        | StreamSse(_, events, _) -> containsReservedFailureEvent events.Ast
         | _ -> false

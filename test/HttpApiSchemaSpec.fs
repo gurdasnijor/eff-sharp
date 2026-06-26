@@ -37,11 +37,18 @@ describe "HttpApiSchema" (fun () ->
             toBe stream.Status 200
             toBe stream.ContentType "text/event-stream"
 
-            match stream.Kind with
-            | StreamSse(mode, events, error) ->
+            match stream.Payload with
+            | StreamSse(mode, events, failure) ->
                 toBe mode "events"
-                toBe (events = eventsSchema.Ast) true
-                toBe (error = errorSchema.Ast) true
+                toBe (events.Ast = eventsSchema.Ast) true
+                toBe (failure.Ast = errorSchema.Ast) true
+
+                match events.Decode (JObject(Map.ofList [ "event", JString "message"; "data", JString "hello" ])) with
+                | Ok value ->
+                    let event = unbox<Event> value
+                    toBe event.Event "message"
+                    toBe event.Data "hello"
+                | Error issues -> failwithf "expected erased event codec to decode, got %A" issues
             | _ -> failwith "expected StreamSse")
 
         test "stores custom content type" (fun () ->
@@ -53,11 +60,11 @@ describe "HttpApiSchema" (fun () ->
         test "creates data-mode SSE metadata from a JSON data schema" (fun () ->
             let stream = HttpApiSchema.streamSseData payloadSchema errorSchema
 
-            match stream.Kind with
-            | StreamSse(mode, data, error) ->
+            match stream.Payload with
+            | StreamSse(mode, data, failure) ->
                 toBe mode "data"
-                toBe (data = payloadSchema.Ast) true
-                toBe (error = errorSchema.Ast) true
+                toBe (data.Ast = payloadSchema.Ast) true
+                toBe (failure.Ast = errorSchema.Ast) true
             | _ -> failwith "expected StreamSse"))
 
     describe "StreamUint8Array" (fun () ->

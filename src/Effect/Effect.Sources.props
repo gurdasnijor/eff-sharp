@@ -65,6 +65,7 @@
     <Compile Include="$(EffectSrcDir)Data.fs" />
     <Compile Include="$(EffectSrcDir)Redacted.fs" />
     <Compile Include="$(EffectSrcDir)Encoding.fs" />
+    <Compile Include="$(EffectSrcDir)Sse.fs" />
     <Compile Include="$(EffectSrcDir)JsonPointer.fs" />
     <Compile Include="$(EffectSrcDir)JsonPatch.fs" />
     <!-- leaf1: native sequence / collection ports -->
