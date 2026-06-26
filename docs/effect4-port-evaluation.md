@@ -92,6 +92,74 @@ the files exist and are implemented; the real status lives in the cutover doc.
 - **Units of measure** in Schema — dimensional safety TS cannot express.
 - **No HKT ceremony** — the concrete surface is clean.
 
+## Actual gaps vs. things better replaced with F#/Fable
+
+Not every divergence from Effect is a hole to fill. The dividing line:
+
+- **Actual gap** — something Effect does that F#/Fable *can and should* do too, but
+  eff-sharp hasn't built (or built thinly). Closing it makes the port more
+  faithful with no downside.
+- **Better replaced** — machinery that exists in Effect *only because TypeScript
+  lacks something F# has natively*. Porting it faithfully is wasted effort or
+  strictly worse than the F# idiom. The "gap" is illusory; the move is to
+  delete/replace and **document the boundary**.
+
+**The one-line test:** if Effect built it to *simulate an F#-native capability*
+(pattern matching, DUs, structural equality, type-first modeling, the
+data-structure zoo, HKT plumbing) → replace and document. If Effect built it
+because *it is genuinely part of the effect system* (concurrency operators,
+structured concurrency, STM composition, real interruption, chunked streams) →
+actual gap, close it.
+
+### Actual gaps (close them)
+
+| Item | Why it's a real gap |
+|---|---|
+| Concurrency operators (`forEachPar`, `{ concurrency = n }`, `race`, `mergeAll`, `zipPar`) | Core Effect surface, no F# blocker; `Semaphore` primitive already exists. Pure unbuilt work. |
+| Structured concurrency auto-interrupt (parent ⇒ child) | A *correctness* guarantee users assume. `FiberSet`/`Scope` exist; `fork` just doesn't wire them. |
+| Schema derivation **mechanism** on Fable | The `failwith` on the ship target (`Schema.fs:894`) is a literal hole. Closeable via Fable compile-time reflection (Thoth model). |
+| STM cross-module composition (`Effect.atomic`) | Headline Effect feature, no F# obstacle — just not built. (Narrow audience → low priority, but a true gap.) |
+| Interruption granularity + scheduling determinism | Coarse today (flag at `flatMap` only). Genuinely missing for faithful interruption + deterministic `TestClock` tests. Only *fully* closable via the interpreter — see crossover. |
+| Stale `PORTING.md` | Trivial doc gap. |
+| No upstream-test conformance gate | Real measurement gap — parity is currently unprovable. |
+
+### Better replaced with F#/Fable (don't chase Effect's design)
+
+| Effect machinery | F#/Fable replacement | Status |
+|---|---|---|
+| Type-level `R` subtraction | Runtime `Context` (Fable-safe) ± Orsak-style interface constraints. F# *cannot* express set subtraction — unportable, not unbuilt. | Replace + **document as out of scope** |
+| `Match` / `Option.match` / `Exit.match` / `Cause.match` combinator DSL | Native `match` + active patterns | ✅ done (good) |
+| `Cause`/`Exit` as opaque combinator types | Plain DUs you pattern-match | ✅ done |
+| `HKT` / `Covariant` / `Pipeable` / `Inspectable` / `Effectable` | Dropped | ✅ done (correct) |
+| `Schema.Type<typeof S>` (derive a *type* from a schema) | Write the F# type first; schema points *at* it; + units of measure | Replace — the F# model is **better** |
+| `Effect.gen(function*…)` generators | `effect { }` / `stream { }` / `stm { }` CEs | ✅ done (better) |
+| string-tag `catchTag` | Exhaustive DU `match` | ✅ done (better) |
+| `Data` / `TaggedError` / `Equal` / `Equivalence` / `Hash` / `Order` / `Combiner` / `Reducer` typeclasses | F# structural equality, `IComparable`, records/DUs | Replace — mostly redundant on F# |
+| `Chunk`, `HashMap`, `HashSet`, `MutableHashSet`, … | FSharp.Core `Map`/`Set`/`list`/`array` + `System.Collections` | Replace candidates — the repo's own benchmark shows native is **equal-or-faster** (Tier 1, `RESULTS.md`) |
+| `SynchronizedRef` / atomic-CAS refs | Plain `Ref` — atomicity is moot on single-threaded JS | Replace/thin |
+
+### The crossover item (it is both)
+
+**The core runtime** (`Reader-over-Async` → custom microtask interpreter, P7) is
+*simultaneously* a gap and a replacement:
+- *closing a gap* — perf, interruption granularity, structured concurrency, and
+  determinism all trace back to the substrate; **and**
+- *a Fable-native replacement* — F#'s `Async` yields on the **macrotask** queue
+  (`setTimeout(0)` every 2000 binds), the wrong primitive; the F#/Fable-correct
+  substitute is a trampolined op-tree on `queueMicrotask`, mirroring Effect-TS's
+  own scheduler.
+
+So the faithful answer *is* the F# alternative — which is why it's the
+highest-ceiling, highest-risk item.
+
+### The fence-sitter
+
+**Stream-as-chunked-Channel** straddles the line. It's a real gap *if* you need
+Channel semantics, but a strong **replace** candidate otherwise: F# has
+`IAsyncEnumerable` / `TaskSeq` / `AsyncSeq` natively, so for most consumers a thin
+`taskSeq`-backed stream beats porting upstream's ~8.6k-line Channel. Decide this
+one by **consumer demand, not fidelity**.
+
 ## Stack rank — what to fix, by importance
 
 Ranked by leverage = (impact on fidelity + impact on real consumers) ÷ cost.
