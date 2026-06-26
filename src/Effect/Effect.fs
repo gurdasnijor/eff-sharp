@@ -467,6 +467,54 @@ module Effect =
         | Some c -> Error c
         | None -> Ok(List.ofSeq results)
 
+    /// Run homogeneous child effects while mirroring a parent interrupt into each
+    /// child runtime. This preserves the current non-fail-fast sibling semantics:
+    /// typed failures do not interrupt siblings, but a parent interrupt does.
+    let private runParallelObserved
+        (parent: FiberRuntime)
+        (runs: (FiberRuntime -> Async<Exit<'A, 'E>>)[])
+        : Async<Exit<'A, 'E>[]> =
+        async {
+            let children = runs |> Array.map (fun _ -> FiberRuntime.Root())
+
+            if interruptible parent then
+                return Array.map (fun _ -> Failure interruptedCause) children
+            else
+                let mutable settled = false
+
+                let monitor =
+                    async {
+                        while not settled do
+                            if interruptible parent then
+                                for child in children do
+                                    child.Interrupted <- true
+
+                            do! Async.Sleep 1
+                    }
+
+                let! monitorHandle = Async.StartChild monitor
+
+                let! result =
+                    async {
+                        try
+                            let! exits = runs |> Array.mapi (fun i run -> run children.[i]) |> Async.Parallel
+                            return Choice1Of2 exits
+                        with ex ->
+                            return Choice2Of2 ex
+                    }
+
+                settled <- true
+                let! _ = monitorHandle
+
+                match result with
+                | Choice1Of2 exits ->
+                    if interruptible parent then
+                        return Array.map (fun _ -> Failure interruptedCause) exits
+                    else
+                        return exits
+                | Choice2Of2 ex -> return raise ex
+        }
+
     /// Run `f` over every item **concurrently** and collect the successes in
     /// input order. Each item runs on its own child `FiberRuntime`, so a defect in
     /// one does not corrupt the others; if any item fails, the combined cause is
@@ -475,18 +523,20 @@ module Effect =
     ///
     /// NOTE (v1): siblings are *not* yet fail-fast-interrupted when one fails — all
     /// run to completion and the first failure (combined with any others) wins.
-    /// Fail-fast interruption + parent→child propagation is the structured-
-    /// concurrency follow-up. Use `forEachParN` to bound the degree.
+    /// Parent interruption is propagated to child runtimes. Use `forEachParN` to
+    /// bound the degree.
     let forEachPar (items: seq<'T>) (f: 'T -> Effect<'B, 'E, 'R>) : Effect<'B list, 'E, 'R> =
-        Effect(fun _ r ->
+        Effect(fun fib r ->
             async {
-                let! exits =
+                let runs =
                     items
                     |> Seq.toArray
                     |> Array.map (fun item ->
                         let (Effect run) = f item
-                        run (FiberRuntime.Root()) r)
-                    |> Async.Parallel
+                        fun child -> run child r)
+
+                let! exits =
+                    runParallelObserved fib runs
 
                 return
                     (match combineFailures exits with
@@ -503,7 +553,7 @@ module Effect =
         (items: seq<'T>)
         (f: 'T -> Effect<'B, 'E, 'R>)
         : Effect<'B list, 'E, 'R> =
-        Effect(fun _ r ->
+        Effect(fun fib r ->
             async {
                 let itemsArr = Seq.toArray items
                 let batch = max 1 concurrency
@@ -514,12 +564,14 @@ module Effect =
                 while failure.IsNone && i < itemsArr.Length do
                     let stop = min (i + batch - 1) (itemsArr.Length - 1)
 
-                    let! exits =
+                    let runs =
                         itemsArr.[i..stop]
                         |> Array.map (fun item ->
                             let (Effect run) = f item
-                            run (FiberRuntime.Root()) r)
-                        |> Async.Parallel
+                            fun child -> run child r)
+
+                    let! exits =
+                        runParallelObserved fib runs
 
                     match combineFailures exits with
                     | Ok bs ->
@@ -543,23 +595,55 @@ module Effect =
     /// Run two effects concurrently, combining their successes with `f`. If both
     /// fail the causes are combined. (Effect.zipWith with `{ concurrent: true }`)
     let zipWithPar (f: 'A -> 'B -> 'C) (b: Effect<'B, 'E, 'R>) (a: Effect<'A, 'E, 'R>) : Effect<'C, 'E, 'R> =
-        Effect(fun _ r ->
+        Effect(fun fib r ->
             async {
                 let (Effect runA) = a
                 let (Effect runB) = b
+                let childA = FiberRuntime.Root()
+                let childB = FiberRuntime.Root()
+                let mutable settled = false
+
+                let monitor =
+                    async {
+                        while not settled do
+                            if interruptible fib then
+                                childA.Interrupted <- true
+                                childB.Interrupted <- true
+
+                            do! Async.Sleep 1
+                    }
+
+                let! monitorHandle = Async.StartChild monitor
+
                 // StartChild begins each child on the event loop before we await,
                 // so the two run concurrently rather than in sequence.
-                let! childA = Async.StartChild(runA (FiberRuntime.Root()) r)
-                let! childB = Async.StartChild(runB (FiberRuntime.Root()) r)
-                let! ea = childA
-                let! eb = childB
+                let! result =
+                    async {
+                        try
+                            let! handleA = Async.StartChild(runA childA r)
+                            let! handleB = Async.StartChild(runB childB r)
+                            let! ea = handleA
+                            let! eb = handleB
+                            return Choice1Of2(ea, eb)
+                        with ex ->
+                            return Choice2Of2 ex
+                    }
+
+                settled <- true
+                let! _ = monitorHandle
 
                 return
-                    (match ea, eb with
-                     | Success x, Success y -> Success(f x y)
-                     | Failure c, Failure d -> Failure(Cause.combine c d)
-                     | Failure c, _ -> Failure c
-                     | _, Failure d -> Failure d)
+                    (match result with
+                     | Choice2Of2 ex -> raise ex
+                     | Choice1Of2(ea, eb) ->
+                         if interruptible fib then
+                             Failure interruptedCause
+                         else
+                             match ea, eb with
+                             | Success x, Success y -> Success(f x y)
+                             | Failure c, Failure d -> Failure(Cause.combine c d)
+                             | Failure c, _ -> Failure c
+                             | _, Failure d -> Failure d)
             })
 
     /// Run two effects concurrently, pairing their successes. (Effect.zip with
