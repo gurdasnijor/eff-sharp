@@ -7,6 +7,11 @@
     "build": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true })\" && dotnet fable Harness.fsproj -o out --noCache",
     "test": "npm run build && vitest run"
   },
+  "dependencies": {
+    "mime": "^4.1.0",
+    "multipasta": "^0.2.7",
+    "undici": "^8.2.0"
+  },
   "devDependencies": {
     "vitest": "^2.1.8"
   }

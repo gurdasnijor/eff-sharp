@@ -166,7 +166,7 @@ module Cron =
         | -1 -> aliasOrValue input aliases, None
         | i -> aliasOrValue (input.Substring(0, i)) aliases, Some(aliasOrValue (input.Substring(i + 1)) aliases)
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
     // Fable shim: System.Double.IsInteger (static) is unsupported. (severity: trivial)
     let private isInt (x: float) =
         not (System.Double.IsNaN x || System.Double.IsInfinity x) && floor x = x

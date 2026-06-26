@@ -75,7 +75,7 @@ arithmetic — use FSharp.Core. Only port the Effect-specific surface that F# la
 effect-smol is a monorepo of packages; the F# equivalent of a package is a
 **`.fsproj`** (→ one assembly, one publishable unit). One package = one project.
 
-- **`effect`** → `src/Effect/Effect.fsproj`, `namespace Effect`. The core, including
+- **`effect`** → `src/Effect/EffSharp.fsproj`, `namespace Effect`. The core, including
   the platform-agnostic service *abstractions* that live in `effect/unstable/`
   upstream (e.g. `ChildProcessSpawner` the Tag/handle, `FileSystem`, `Command`).
 - **`platform-node`** (+ `platform-node-shared`, folded in until a Bun target needs

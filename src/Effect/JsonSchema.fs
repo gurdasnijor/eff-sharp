@@ -98,7 +98,7 @@ module JsonSchema =
         else
             let sb = StringBuilder()
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || NETSTANDARD2_0
             // Fable lacks Rune / EnumerateRunes; iterate UTF-16 chars — sufficient
             // for key sanitization (non-BMP code points fall through to '_').
             for c in s do

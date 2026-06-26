@@ -7,8 +7,8 @@
 # Local / CI:
 #   bash tools/ci/check.sh
 #
-# There is no .NET runtime test target. `npm run check` builds the TS package and
-# runs F#-authored Vitest specs against the Fable-generated JavaScript on Node.
+# There is no .NET runtime test target. `npm run check` verifies the Fable/NuGet
+# package shape and runs F#-authored Vitest specs against generated JavaScript.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -30,12 +30,12 @@ fi
 echo "ok - no stubs."
 
 step "Install npm workspace dependencies"
-npm install --no-fund --no-audit
+npm ci --no-fund --no-audit
 
 step "Restore dotnet tools"
 dotnet tool restore
 
-step "Build TS package and run Node/Vitest specs"
+step "Smoke Fable packages and run Node/Vitest specs"
 npm run check
 
 printf '\n\033[1;32mNode/Fable gate passed.\033[0m\n'

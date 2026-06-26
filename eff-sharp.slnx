@@ -1,10 +1,7 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Effect/Effect.fsproj" />
-    <Project Path="src/Effect.Platform.Node/Effect.Platform.Node.fsproj" />
-  </Folder>
-  <Folder Name="/packaging/">
-    <Project Path="packaging/EffectJs.fsproj" />
+    <Project Path="src/Effect/EffSharp.fsproj" />
+    <Project Path="src/Effect.Platform.Node/EffSharp.Platform.Node.fsproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Harness.fsproj" />

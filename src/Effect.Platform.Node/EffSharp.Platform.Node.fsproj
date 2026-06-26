@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Effect.Platform.Node — the F# mirror of effect-smol's `platform-node`
+       (+ `platform-node-shared`, folded in until a Bun target needs the split).
+       Provides Node implementations of the platform-agnostic service abstractions
+       defined in the core `Effect` package (ChildProcessSpawner, FileSystem, …).
+
+       Fable/Node-only: service implementations bind Node APIs directly.
+       Published as a Fable-compatible package. -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>EffSharp.Platform.Node</AssemblyName>
+    <RootNamespace>Effect.Platform.Node</RootNamespace>
+    <PackageId>EffSharp.Platform.Node</PackageId>
+    <Version>0.0.1-alpha.1</Version>
+    <Authors>gurdasnijor</Authors>
+    <Description>Node.js platform services for EffSharp Fable applications.</Description>
+    <PackageTags>fable-javascript</PackageTags>
+    <FablePackageType>library</FablePackageType>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/gurdasnijor/eff-sharp</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <!-- This package is Fable/Node-only. Defining FABLE_COMPILER lets `dotnet pack`
+         type-check the same JS interop branches Fable consumes. -->
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <NpmDependencies>
+      <NpmPackage Name="mime" Version=">= 4.1.0 &lt; 5.0.0" ResolutionStrategy="Min" />
+      <NpmPackage Name="multipasta" Version=">= 0.2.7 &lt; 1.0.0" ResolutionStrategy="Min" />
+      <NpmPackage Name="undici" Version=">= 8.2.0 &lt; 9.0.0" ResolutionStrategy="Min" />
+    </NpmDependencies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="10.1.301" />
+    <PackageReference Include="Fable.Core" Version="5.1.0" />
+    <PackageReference Include="EffSharp" Version="0.0.1-alpha.1" Condition="!Exists('../Effect/EffSharp.fsproj')" />
+    <PackageReference Include="Fable.Package.SDK" Version="1.3.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Fable.Promise" Version="3.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Effect/EffSharp.fsproj" AdditionalProperties="DefineConstants=FABLE_COMPILER" Condition="Exists('../Effect/EffSharp.fsproj')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="NodeFileSystem.fs" />
+    <Compile Include="Mime.fs" />
+    <Compile Include="NodePath.fs" />
+    <Compile Include="NodeCrypto.fs" />
+    <Compile Include="NodeStream.fs" />
+    <Compile Include="NodeSink.fs" />
+    <Compile Include="NodeHttpIncomingMessage.fs" />
+    <Compile Include="NodeHttpServerRequest.fs" />
+    <Compile Include="NodeHttpPlatform.fs" />
+    <Compile Include="NodeMultipart.fs" />
+    <Compile Include="NodeChildProcessSpawner.fs" />
+    <Compile Include="NodeHttpClient.fs" />
+    <Compile Include="NodeHttpServer.fs" />
+    <Compile Include="Undici.fs" />
+    <Compile Include="NodeRuntime.fs" />
+    <Compile Include="NodePlatform.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

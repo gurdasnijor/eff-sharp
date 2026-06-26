@@ -3,12 +3,13 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packaging",
     "test"
   ],
   "scripts": {
-    "build": "npm run build --workspace eff-sharp",
+    "build": "npm run pack:nuget",
     "test": "npm run test --workspace @eff-sharp/test",
-    "check": "npm run build && npm test"
+    "check": "npm run smoke:nuget && npm test",
+    "pack:nuget": "bash tools/pack/fable-packages.sh",
+    "smoke:nuget": "bash tools/pack/verify-fable-packages.sh"
   }
 }

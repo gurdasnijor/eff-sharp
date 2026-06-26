@@ -1,12 +1,12 @@
 <Project>
 
   <!-- ============================================================================
-       Canonical compile ORDER for the eff-sharp core (mirrors effect-smol module
-       names). SINGLE SOURCE OF TRUTH: every project that compiles the full core
-       imports this instead of re-listing the files, so the list can never drift.
+       Canonical compile ORDER for repo-local mirrors/subsets of the eff-sharp core
+       (mirrors effect-smol module names). The public package project lists sources
+       directly because Fable's NuGet package reader does not evaluate imported props.
 
        Importers point at src/Effect from their own location via $(EffectSrcDir);
-       it defaults to this file's directory (correct for the in-tree Effect.fsproj).
+       it defaults to this file's directory for in-tree subset projects.
        A Fable mirror elsewhere sets it before importing, e.g.
          <EffectSrcDir>$(MSBuildThisFileDirectory)../../src/Effect/</EffectSrcDir>
        (keep the trailing slash). Subset projects import then <Compile Remove .../>.
