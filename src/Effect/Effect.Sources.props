@@ -164,6 +164,12 @@
     <!-- process: Command model + abstract ChildProcessSpawner (impl in Effect.Platform.Node) -->
     <Compile Include="$(EffectSrcDir)ChildProcess.fs" />
     <Compile Include="$(EffectSrcDir)ChildProcessSpawner.fs" />
+    <!-- unstable/reactivity + unstable/sql: runtime invalidation and driver-facing SQL core -->
+    <Compile Include="$(EffectSrcDir)Reactivity.fs" />
+    <Compile Include="$(EffectSrcDir)SqlError.fs" />
+    <Compile Include="$(EffectSrcDir)SqlConnection.fs" />
+    <Compile Include="$(EffectSrcDir)Statement.fs" />
+    <Compile Include="$(EffectSrcDir)SqlClient.fs" />
     <!-- unstable/http: request/response value substrate plus HttpClient service -->
     <Compile Include="$(EffectSrcDir)Headers.fs" />
     <Compile Include="$(EffectSrcDir)UrlParams.fs" />
