@@ -6,6 +6,10 @@ open Effect.Vitest
 
 type StreamErrorBody = { Reason: string }
 type StreamMessage = { Message: string }
+type DecodedParams = { Id: string }
+type DecodedQuery = { Include: string; Tags: string list }
+type DecodedHeaders = { Trace: string }
+type DecodedPayload = { Name: string }
 
 let private getTodo =
     HttpApiEndpoint.get
@@ -35,6 +39,31 @@ let private streamMessageSchema: Schema<StreamMessage> =
     Schema.object {
         let! message = Schema.field "message" Schema.string (fun m -> m.Message)
         return { Message = message }
+    }
+
+let private decodedParamsSchema: Schema<DecodedParams> =
+    Schema.object {
+        let! id = Schema.field "id" Schema.string (fun p -> p.Id)
+        return { Id = id }
+    }
+
+let private decodedQuerySchema: Schema<DecodedQuery> =
+    Schema.object {
+        let! include_ = Schema.field "include" Schema.string (fun q -> q.Include)
+        and! tags = Schema.field "tags" (Schema.array Schema.string) (fun q -> q.Tags)
+        return { Include = include_; Tags = tags }
+    }
+
+let private decodedHeadersSchema: Schema<DecodedHeaders> =
+    Schema.object {
+        let! trace = Schema.field "x-trace" Schema.string (fun h -> h.Trace)
+        return { Trace = trace }
+    }
+
+let private decodedPayloadSchema: Schema<DecodedPayload> =
+    Schema.object {
+        let! name = Schema.field "name" Schema.string (fun p -> p.Name)
+        return { Name = name }
     }
 
 describe "HttpApiBuilder" (fun () ->
@@ -74,6 +103,125 @@ describe "HttpApiBuilder" (fun () ->
         toBe (HttpBody.asText getResponse.Body) (Some "42:comments")
         toBe postResponse.Status 201
         toBe (HttpBody.asText postResponse.Body) (Some "new todo"))
+
+    test "decodes params, query, headers, and JSON payload through endpoint schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "create"
+                "/todos/:id"
+                { HttpApiEndpoint.empty with
+                    Params = HttpApiEndpoint.paramsSchema decodedParamsSchema
+                    Query = HttpApiEndpoint.querySchema decodedQuerySchema
+                    Headers = HttpApiEndpoint.headersSchema decodedHeadersSchema
+                    Payload = [ HttpApiSchema.asJson decodedPayloadSchema ]
+                    Success = [ HttpApiSchema.asText Schema.string ] }
+
+        let api =
+            HttpApi.make "DecodedApi"
+            |> HttpApi.add (HttpApiGroup.make "todos" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "todos"
+                (Map.ofList
+                    [ "create",
+                      fun input ->
+                          let params_ = input.ParamsValue |> Option.get |> unbox<DecodedParams>
+                          let query = input.QueryValue |> Option.get |> unbox<DecodedQuery>
+                          let headers = input.HeadersValue |> Option.get |> unbox<DecodedHeaders>
+                          let payload = input.PayloadValue |> Option.get |> unbox<DecodedPayload>
+
+                          sprintf "%s:%s:%s:%s:%s" params_.Id query.Include (String.concat "," query.Tags) headers.Trace payload.Name
+                          |> HttpServerResponse.text
+                          |> Effect.succeed ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle
+                (HttpServerRequest.make
+                    "POST"
+                    "/todos/42?include=comments&tags=urgent&tags=home"
+                    (Headers.ofList [ "x-trace", "abc"; "content-type", "application/json" ])
+                    (HttpBody.json (JObject(Map.ofList [ "name", JString "write" ]))))
+            |> run
+
+        toBe response.Status 200
+        toBe (HttpBody.asText response.Body) (Some "42:comments:urgent,home:abc:write"))
+
+    test "decodes form-url-encoded payloads through endpoint schemas" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "submit"
+                "/submit"
+                { HttpApiEndpoint.empty with
+                    Payload = [ HttpApiSchema.asFormUrlEncoded decodedPayloadSchema ]
+                    Success = [ HttpApiSchema.asText Schema.string ] }
+
+        let api =
+            HttpApi.make "DecodedApi"
+            |> HttpApi.add (HttpApiGroup.make "forms" |> HttpApiGroup.add endpoint)
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "forms"
+                (Map.ofList
+                    [ "submit",
+                      fun input ->
+                          let payload = input.PayloadValue |> Option.get |> unbox<DecodedPayload>
+                          Effect.succeed (HttpServerResponse.text payload.Name) ])
+
+        let response =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle
+                (HttpServerRequest.make
+                    "POST"
+                    "/submit"
+                    (Headers.ofList [ "content-type", "application/x-www-form-urlencoded" ])
+                    (HttpBody.textWithContentType "application/x-www-form-urlencoded" "name=write+tests"))
+            |> run
+
+        toBe response.Status 200
+        toBe (HttpBody.asText response.Body) (Some "write tests"))
+
+    test "fails before invoking handlers when request schema decoding fails" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "search"
+                "/search"
+                { HttpApiEndpoint.empty with
+                    Query = HttpApiEndpoint.querySchema decodedQuerySchema }
+
+        let api =
+            HttpApi.make "DecodedApi"
+            |> HttpApi.add (HttpApiGroup.make "todos" |> HttpApiGroup.add endpoint)
+
+        let mutable called = false
+
+        let group =
+            HttpApiBuilder.group
+                api
+                "todos"
+                (Map.ofList
+                    [ "search",
+                      fun _ ->
+                          called <- true
+                          Effect.succeed HttpServerResponse.empty ])
+
+        let result =
+            HttpApiBuilder.route api [ group ]
+            |> HttpRouter.handle (HttpServerRequest.make "GET" "/search?include=comments" Headers.empty HttpBody.empty)
+            |> Effect.runSync Runtime.defaultRuntime.Context
+
+        toBe called false
+
+        match result with
+        | Success response -> failwithf "expected request parse failure, got %A" response
+        | Failure cause ->
+            match Cause.failures cause with
+            | RequestParseError(_, reason) :: _ -> toBe (reason.StartsWith "query:") true
+            | other -> failwithf "expected RequestParseError, got %A" other)
 
     test "fails fast when endpoint handlers are missing" (fun () ->
         let group =

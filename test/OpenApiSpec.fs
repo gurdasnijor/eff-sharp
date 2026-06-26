@@ -6,6 +6,9 @@ open Effect.Vitest
 type Message = { Message: string }
 type Event = { Event: string; Data: string }
 type ErrorBody = { Reason: string }
+type RequestParams = { Id: int }
+type RequestQuery = { Tags: string list }
+type RequestHeaders = { Trace: string }
 
 let private messageSchema: Schema<Message> =
     Schema.object {
@@ -24,6 +27,24 @@ let private errorSchema: Schema<ErrorBody> =
     Schema.object {
         let! reason = Schema.field "reason" Schema.string (fun e -> e.Reason)
         return { Reason = reason }
+    }
+
+let private requestParamsSchema: Schema<RequestParams> =
+    Schema.object {
+        let! id = Schema.field "id" Schema.int (fun p -> p.Id)
+        return { Id = id }
+    }
+
+let private requestQuerySchema: Schema<RequestQuery> =
+    Schema.object {
+        let! tags = Schema.field "tags" (Schema.array Schema.string) (fun q -> q.Tags)
+        return { Tags = tags }
+    }
+
+let private requestHeadersSchema: Schema<RequestHeaders> =
+    Schema.object {
+        let! trace = Schema.field "x-trace" Schema.string (fun h -> h.Trace)
+        return { Trace = trace }
     }
 
 let private getObject key =
@@ -114,6 +135,42 @@ describe "OpenApi" (fun () ->
         toBe ((streamExtension |> Map.find "failureEvent") = JString HttpApiSchema.streamFailureEvent) true
         toBe (streamExtension |> Map.containsKey "causeSchema") true
         toBe (streamExtension |> Map.containsKey "errorSchema") true)
+
+    test "emits schema-backed path, query, and header parameters" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.get
+                "getUser"
+                "/users/:id"
+                { HttpApiEndpoint.empty with
+                    Params = HttpApiEndpoint.paramsSchema requestParamsSchema
+                    Query = HttpApiEndpoint.querySchema requestQuerySchema
+                    Headers = HttpApiEndpoint.headersSchema requestHeadersSchema }
+
+        let api =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.make "users" |> HttpApiGroup.add endpoint)
+
+        let parameters =
+            OpenApi.fromApi api
+            |> getObject "paths"
+            |> getObject "/users/:id"
+            |> getObject "get"
+            |> getObject "parameters"
+
+        match parameters with
+        | JArray [ path; query; header ] ->
+            toEqual (path |> getObject "name") (JString "id")
+            toEqual (path |> getObject "in") (JString "path")
+            toEqual (path |> getObject "schema" |> getObject "type") (JString "integer")
+
+            toEqual (query |> getObject "name") (JString "tags")
+            toEqual (query |> getObject "in") (JString "query")
+            toEqual (query |> getObject "schema" |> getObject "type") (JString "array")
+
+            toEqual (header |> getObject "name") (JString "x-trace")
+            toEqual (header |> getObject "in") (JString "header")
+            toEqual (header |> getObject "schema" |> getObject "type") (JString "string")
+        | other -> failwithf "expected path, query, and header parameters, got %A" other)
 
     test "emits security requirements and components" (fun () ->
         let endpoint =

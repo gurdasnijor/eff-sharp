@@ -85,24 +85,53 @@ module OpenApi =
         else
             Some("requestBody", jo [ "required", JBool true; "content", JObject content ])
 
-    let private pathParameter (name: string) =
+    let private parameterSchema =
+        function
+        | AOption ast -> schemaAstToJson ast, false
+        | ast -> schemaAstToJson ast, true
+
+    let private inputFields (input: obj option) =
+        match HttpApiEndpoint.tryInputSchema input with
+        | Some schema ->
+            match schema.Ast with
+            | AObject fields -> fields |> Map.ofList
+            | _ -> Map.empty
+        | None -> Map.empty
+
+    let private parameter (location: string) (name: string) (required: bool) (ast: SchemaAst) =
+        let schema, astRequired = parameterSchema ast
+
         jo
             [ "name", js name
-              "in", js "path"
-              "required", JBool true
-              "schema", jo [ "type", js "string" ] ]
+              "in", js location
+              "required", JBool(required && astRequired)
+              "schema", schema ]
 
-    let private pathParameters (path: string) =
-        path.Trim('/').Split('/')
+    let private pathParameters (endpoint: HttpApiEndpoint) =
+        let fields = inputFields endpoint.Options.Params
+
+        endpoint.Path.Trim('/').Split('/')
         |> Array.toList
         |> List.choose (fun segment ->
             if segment.StartsWith(":") then
-                Some(pathParameter (segment.Substring(1).TrimEnd('?')))
+                let name = segment.Substring(1).TrimEnd('?')
+                let ast = fields |> Map.tryFind name |> Option.defaultValue AString
+                Some(parameter "path" name true ast)
             else
                 None)
 
+    let private fieldParameters location input =
+        inputFields input
+        |> Map.toList
+        |> List.map (fun (name, ast) -> parameter location name true ast)
+
     let private parameters (endpoint: HttpApiEndpoint) =
-        match pathParameters endpoint.Path with
+        let parameters =
+            pathParameters endpoint
+            @ fieldParameters "query" endpoint.Options.Query
+            @ fieldParameters "header" endpoint.Options.Headers
+
+        match parameters with
         | [] -> None
         | parameters -> Some("parameters", ja parameters)
 

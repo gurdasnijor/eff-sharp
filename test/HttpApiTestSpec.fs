@@ -4,6 +4,7 @@ open Effect
 open Effect.Vitest
 
 type TestTodo = { Id: string }
+type TestTodoParams = { Id: string }
 
 let private getTodo =
     HttpApiEndpoint.get
@@ -16,6 +17,12 @@ let private api =
     |> HttpApi.add (HttpApiGroup.make "todos" |> HttpApiGroup.add getTodo)
 
 let private testTodoSchema: Schema<TestTodo> =
+    Schema.object {
+        let! id = Schema.field "id" Schema.string (fun todo -> todo.Id)
+        return { Id = id }
+    }
+
+let private testTodoParamsSchema: Schema<TestTodoParams> =
     Schema.object {
         let! id = Schema.field "id" Schema.string (fun todo -> todo.Id)
         return { Id = id }
@@ -52,7 +59,7 @@ describe "HttpApiTest" (fun () ->
                 "getTodo"
                 "/todos/:id"
                 { HttpApiEndpoint.empty with
-                    Params = Some(box [ "id" ])
+                    Params = HttpApiEndpoint.paramsSchema testTodoParamsSchema
                     Success = [ HttpApiSchema.asJson testTodoSchema ] }
 
         let api =
@@ -66,17 +73,18 @@ describe "HttpApiTest" (fun () ->
                 (Map.ofList
                     [ "getTodo",
                       fun input ->
-                          Effect.succeed (HttpServerResponse.json (JObject(Map.ofList [ "id", JString input.Params.["id"] ]))) ])
+                          let params_ = input.ParamsValue |> Option.get |> unbox<TestTodoParams>
+                          Effect.succeed (HttpServerResponse.json (JObject(Map.ofList [ "id", JString params_.Id ]))) ])
 
         let testClient = HttpApiTest.make api [ group ] { BaseUrl = "http://test" }
 
         match
             testClient
-            |> HttpApiTest.endpointWithMode
+            |> HttpApiTest.endpointWithModeTyped
                 "todos"
                 "getTodo"
                 DecodedOnly
-                { HttpApiClient.emptyEndpointInput with Params = Map.ofList [ "id", "42" ] }
+                { HttpApiClient.emptyEndpointValueInput with Params = Some(box { Id = "42" }) }
             |> Runtime.runSync Runtime.defaultRuntime
         with
         | Decoded(DecodedBody value) -> toBe (unbox<TestTodo> value).Id "42"

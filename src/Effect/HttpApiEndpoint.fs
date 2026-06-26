@@ -18,6 +18,10 @@ type HttpApiEndpointOptions =
       Error: HttpApiContent list
       Security: HttpApiSecurity list }
 
+[<RequireQualifiedAccess>]
+type HttpApiInput =
+    | Schema of Schema<obj>
+
 type HttpApiEndpoint =
     { Name: string
       Method: HttpMethod
@@ -36,6 +40,20 @@ module HttpApiEndpoint =
           Success = [ HttpApiSchema.noContent ]
           Error = []
           Security = [] }
+
+    let input (schema: Schema<'T>) : obj option =
+        Some(box (HttpApiInput.Schema(Schema.erase schema)))
+
+    let paramsSchema (schema: Schema<'T>) : obj option = input schema
+    let querySchema (schema: Schema<'T>) : obj option = input schema
+    let headersSchema (schema: Schema<'T>) : obj option = input schema
+
+    let tryInputSchema (value: obj option) : Schema<obj> option =
+        match value with
+        | Some(:? HttpApiInput as input) ->
+            match input with
+            | HttpApiInput.Schema schema -> Some schema
+        | _ -> None
 
     let private methodName =
         function

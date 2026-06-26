@@ -7,7 +7,11 @@ type HttpApiServerRequest =
       Params: Map<string, string>
       Query: UrlParams
       Headers: Headers
-      Payload: HttpBody }
+      Payload: HttpBody
+      ParamsValue: obj option
+      QueryValue: obj option
+      HeadersValue: obj option
+      PayloadValue: obj option }
 
 [<RequireQualifiedAccess>]
 type HttpApiHandlerResult =
@@ -92,12 +96,119 @@ module HttpApiBuilder =
             | Some value when value <> "" -> Effect.succeed (ApiKeyCredential(Redacted.make value))
             | _ -> missing ("Missing API key: " + name)
 
-    let private endpointInput (request: HttpServerRequest) (parameters: Map<string, string>) =
-        { Request = request
-          Params = parameters
-          Query = HttpServerRequest.searchParams request
-          Headers = request.Headers
-          Payload = request.Body }
+    let private schemaErrorText (error: SchemaError) =
+        sprintf "%A" error.Issue
+
+    let private inputSchema (value: obj option) =
+        HttpApiEndpoint.tryInputSchema value
+
+    let private decodeInput (request: HttpServerRequest) name schema json =
+        Schema.decode schema json
+        |> Result.mapError (fun error -> HttpServerError.RequestParseError(request, name + ": " + schemaErrorText error))
+        |> Effect.fromResult
+
+    let private objectFromMap (values: Map<string, string>) =
+        values
+        |> Map.toList
+        |> List.map (fun (key, value) -> key, JString value)
+        |> Map.ofList
+        |> JObject
+
+    let private objectFromUrlParams (values: UrlParams) =
+        values
+        |> List.groupBy fst
+        |> List.map (fun (key, values) ->
+            let values = values |> List.map snd
+
+            key,
+            match values with
+            | [ value ] -> JString value
+            | many -> JArray(many |> List.map JString))
+        |> Map.ofList
+        |> JObject
+
+    let private decodeOptionalInput (request: HttpServerRequest) name schemaOption json =
+        match schemaOption with
+        | None -> Effect.succeed None
+        | Some schema ->
+            decodeInput request name schema json
+            |> Effect.map Some
+
+    let private requestContentType (request: HttpServerRequest) =
+        Headers.get "content-type" request.Headers
+        |> Option.defaultValue ""
+        |> HttpApiSchema.baseContentType
+
+    let private selectPayloadContent (request: HttpServerRequest) (payloads: HttpApiContent list) =
+        match payloads with
+        | [] -> None
+        | [ only ] -> Some only
+        | many ->
+            let contentType = requestContentType request
+
+            many
+            |> List.tryFind (fun content -> HttpApiSchema.baseContentType content.ContentType = contentType)
+
+    let private payloadJson (request: HttpServerRequest) (content: HttpApiContent) =
+        match content.Payload with
+        | HttpApiPayload.Empty -> Ok JNull
+        | HttpApiPayload.Buffered _ when HttpApiSchema.encoding content = Text ->
+            match HttpBody.asText request.Body with
+            | Some text -> Ok(JString text)
+            | None -> Error "Expected text request body"
+        | HttpApiPayload.Buffered _ when HttpApiSchema.encoding content = FormUrlEncoded ->
+            match HttpBody.asText request.Body |> Option.orElseWith (fun () -> HttpBody.encodedText request.Body) with
+            | Some text -> Ok(objectFromUrlParams (UrlParams.parseQueryString text))
+            | None -> Error "Expected form-url-encoded request body"
+        | HttpApiPayload.Buffered _ ->
+            match request.Body with
+            | JsonBody json -> Ok json
+            | body ->
+                match HttpBody.encodedText body with
+                | Some text -> Json.parse text |> Result.mapError (fun error -> "Invalid JSON request body: " + error)
+                | None -> Error "Expected buffered request body"
+        | HttpApiPayload.StreamBytes
+        | HttpApiPayload.StreamSse _ -> Error "Streaming request payload schemas are not supported"
+
+    let private decodePayload (request: HttpServerRequest) (content: HttpApiContent) =
+        match content.Payload with
+        | HttpApiPayload.Buffered schema ->
+            payloadJson request content
+            |> Result.mapError (fun reason -> HttpServerError.RequestParseError(request, "payload: " + reason))
+            |> Result.bind (fun json ->
+                Schema.decode schema json
+                |> Result.mapError (fun error -> HttpServerError.RequestParseError(request, "payload: " + schemaErrorText error)))
+            |> Effect.fromResult
+            |> Effect.map Some
+        | HttpApiPayload.Empty -> Effect.succeed None
+        | HttpApiPayload.StreamBytes
+        | HttpApiPayload.StreamSse _ -> Effect.fail (HttpServerError.RequestParseError(request, "payload: Streaming request payload schemas are not supported"))
+
+    let private endpointInput (endpoint: HttpApiEndpoint) (request: HttpServerRequest) (parameters: Map<string, string>) =
+        let query = HttpServerRequest.searchParams request
+
+        decodeOptionalInput request "params" (inputSchema endpoint.Options.Params) (objectFromMap parameters)
+        |> Effect.flatMap (fun paramsValue ->
+            decodeOptionalInput request "query" (inputSchema endpoint.Options.Query) (objectFromUrlParams query)
+            |> Effect.flatMap (fun queryValue ->
+                decodeOptionalInput request "headers" (inputSchema endpoint.Options.Headers) (objectFromMap request.Headers)
+                |> Effect.flatMap (fun headersValue ->
+                    let payloadEffect =
+                        match selectPayloadContent request endpoint.Options.Payload with
+                        | None -> Effect.succeed None
+                        | Some content -> decodePayload request content
+
+                    payloadEffect
+                    |> Effect.map (fun payloadValue ->
+                        { Request = request
+                          Params = parameters
+                          Query = query
+                          Headers = request.Headers
+                          Payload = request.Body
+                          ParamsValue = paramsValue
+                          QueryValue = queryValue
+                          HeadersValue = headersValue
+                          PayloadValue = payloadValue }))))
 
     let private requireSecurity (endpoint: HttpApiEndpoint) (request: HttpServerRequest) =
         let rec loop firstError securities =
@@ -281,9 +392,11 @@ module HttpApiBuilder =
             (fun request parameters ->
                 requireSecurity endpoint request
                 |> Effect.flatMap (fun () ->
-                    handler (endpointInput request parameters)
-                    |> applyMiddlewares group endpoint
-                    |> Effect.map (renderStreamFailures endpoint)))
+                    endpointInput endpoint request parameters
+                    |> Effect.flatMap (fun input ->
+                        handler input
+                        |> applyMiddlewares group endpoint
+                        |> Effect.map (renderStreamFailures endpoint))))
 
     let toRouter (handlers: HttpApiHandlers) : HttpRouter =
         handlers.Api.Groups

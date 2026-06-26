@@ -8,6 +8,9 @@ type ClientEvent = { Event: string; Data: string }
 type ClientData = { Text: string }
 type ClientErrorBody = { Reason: string }
 type ClientMessage = { Message: string }
+type ClientParams = { Id: int }
+type ClientQuery = { Tags: string list }
+type ClientHeaders = { Trace: string }
 
 let private getUser =
     HttpApiEndpoint.get
@@ -42,6 +45,24 @@ let private clientMessageSchema: Schema<ClientMessage> =
     Schema.object {
         let! message = Schema.field "message" Schema.string (fun e -> e.Message)
         return { Message = message }
+    }
+
+let private clientParamsSchema: Schema<ClientParams> =
+    Schema.object {
+        let! id = Schema.field "id" Schema.int (fun p -> p.Id)
+        return { Id = id }
+    }
+
+let private clientQuerySchema: Schema<ClientQuery> =
+    Schema.object {
+        let! tags = Schema.field "tags" (Schema.array Schema.string) (fun q -> q.Tags)
+        return { Tags = tags }
+    }
+
+let private clientHeadersSchema: Schema<ClientHeaders> =
+    Schema.object {
+        let! trace = Schema.field "x-trace" Schema.string (fun h -> h.Trace)
+        return { Trace = trace }
     }
 
 let private api =
@@ -196,6 +217,55 @@ describe "HttpApiClient.urlBuilder" (fun () ->
             toBe request.Method "GET"
             toBe request.Url "https://api.example.com/users/123?page=1"
             toBe (Headers.get "x-test" request.Headers) (Some "ok")
+        | None -> failwith "expected request capture")
+
+    test "encodes typed request inputs through endpoint schemas when executing requests" (fun () ->
+        let endpoint =
+            HttpApiEndpoint.post
+                "submit"
+                "/items/:id"
+                { HttpApiEndpoint.empty with
+                    Params = HttpApiEndpoint.paramsSchema clientParamsSchema
+                    Query = HttpApiEndpoint.querySchema clientQuerySchema
+                    Headers = HttpApiEndpoint.headersSchema clientHeadersSchema
+                    Payload = [ HttpApiSchema.asFormUrlEncoded clientMessageSchema ] }
+
+        let api =
+            HttpApi.make "Api"
+            |> HttpApi.add (HttpApiGroup.make "items" |> HttpApiGroup.add endpoint)
+
+        let mutable captured: HttpClientRequest option = None
+
+        let httpClient =
+            { Request = fun _ _ -> Effect.succeed { Status = 200; Body = "" }
+              Execute =
+                fun request ->
+                    captured <- Some request
+                    Effect.succeed (HttpClientResponse.text request 204 Headers.empty "") }
+
+        let client = HttpApiClient.make api { BaseUrl = "https://api.example.com" }
+
+        client
+        |> HttpApiClient.endpointTyped
+            "items"
+            "submit"
+            { HttpApiClient.emptyEndpointValueInput with
+                Params = Some(box { Id = 42 })
+                Query = Some(box { Tags = [ "urgent"; "home" ] })
+                Headers = Some(box { Trace = "abc" })
+                Payload = Some(box { Message = "write tests" }) }
+        |> Runtime.runSync (Runtime.make (Context.make HttpClient.tag httpClient))
+        |> ignore
+
+        match captured with
+        | Some request ->
+            toBe request.Method "POST"
+            toBe request.Url "https://api.example.com/items/42?tags=urgent&tags=home"
+            toEqual request.UrlParams UrlParams.empty
+            toBe (Headers.get "x-trace" request.Headers) (Some "abc")
+            toBe (Headers.get "content-type" request.Headers) (Some "application/x-www-form-urlencoded")
+            toBe (HttpBody.contentType request.Body) (Some "application/x-www-form-urlencoded")
+            toBe (HttpBody.asText request.Body) (Some "message=write+tests")
         | None -> failwith "expected request capture")
 
     test "executes top-level endpoints through HttpClient" (fun () ->
